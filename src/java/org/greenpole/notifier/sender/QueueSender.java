@@ -55,7 +55,6 @@ public class QueueSender {
             initialiseQueueFactory(queueConnectionFactory);
             prepareQueue(queueName);
         } catch (NamingException | ConfigNotFoundException | IOException | JMSException ex) {
-            java.util.logging.Logger.getLogger(QueueSender.class.getName()).log(Level.SEVERE, null, ex);
             logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
             logger.error("An error(s) was thrown in the QueueSender", ex);
         }
