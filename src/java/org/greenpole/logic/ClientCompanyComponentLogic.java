@@ -7,7 +7,7 @@ package org.greenpole.logic;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.greenpole.entity.model.ClientCompany;
+import org.greenpole.entity.model.clientcompany.ClientCompany;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
