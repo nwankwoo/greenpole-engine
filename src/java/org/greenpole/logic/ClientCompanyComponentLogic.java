@@ -40,7 +40,7 @@ public class ClientCompanyComponentLogic {
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
     
     /**
-     * Processes request to create a new client company.
+     * Processes request to createOrUpdateClientCompany a new client company.
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the notification
      * @param cc the client company to be created
@@ -83,33 +83,32 @@ public class ClientCompanyComponentLogic {
     }
     
     /**
-     * Processes request to create a client company that has already been saved
-     * as a notification file, according to the specified notification code.
+     * Processes request to createOrUpdateClientCompany a client company that has already been saved
+ as a notification file, according to the specified notification code.
      * @param notificationCode the notification code
      * @return response to the client company creation request
      */
     public Response createClientCompany_Authorise(String notificationCode) {
         Response resp = new Response();
-        
         logger.info("client company creation authorised - [{}]", notificationCode);
         try {
-            ClientCompany ccModel = clientCompanyCreationMain(notificationCode);
-            logger.info("client company created - [{}]", ccModel.getName());
+            //get client company model from wrapper
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
+            ClientCompany ccModel = list.get(0);
             
-            int cc_id = cq.getClientCompanyId(ccModel.getName());
+            boolean created = cq.createOrUpdateClientCompany(retrieveClientCompanyModel(ccModel), retrieveAddressModel(ccModel), 
+                    retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
             
-            createClientCompanyAddress(ccModel, cc_id);
-            logger.info("address added for company - ", ccModel.getName());
+            if (created) {
+                logger.info("client company created - [{}]", ccModel.getName());
+                resp.setRetn(0);
+                resp.setDesc("Successful");
+                return resp;
+            }
             
-            createClientCompanyEmailAddress(ccModel, cc_id);
-            logger.info("address added for company - ", ccModel.getName());
-            
-            createClientCompanyPhoneNumber(ccModel, cc_id);
-            logger.info("address added for company - ", ccModel.getName());
-            
-            resp.setRetn(0);
-            resp.setDesc("Successful");
-            
+            resp.setRetn(201);
+            resp.setDesc("Unable to create client company from authorisation. Contact System Administrator");
             return resp;
         } catch (JAXBException ex) {
             logger.info("error loading notification xml file. See error log");
@@ -123,61 +122,68 @@ public class ClientCompanyComponentLogic {
     }
 
     /**
-     * Creates a new phone number for the client company.
+     * Unwraps the client company model to create the hibernate client company phone number entity.
      * @param ccModel the client company model (not to be confused with the client company hibernate entity)
-     * @param cc_id the client company id
+     * @return a list of hibernate client company phone number entity object(s)
      */
-    private void createClientCompanyPhoneNumber(ClientCompany ccModel, int cc_id) {
+    private List<org.greenpole.hibernate.entity.ClientCompanyPhoneNumber> retrievePhoneNumberModel(ClientCompany ccModel) {
         org.greenpole.hibernate.entity.ClientCompanyPhoneNumber phone = new org.greenpole.hibernate.entity.ClientCompanyPhoneNumber();
         List<ClientCompanyPhoneNumber> phoneList = ccModel.getPhoneNumbers();
+        List<org.greenpole.hibernate.entity.ClientCompanyPhoneNumber> toSend = new ArrayList<>();
         
         for (ClientCompanyPhoneNumber ph : phoneList) {
-            //set id
-            ClientCompanyPhoneNumberId phoneId = new ClientCompanyPhoneNumberId(cc_id, ph.getPhoneNumber());
+            ClientCompanyPhoneNumberId phoneId = new ClientCompanyPhoneNumberId();
+            phoneId.setPhoneNumber(ph.getPhoneNumber());
             //put id in phone
             phone.setId(phoneId);
             //set other phone variables
             phone.setIsPrimary(ph.isPrimaryPhoneNumber());
             
-            //add phone number to the database
-            cq.createPhoneNumber(phone);
+            //put phone entity in list
+            toSend.add(phone);
         }
+        return toSend;
     }
 
     /**
-     * Creates a new email address for the client company.
+     * Unwraps the client company model to create the hibernate client company email address entity.
      * @param ccModel the client company model (not to be confused with the client company hibernate entity)
-     * @param cc_id the client company id
+     * @return a list of hibernate client company email address entity object(s)
      */
-    private void createClientCompanyEmailAddress(ClientCompany ccModel, int cc_id) {
+    private List<org.greenpole.hibernate.entity.ClientCompanyEmailAddress> retrieveEmailAddressModel(ClientCompany ccModel) {
         org.greenpole.hibernate.entity.ClientCompanyEmailAddress email = new org.greenpole.hibernate.entity.ClientCompanyEmailAddress();
         List<ClientCompanyEmailAddress> emailList = ccModel.getEmailAddresses();
+        List<org.greenpole.hibernate.entity.ClientCompanyEmailAddress> toSend = new ArrayList<>();
         
         for (ClientCompanyEmailAddress em : emailList) {
-            //set id
-            ClientCompanyEmailAddressId emailId = new ClientCompanyEmailAddressId(cc_id, em.getEmailAddress());
+            ClientCompanyEmailAddressId emailId = new ClientCompanyEmailAddressId();
+            emailId.setEmailAddress(em.getEmailAddress());
             //put id in email
             email.setId(emailId);
             //set other email variables
             email.setIsPrimary(em.isPrimaryEmail());
             
-            //add email to the database
-            cq.createEmailAddress(email);
+            //add email to list
+            toSend.add(email);
         }
+        return toSend;
     }
 
     /**
-     * Creates a new address for the client company.
+     * Unwraps the client company model to create the hibernate client company address entity.
      * @param ccModel the client company model (not to be confused with the client company hibernate entity)
-     * @param cc_id the client company id
+     * @return a list of hibernate client company address entity object(s)
      */
-    private void createClientCompanyAddress(ClientCompany ccModel, int cc_id) {
+    private List<org.greenpole.hibernate.entity.ClientCompanyAddress> retrieveAddressModel(ClientCompany ccModel) {
         org.greenpole.hibernate.entity.ClientCompanyAddress address = new org.greenpole.hibernate.entity.ClientCompanyAddress();
         List<ClientCompanyAddress> addressList = ccModel.getAddresses();
+        List<org.greenpole.hibernate.entity.ClientCompanyAddress> toSend = new ArrayList<>();
         
         for (ClientCompanyAddress addy : addressList) {
-            //set id
-            ClientCompanyAddressId addressId = new ClientCompanyAddressId(cc_id, addy.getAddressLine1(), addy.getState(), addy.getCountry());
+            ClientCompanyAddressId addressId = new ClientCompanyAddressId();
+            addressId.setAddressLine1(addy.getAddressLine1());
+            addressId.setState(addy.getState());
+            addressId.setCountry(addy.getCountry());
             //put id in address
             address.setId(addressId);
             //set other address variables
@@ -188,21 +194,18 @@ public class ClientCompanyComponentLogic {
             address.setCity(addy.getCity());
             address.setPostCode(addy.getPostCode());
             
-            //add the address to the database
-            cq.createAddress(address);
+            //add the address to list
+            toSend.add(address);
         }
+        return toSend;
     }
 
     /**
-     * Creates a new client company according to the specified notification code.
-     * @param notificationCode the notification code
-     * @return the client company object
-     * @throws JAXBException if error occurs while loading xml file for notification code
+     * Unwraps the client company model to create the hibernate client company entity.
+     * @param ccModel the client company model (not to be confused with the client company hibernate entity)
+     * @return the hibernate client company entity object
      */
-    private ClientCompany clientCompanyCreationMain(String notificationCode) throws JAXBException {
-        //get client company model from wrapper
-        NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-        ClientCompany ccModel = (ClientCompany) wrapper.getModel();
+    private org.greenpole.hibernate.entity.ClientCompany retrieveClientCompanyModel(ClientCompany ccModel) {
         //instantiate required hibernate entities
         org.greenpole.hibernate.entity.ClientCompany cc_main = new org.greenpole.hibernate.entity.ClientCompany();
         Depository depository = new Depository();
@@ -218,9 +221,7 @@ public class ClientCompanyComponentLogic {
         //set nse sector id in object before setting object in hibernate client company object
         nseSector.setId(ccModel.getNseSectorId());
         cc_main.setNseSector(nseSector);
-        //client company must be persisted first, and then its id retrieved before addresses, emails, and phone numbers
-        //can be added
-        cq.create(cc_main);
-        return ccModel;
+        
+        return cc_main;
     }
 }
