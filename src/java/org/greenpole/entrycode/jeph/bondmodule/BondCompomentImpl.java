@@ -5,6 +5,7 @@
  */
 package org.greenpole.entrycode.jeph.bondmodule;
 
+import org.greenpole.entrycode.jeph.models.Bond;
 import java.util.*;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.notification.NotificationMessageTag;
@@ -111,7 +112,7 @@ public class BondCompomentImpl implements BondComponent {
      * @param bondModel
      * @return BondOffer object
      */
-    public BondOffer bondCreationMain(Bond bondModel) {
+    private BondOffer bondCreationMain(Bond bondModel) {
         // instantiate required hibernate entities
         org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
         // TODO incorporate client company infor into the database

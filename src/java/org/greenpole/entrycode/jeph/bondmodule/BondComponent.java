@@ -5,6 +5,7 @@
  */
 package org.greenpole.entrycode.jeph.bondmodule;
 
+import org.greenpole.entrycode.jeph.models.Bond;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 
