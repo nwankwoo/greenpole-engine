@@ -93,20 +93,20 @@ public class BondCompomentImpl implements BondComponent {
             Bond bondModel = list.get(0);
 
             BondOffer bondOffer = bondCreationMain(bondModel);
-
+            cq.createBondOffer(bondOffer);
             // boolean created = cq.createOrUpdateClientCompany(retrieveClientCompanyModel(ccModel), retrieveAddressModel(ccModel), 
             //         retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
-            if (true) {
-                logger.info("client company created - [{}]", bondModel.getTitle());
-                res.setRetn(0);
-                res.setDesc("Successful");
-                return res;
-            }
-
-            res.setRetn(201);
-            res.setDesc("Unable to set up bond from authorisation. Contact System Administrator");
-
+            // if (true) {
+            //    logger.info("client company created - [{}]", bondModel.getTitle());
+            //    res.setRetn(0);
+            //    res.setDesc("Successful");
+            //    return res;
+            // }
+            logger.info("client company created - [{}]", bondModel.getTitle());
+            res.setRetn(0);
+            res.setDesc("Successful");
             return res;
+
         } catch (JAXBException ex) {
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
