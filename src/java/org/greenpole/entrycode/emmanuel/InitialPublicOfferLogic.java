@@ -44,7 +44,7 @@ public class InitialPublicOfferLogic {
        NotificationWrapper wrapper;
        QueueSender qSender;
        NotifierProperties prop;
-       if(cq.checkClientCompany(cc.getName())){//requires a method to check that client company has shareholders
+       if(cq.checkClientCompanyForShareholders(cc.getName())==true){
        wrapper = new NotificationWrapper();
        prop = new NotifierProperties(InitialPublicOfferLogic.class);
        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), 
@@ -65,7 +65,7 @@ public class InitialPublicOfferLogic {
        }
        
         resp.setRetn(200);
-        resp.setDesc("Client company has no shareholders so initial public offer cannot be created.");
+        resp.setDesc("Client company has no shareholders accounts or certificates so initial public offer cannot be created.");
         return resp;
     }
     public Response setUpInitialPublicOffer_authorize(String notificationCode){
