@@ -26,7 +26,7 @@ public class Bond implements Serializable {
     @XmlElement
     private String bondType;
     @XmlElement
-    private Double taxRate;
+    private Double interestRate;
     @XmlElement
     private String paymentPlan;
     
@@ -36,15 +36,15 @@ public class Bond implements Serializable {
      * @param bondUnitPrice price per bond
      * @param bondMaturity final date for the transaction to end
      * @param bondType whether fixed or redeemable
-     * @param taxRate interest rate on bonds
+     * @param interestRate interest rate on bonds
      * @param paymentPlan period for which each coupon is received which can annually, bi-annually, quarterly e.t.c
      */
-    public Bond(String title, Double bondUnitPrice, Date bondMaturity, String bondType, double taxRate, String paymentPlan) {
+    public Bond(String title, Double bondUnitPrice, Date bondMaturity, String bondType, double interestRate, String paymentPlan) {
         this.title = title;
         this.bondUnitPrice = bondUnitPrice;
         this.bondMaturity = bondMaturity;
         this.bondType = bondType;
-        this.taxRate = taxRate;
+        this.interestRate = interestRate;
         this.paymentPlan = paymentPlan;
     }
 
@@ -88,17 +88,17 @@ public class Bond implements Serializable {
         this.paymentPlan = paymentPlan;
     }
 
-    public double getTaxRate() {
-        return taxRate;
+    public double getInterestRate() {
+        return interestRate;
     }
 
-    public void setTaxRate(double taxRate) {
-        this.taxRate = taxRate;
+    public void setInterestRate(double interestRate) {
+        this.interestRate = interestRate;
     }
 
     @Override
     public String toString() {
-        return "Bond { " + "title = " + title + ", bondUnitPrice = " + bondUnitPrice + ", bondMaturity = " + bondMaturity + ", bondType = " + bondType + ", taxRate = " + taxRate + ", paymentPlan = " + paymentPlan + " } ";
+        return "Bond { " + "title = " + title + ", bondUnitPrice = " + bondUnitPrice + ", bondMaturity = " + bondMaturity + ", bondType = " + bondType + ", taxRate = " + interestRate + ", paymentPlan = " + paymentPlan + " } ";
     }
 
 }

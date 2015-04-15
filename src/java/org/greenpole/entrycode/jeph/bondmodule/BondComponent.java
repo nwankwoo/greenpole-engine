@@ -122,7 +122,7 @@ public class BondComponent {
         bond_main.setBondMaturity((Date) bondModel.getBondMaturity());
         bond_main.setBondUnitPrice(bondModel.getBondUnitPrice());
         bond_main.setBondType(bondModel.getBondType());
-        bond_main.setTaxRate(bondModel.getTaxRate());
+        bond_main.setInterestRate(bondModel.getInterestRate());
         bond_main.setPaymentPlan(bondModel.getPaymentPlan());
 
         return bond_main;
