@@ -115,6 +115,7 @@ public class InitialPublicOfferLogic {
     }
     /**
      * This method persist the data's into the database after the authorisation must have been accepted
+     * It uses the InitialPublicOffer model
      * @param notificationCode the notificationCode that was used to save the data's to a file before authorisation 
      * @return the hibernate Initial Public Offer entity
      * @throws JAXBException 
