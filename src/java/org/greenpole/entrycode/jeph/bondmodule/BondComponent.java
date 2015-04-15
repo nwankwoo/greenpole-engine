@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0
+ * Business requirement to process bond requests
  */
 public class BondComponent {
 
@@ -32,11 +34,11 @@ public class BondComponent {
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
 
     /**
-     * creates a bond offer
-     * @param login
-     * @param authenticator
-     * @param bond
-     * @return response object
+     * process request to create a type of bond as a bond offer
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the notification
+     * @param bond the bond details to be processed
+     * @return response object back to sender indicating creation request status
      */
     public Response createBondOffer(Login login, String authenticator, Bond bond) {
         logger.info("user [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
@@ -70,17 +72,17 @@ public class BondComponent {
             }
         } catch (NullPointerException npx) {
             res.setRetn(200);
-            res.setDesc("Bond offer already exists and so cannot be created.");
-            logger.info("Bond offer exists so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());            
+            res.setDesc("Bond offer already exists or has empty parameters and so cannot be created.");
+            logger.info("Bond offer exists or has empty parameters and so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());            
         }
         return res;
     }
 
     /**
-     * Processes request to createBondOffer to persist a bond that already been
+     * Processes request to persist a bond that already been
      * saved as a notification file, according to the specified notification code.
-     * @param notificationCode
-     * @return response object
+     * @param notificationCode the notification code
+     * @return response object back to sender indicating authorization request status
      */
     public Response setupBondOfferAuthorise(String notificationCode) {
         Response res = new Response();
@@ -106,14 +108,15 @@ public class BondComponent {
     }
 
     /**
-     * initializes BondOffer entity with Bond model attributes
-     * @param bondModel
-     * @return BondOffer object
+     * Initializes org.greenpole.hibernate.entity.BondOffer entity attributes 
+     * with values of the org.greenpole.entrycode.jeph.models.Bond model attributes
+     * @param bondModel representing a bond model object
+     * @return BondOffer object to setupBondOfferAuthorise method
      */
     private BondOffer bondCreationMain(Bond bondModel) {
         // instantiate required hibernate entities
         org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
-        // TODO incorporate client company infor into the database
+        // TODO incorporate client company info into the database
         // ClientCompany clientCompany = new ClientCompany();
         bond_main.setTitle(bondModel.getTitle());
         bond_main.setBondMaturity((Date) bondModel.getBondMaturity());

@@ -7,6 +7,10 @@ import java.util.*;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0
+ * Used by the middle-tier to capture bond details and also to 
+ * pass bond model values to org.greenpole.hibernate.entity.BondOffer entity
+ * 
  */
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.NONE)
@@ -25,14 +29,23 @@ public class Bond implements Serializable {
     private Double taxRate;
     @XmlElement
     private String paymentPlan;
-
+    
+    /**
+     * Collects all the values for a type of Bond
+     * @param title bond title
+     * @param bondUnitPrice price per bond
+     * @param bondMaturity final date for the transaction to end
+     * @param bondType whether fixed or redeemable
+     * @param taxRate interest rate on bonds
+     * @param paymentPlan period for which each coupon is received which can annually, bi-annually, quarterly e.t.c
+     */
     public Bond(String title, Double bondUnitPrice, Date bondMaturity, String bondType, double taxRate, String paymentPlan) {
-        setTitle(title);
-        setBondUnitPrice(bondUnitPrice);
-        setBondMaturity(bondMaturity);
-        setBondType(bondType);
-        setTaxRate(taxRate);
-        setPaymentPlan(paymentPlan);
+        this.title = title;
+        this.bondUnitPrice = bondUnitPrice;
+        this.bondMaturity = bondMaturity;
+        this.bondType = bondType;
+        this.taxRate = taxRate;
+        this.paymentPlan = paymentPlan;
     }
 
     public String getTitle() {
