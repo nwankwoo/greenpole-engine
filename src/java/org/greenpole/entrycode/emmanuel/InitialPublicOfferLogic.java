@@ -58,6 +58,8 @@ public class InitialPublicOfferLogic {
                wrapper.setTo(authenticator);
                wrapper.setModel(ipoList);
                resp = qSender.sendAuthorisationRequest(wrapper);
+               resp.setRetn(0);
+               resp.setDesc("Successful");
                return resp;
        
        }
@@ -111,10 +113,17 @@ public class InitialPublicOfferLogic {
               
     return resp;
     }
+    /**
+     * This method persist the data's into the database after the authorisation must have been accepted
+     * @param notificationCode the notificationCode that was used to save the data's to a file before authorisation 
+     * @return the hibernate Initial Public Offer entity
+     * @throws JAXBException 
+     */
     private InitialPublicOffer setUpInitialPublicOfferAfterAuthorization(String notificationCode) throws JAXBException{
     NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
         InitialPublicOffer ipoModel = (InitialPublicOffer) wrapper.getModel();
         org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
+        try{
         double mult;
         ipo_hib.setClientCompany(ipoModel.getClientCompany());
         ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer());
@@ -126,7 +135,10 @@ public class InitialPublicOfferLogic {
         ipo_hib.setOfferSize((int) mult);
         ipo_hib.setOpeningDate(ipoModel.getOpeningDate());
         ipo_hib.setClosingDate(ipoModel.getClosingDate());
-        //needs a create method here to persist these data's to the database
-        return ipoModel;
+        cq.createInitialPublicOffer(ipo_hib);
+        }catch(Exception e){
+        }
+        
+        return ipo_hib;
     }
 }
