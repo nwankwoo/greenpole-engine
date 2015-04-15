@@ -13,7 +13,6 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
-import org.greenpole.hibernate.entity.InitialPublicOffer;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
@@ -68,17 +67,22 @@ public class InitialPublicOfferLogic {
         resp.setDesc("Client company has no shareholders accounts or certificates so initial public offer cannot be created.");
         return resp;
     }
+    /**
+     * Processes request to setUpInitialPublicOffer_authorize an Initial public offer that has been saved to a file 
+     * with the notificationCode
+     * @param notificationCode the client company model (not to be confused with the client company hibernate entity)
+     * @return resp object
+     */
     public Response setUpInitialPublicOffer_authorize(String notificationCode){
      Response resp = new Response();
      logger.info("Initial Public Offer authorised - [{}]", notificationCode);
      try{
-     InitialPublicOffer ipoModel =  setUpInitialPublicOfferAfterAuthorization(notificationCode);
      org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
      cq.createInitialPublicOffer(ipo_hib);
      resp.setRetn(0);
      resp.setDesc("Initial Public Offer was Successfully created");
      return resp;
-     }catch(JAXBException ex){
+     }catch(Exception ex){
      logger.info("error loading notification xml file. See error log");
      logger.error("error loading notification xml file to object - ", ex);
      resp.setRetn(200);
@@ -87,27 +91,26 @@ public class InitialPublicOfferLogic {
     return resp;
     }
     /**
-     * persist the data's into the database after the authorisation must have been accepted
+     * creates the hibernate entity object
      * uses the InitialPublicOffer model
      * @param notificationCode the notificationCode that was used to save the data's to a file before authorisation 
-     * @return the hibernate Initial Public Offer entity
+     * @param ipo_hib the hibernate entity object
+     * @param  ipoModel the InitialPublicOffer object
+     * @return the hibernate entity object
      * @throws JAXBException 
      */
-    private InitialPublicOffer setUpInitialPublicOfferAfterAuthorization(String notificationCode) throws JAXBException{
+    private void setUpInitialPublicOfferAfterAuthorization(String notificationCode) throws JAXBException{
     NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-    InitialPublicOffer ipoModel = (InitialPublicOffer) wrapper.getModel();
     org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
-    double mult;
+    InitialPublicOffer ipoModel = (InitialPublicOffer) wrapper.getModel();
     ipo_hib.setClientCompany(ipoModel.getClientCompany());
     ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer());
     ipo_hib.setMethodOnOffer(ipoModel.getMethodOnOffer());
     ipo_hib.setStartingMinSub(ipoModel.getStartingMinSub());
     ipo_hib.setContMinSub(ipoModel.getContMinSub());
     ipo_hib.setOfferPrice(ipoModel.getOfferPrice());
-    mult = ipoModel.getOfferPrice()*ipoModel.getTotalSharesOnOffer();
-    ipo_hib.setOfferSize((int) mult);
+    ipo_hib.setOfferSize(ipoModel.getOfferPrice()*ipoModel.getTotalSharesOnOffer());
     ipo_hib.setOpeningDate(ipoModel.getOpeningDate());
     ipo_hib.setClosingDate(ipoModel.getClosingDate());
-    return ipo_hib;
     }
 }
