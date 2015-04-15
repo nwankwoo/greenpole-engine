@@ -12,11 +12,10 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.BondOffer;
-import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.query.*;
 import org.greenpole.hibernate.query.factory.*;
 import org.greenpole.logic.ClientCompanyComponentLogic;
-// import org.greenpole.notifier.sender.QueueSender;
+import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
@@ -28,16 +27,15 @@ import org.slf4j.LoggerFactory;
  */
 public class BondCompomentImpl implements BondComponent {
 
-    // private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
-    
+
     /**
-     * 
+     * creates a bond offer
      * @param login
      * @param authenticator
      * @param bond
-     * @return 
+     * @return response object
      */
     @Override
     public Response createBondOffer(Login login, String authenticator, Bond bond) {
@@ -45,7 +43,6 @@ public class BondCompomentImpl implements BondComponent {
 
         Response res = new Response();
         NotificationWrapper wrapper;
-        // Mock QueueSender
         QueueSender queue;
         NotifierProperties prop;
 
@@ -55,7 +52,6 @@ public class BondCompomentImpl implements BondComponent {
                 System.out.println(bond.getTitle());
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(BondComponent.class);
-                // using a mock QueueSender class
                 queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                 logger.info("bond [{}]  does not exist", bond.getTitle());
@@ -73,19 +69,18 @@ public class BondCompomentImpl implements BondComponent {
                 return res;
             }
         } catch (NullPointerException npx) {
+            res.setRetn(200);
+            res.setDesc("Bond offer already exists and so cannot be created.");
+            logger.info("Bond offer exists so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());            
         }
-        res.setRetn(200);
-        res.setDesc("Client company already exists and so cannot be created.");
-        logger.info("client company exists so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());
         return res;
     }
-    
+
     /**
-     * Processes request to createBondOffer to persist a bond 
-     * that already been saved as a notification file, 
-     * according to the specified notification code.
+     * Processes request to createBondOffer to persist a bond that already been
+     * saved as a notification file, according to the specified notification code.
      * @param notificationCode
-     * @return a response object
+     * @return response object
      */
     @Override
     public Response setupBondOfferAuthorise(String notificationCode) {
@@ -96,21 +91,21 @@ public class BondCompomentImpl implements BondComponent {
             List<Bond> list = (List<Bond>) wrapper.getModel();
             Bond bondModel = list.get(0);
             BondOffer bondOffer = bondCreationMain(bondModel);
-            // NOTE createBondOffer returns void
             cq.createBondOffer(bondOffer);
             logger.info("bond offer created - [{}]", bondModel.getTitle());
             res.setRetn(0);
-            res.setDesc("Successful");
+            res.setDesc("Successful persistence");
+            
             return res;
-
         } catch (JAXBException ex) {
+            res.setRetn(100);
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
 
             return res;
         }
     }
-    
+
     /**
      * initializes BondOffer entity with Bond model attributes
      * @param bondModel
