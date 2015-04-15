@@ -76,17 +76,6 @@ public class BondCompomentImpl implements BondComponent {
         Response res = new Response();
         logger.info("bond setup creation authorised - [{}]", notificationCode);
         try {
-            // Bond bondModel = bondCreationMain(notificationCode);
-            // logger.info("client company created - [{}]", bondModel.title);
-            // int cc_id = cq.getClientCompanyId(bondModel.getName());
-            // createClientCompanyAddress(bondModel, cc_id);
-            // logger.info("address added for company - ", bondModel.getName());
-            // createClientCompanyEmailAddress(bondModel, cc_id);
-            // logger.info("address added for company - ", bondModel.getName());
-            // createClientCompanyPhoneNumber(bondModel, cc_id);
-            // logger.info("address added for company - ", bondModel.getName());
-            // resp.setRetn(0);
-            // resp.setDesc("Successful");
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             // List<org.greenpole.entity.model.clientcompany.ClientCompany> list = (List<org.greenpole.entity.model.clientcompany.ClientCompany>) wrapper.getModel();
             List<Bond> list = (List<Bond>) wrapper.getModel();
@@ -94,14 +83,6 @@ public class BondCompomentImpl implements BondComponent {
 
             BondOffer bondOffer = bondCreationMain(bondModel);
             cq.createBondOffer(bondOffer);
-            // boolean created = cq.createOrUpdateClientCompany(retrieveClientCompanyModel(ccModel), retrieveAddressModel(ccModel), 
-            //         retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
-            // if (true) {
-            //    logger.info("client company created - [{}]", bondModel.getTitle());
-            //    res.setRetn(0);
-            //    res.setDesc("Successful");
-            //    return res;
-            // }
             logger.info("client company created - [{}]", bondModel.getTitle());
             res.setRetn(0);
             res.setDesc("Successful");
