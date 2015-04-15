@@ -31,22 +31,31 @@ public class BondCompomentImpl implements BondComponent {
     // private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
-
+    
+    /**
+     * 
+     * @param login
+     * @param authenticator
+     * @param bond
+     * @return 
+     */
     @Override
     public Response createBondOffer(Login login, String authenticator, Bond bond) {
         logger.info("user [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
 
         Response res = new Response();
         NotificationWrapper wrapper;
+        // Mock QueueSender
         QueueSender queue;
         NotifierProperties prop;
 
-        // checks if the bond exists
+        // checks if the bond was entered correctly
         try {
             if (bond.getTitle() != null && !(bond.getTitle().equals(""))) {
                 System.out.println(bond.getTitle());
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(BondComponent.class);
+                // using a mock QueueSender class
                 queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                 logger.info("bond [{}]  does not exist", bond.getTitle());
@@ -70,20 +79,26 @@ public class BondCompomentImpl implements BondComponent {
         logger.info("client company exists so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());
         return res;
     }
-
+    
+    /**
+     * Processes request to createBondOffer to persist a bond 
+     * that already been saved as a notification file, 
+     * according to the specified notification code.
+     * @param notificationCode
+     * @return a response object
+     */
     @Override
     public Response setupBondOfferAuthorise(String notificationCode) {
         Response res = new Response();
         logger.info("bond setup creation authorised - [{}]", notificationCode);
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-            // List<org.greenpole.entity.model.clientcompany.ClientCompany> list = (List<org.greenpole.entity.model.clientcompany.ClientCompany>) wrapper.getModel();
             List<Bond> list = (List<Bond>) wrapper.getModel();
             Bond bondModel = list.get(0);
-
             BondOffer bondOffer = bondCreationMain(bondModel);
+            // NOTE createBondOffer returns void
             cq.createBondOffer(bondOffer);
-            logger.info("client company created - [{}]", bondModel.getTitle());
+            logger.info("bond offer created - [{}]", bondModel.getTitle());
             res.setRetn(0);
             res.setDesc("Successful");
             return res;
@@ -95,7 +110,12 @@ public class BondCompomentImpl implements BondComponent {
             return res;
         }
     }
-
+    
+    /**
+     * initializes BondOffer entity with Bond model attributes
+     * @param bondModel
+     * @return BondOffer object
+     */
     public BondOffer bondCreationMain(Bond bondModel) {
         // instantiate required hibernate entities
         org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
