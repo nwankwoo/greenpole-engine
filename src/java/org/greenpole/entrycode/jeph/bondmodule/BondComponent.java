@@ -13,6 +13,7 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.BondOffer;
+import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.query.*;
 import org.greenpole.hibernate.query.factory.*;
 import org.greenpole.logic.ClientCompanyComponentLogic;
@@ -50,6 +51,8 @@ public class BondComponent {
 
         // checks if the bond was entered correctly
         try {
+            ClientCompany cc = cq.getClientCompany(bond.getClientCompanyId());
+            
             if (bond.getTitle() != null && !(bond.getTitle().equals(""))) {
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(BondComponent.class);
