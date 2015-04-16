@@ -50,12 +50,12 @@ public class PrivatePlacementComponent {
         NotifierProperties props;
         Date date = new Date();
 
-        ClientCompany cc = cq.getClientCompany(privatePlacement.getClientCompanyId());
         // nested if statements is used for response object flexibility
         try {
             boolean exits = cq.checkClientCompany(privatePlacement.getClientCompanyId());
             // checks if company exist
             if (exits) {
+                ClientCompany cc = cq.getClientCompany(privatePlacement.getClientCompanyId());
                 // checks if the company is valid
                 if (cc.isValid()) {
                     // checks if system current date (today) is before private placement closing date
@@ -119,8 +119,8 @@ public class PrivatePlacementComponent {
         } catch (Exception ex) {
             // TODO: change from Exception class to specific user-defined exceptions later
             res.setRetn(200);
-            res.setDesc("Private placement already exists or has empty parameters and so cannot be created.");
-            logger.info("Private Placement exists or has empty parameters and so cannot be created - [{}]: [{}]", cc.getName(), res.getRetn());
+            res.setDesc("Error in verifing Client Company for private placement ");
+            logger.info("Error in verifing Client Company for private placement : [{}]", res.getRetn());
         }
         return res;
     }
