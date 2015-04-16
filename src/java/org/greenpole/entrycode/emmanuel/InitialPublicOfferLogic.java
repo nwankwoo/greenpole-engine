@@ -123,7 +123,6 @@ public class InitialPublicOfferLogic {
         ipo_hib.setOpeningDate(ipoModel.getOpeningDate());
         ipo_hib.setClosingDate(ipoModel.getClosingDate());
     }
-
     /**
      * views the share unit quotations of client companies
      *
@@ -133,14 +132,5 @@ public class InitialPublicOfferLogic {
         List<ShareQuotation> list = new ArrayList();
         list = cq.retrieveShareUnitQuatationList();
         return list;
-    }
-    /**
-     * views the share unit quotations of client companies
-     * @return the list of share unit quotations
-     */
-    private List<org.greenpole.hibernate.entity.ShareQuotation> viewShareUnitQuotations(){
-    List<org.greenpole.hibernate.entity.ShareQuotation> list = new ArrayList();
-    list = cq.retrieveShareUnitQuatationList();
-    return list;
     }
 }
