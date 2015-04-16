@@ -118,6 +118,7 @@ public class BondComponent {
             return res;
         } catch (JAXBException ex) {
             res.setRetn(100);
+            res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
 

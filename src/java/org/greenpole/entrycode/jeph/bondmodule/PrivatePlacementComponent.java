@@ -160,6 +160,7 @@ public class PrivatePlacementComponent {
         } catch (JAXBException ex) {
             // TODO: change to more appropriate exception
             res.setRetn(100);
+            res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
         }
