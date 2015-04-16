@@ -14,7 +14,7 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
-import org.greenpole.hibernate.entity.ShareQuotation;
+//import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  * @author user
  */
 public class InitialPublicOfferLogic {
-
+    
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();//expecting IPO query and IPO query factory
     private static final Logger logger = LoggerFactory.getLogger(InitialPublicOffer.class);
 
@@ -65,9 +65,9 @@ public class InitialPublicOfferLogic {
             resp.setRetn(0);
             resp.setDesc("Successful");
             return resp;
-
+            
         }
-
+        
         resp.setRetn(200);
         resp.setDesc("Client company has no shareholders accounts or certificates so initial public offer cannot be created.");
         return resp;
@@ -123,14 +123,41 @@ public class InitialPublicOfferLogic {
         ipo_hib.setOpeningDate(ipoModel.getOpeningDate());
         ipo_hib.setClosingDate(ipoModel.getClosingDate());
     }
+
+    /**
+     * sends the retrieved share quotations units to the user
+     *
+     * @return the response object called resp
+     */
+    public Response getShareUnitQuotations_request() {
+        Response resp = new Response();
+        List<org.greenpole.hibernate.entity.ShareQuotation> list = getShareUnitQuotations();
+        List<ShareQuotation> share = new ArrayList();
+        ShareQuotation shareQuotation_model = new ShareQuotation();
+        try {
+            for (org.greenpole.hibernate.entity.ShareQuotation share_hib : list) {
+                shareQuotation_model.setId(share_hib.getId());
+                shareQuotation_model.setCode(share_hib.getCode());
+                shareQuotation_model.setUnitPrice(share_hib.getUnitPrice());
+                share.add(shareQuotation_model);
+            }
+            resp.setBody(share);
+            resp.setRetn(0);
+            resp.setDesc("Share quotations details retrieved");
+        } catch (Exception e) {
+            resp.setRetn(200);
+            resp.setDesc("Unable to retrieve share quotations records");
+        }
+        return resp;
+    }
     /**
      * views the share unit quotations of client companies
      *
      * @return the list of share unit quotations
      */
-    private List<ShareQuotation> viewShareUnitQuotations() {
-        List<ShareQuotation> list = new ArrayList();
-        list = cq.retrieveShareUnitQuatationList();
-        return list;
+    public List<org.greenpole.hibernate.entity.ShareQuotation> getShareUnitQuotations() {
+        List<org.greenpole.hibernate.entity.ShareQuotation> hib_list = new ArrayList();
+        hib_list = cq.retrieveShareUnitQuatationList();        
+        return hib_list;
     }
 }
