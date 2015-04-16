@@ -51,7 +51,6 @@ public class BondComponent {
         // checks if the bond was entered correctly
         try {
             if (bond.getTitle() != null && !(bond.getTitle().equals(""))) {
-                System.out.println(bond.getTitle());
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(BondComponent.class);
                 queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
@@ -79,7 +78,7 @@ public class BondComponent {
     }
 
     /**
-     * Processes request to persist a bond that already been
+     * Processes request to persist a bond that had already been
      * saved as a notification file, according to the specified notification code.
      * @param notificationCode the notification code
      * @return response object back to sender indicating authorization request status
@@ -91,6 +90,7 @@ public class BondComponent {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<Bond> list = (List<Bond>) wrapper.getModel();
             Bond bondModel = list.get(0);
+            // get BondOffer entity initialised with Bond Model
             BondOffer bondOffer = bondCreationMain(bondModel);
             cq.createBondOffer(bondOffer);
             logger.info("bond offer created - [{}]", bondModel.getTitle());
