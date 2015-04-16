@@ -11,9 +11,9 @@ import java.util.*;
 
 /**
  * @author Jephthah Sadare
- * @version 1.0 
- * Used by the middle-tier to capture private placement details and
- * also to pass bond model values to org.greenpole.hibernate.entity.PrivatePlacement entity
+ * @version 1.0 Used by the middle-tier to capture private placement details and
+ * also to pass bond model values to
+ * org.greenpole.hibernate.entity.PrivatePlacement entity
  */
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.NONE)
@@ -40,6 +40,19 @@ public class PrivatePlacement implements Serializable {
     @XmlElement
     private Date closingDate;
 
+    /**
+     * Initializes PrivatePlacement member variables
+     *
+     * @param clientCompanyId
+     * @param totalSharesOnOffer
+     * @param methodOnOffer
+     * @param startingMinSubscrptn
+     * @param continuingMinSubscrptn
+     * @param offerPrice
+     * @param offerSize
+     * @param openingDate
+     * @param closingDate
+     */
     public PrivatePlacement(int clientCompanyId, int totalSharesOnOffer, int methodOnOffer,
             int startingMinSubscrptn, int continuingMinSubscrptn, Double offerPrice, int offerSize, Date openingDate, Date closingDate) {
         this.clientCompanyId = clientCompanyId;

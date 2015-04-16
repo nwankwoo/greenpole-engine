@@ -50,38 +50,77 @@ public class PrivatePlacementComponent {
         NotifierProperties props;
         Date date = new Date();
 
-        ClientCompany clientCompany = cq.getClientCompany(privatePlacement.getClientCompanyId());
-
+        ClientCompany cc = cq.getClientCompany(privatePlacement.getClientCompanyId());
+        // nested if statements is used for response object flexibility
         try {
-            // checks if the client company exits and the current system date is earlier than closing date
-            // TODO: more validateion - if company has a number of shareholders 
-            // as specified in specification document.
-            if (clientCompany.getId() != 0 && date.before(privatePlacement.getClosingDate())) {
-                wrapper = new NotificationWrapper();
-                props = new NotifierProperties(PrivatePlacement.class);
-                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            boolean exits = cq.checkClientCompany(privatePlacement.getClientCompanyId());
+            // checks if company exist
+            if (exits) {
+                // checks if the company is valid
+                if (cc.isValid()) {
+                    // checks if system current date (today) is before private placement closing date
+                    if (date.before(privatePlacement.getClosingDate())) {
+                        // checks if the client company has shareholders
+                        if (cq.checkClientCompanyForShareholders(cc.getName())) {
+                            // checks if there is no private placement opened
+                            if (true) {
+                                wrapper = new NotificationWrapper();
+                                props = new NotifierProperties(PrivatePlacement.class);
+                                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
-                List<PrivatePlacementComponent> ppc = new ArrayList<>();
-                wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Create Private Placement for " + clientCompany.getName());
-                wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
-                wrapper.setFrom(login.getUserId());
-                wrapper.setTo(authenticator);
-                wrapper.setModel(ppc);
+                                List<PrivatePlacementComponent> ppc = new ArrayList<>();
+                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setDescription("Create Private Placement for " + cc.getName());
+                                wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+                                wrapper.setFrom(login.getUserId());
+                                wrapper.setTo(authenticator);
+                                wrapper.setModel(ppc);
 
-                res = queue.sendAuthorisationRequest(wrapper);
-                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+                                res = queue.sendAuthorisationRequest(wrapper);
+                                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+
+                                return res;
+                            } else {
+                                res.setRetn(205);
+                                res.setDesc("A private placement is currently opened");
+                                logger.info("A private placement is currently opened");
+
+                                return res;
+                            }
+                        } else {
+                            res.setRetn(204);
+                            res.setDesc("No shareholders in client company for private placement");
+                            logger.info("No shareholders in client company for priate placement");
+
+                            return res;
+                        }
+                    } else {
+                        res.setRetn(203);
+                        res.setDesc("Private placement can not be closed before current date");
+                        logger.info("Private placement can not be closed before current date");
+
+                        return res;
+                    }
+                } else {
+                    res.setRetn(202);
+                    res.setDesc("No valid client company for private placement");
+                    logger.info("No valid client company for priate placement");
+
+                    return res;
+                }
+            } else {
+                res.setRetn(201);
+                res.setDesc("No client company for private placement does not exist");
+                logger.info("No client company for priate placement does not exist");
 
                 return res;
             }
 
-            logger.info("notification forwarded to queue - notitication code: [{}]");
-            return res;
         } catch (Exception ex) {
             // TODO: change from Exception class to specific user-defined exceptions later
             res.setRetn(200);
             res.setDesc("Private placement already exists or has empty parameters and so cannot be created.");
-            logger.info("Private Placement exists or has empty parameters and so cannot be created - [{}]: [{}]", clientCompany.getName(), res.getRetn());
+            logger.info("Private Placement exists or has empty parameters and so cannot be created - [{}]: [{}]", cc.getName(), res.getRetn());
         }
         return res;
     }
