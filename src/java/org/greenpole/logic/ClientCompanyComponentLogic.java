@@ -215,29 +215,29 @@ public class ClientCompanyComponentLogic {
         NotifierProperties prop;
         
         //client company must exist to be edited
-        /*if (cq.checkClientCompany(cc.getName())) {
+        if (cq.checkClientCompany(shareQuotation.getClientCompanyId())) {
             wrapper = new NotificationWrapper();
             prop = new NotifierProperties(ClientCompanyComponentLogic.class);
             qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), 
                     prop.getAuthoriserNotifierQueueName());
             
-            logger.info("client company exists - [{}]", cc.getName());
-            List<ClientCompany> cclist = new ArrayList<>();
-            cclist.add(cc);
+            logger.info("client company exists");
+            List<ShareQuotation> shareQuotationlist = new ArrayList<>();
+            shareQuotationlist.add(shareQuotation);
             //wrap client company object in notification object, along with other information
             wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription("Authenticate change to client company, " + cc.getName());
+            wrapper.setDescription("Authenticate share quotation upload");
             wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
             wrapper.setFrom(login.getUserId());
             wrapper.setTo(authenticator);
-            wrapper.setModel(cclist);
+            wrapper.setModel(shareQuotationlist);
             
             resp = qSender.sendAuthorisationRequest(wrapper);
             logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
             return resp;
-        }*/
-        resp.setRetn(202);
-        resp.setDesc("Client company does not exist, so cannot be edited.");
+        }
+        resp.setRetn(204);
+        resp.setDesc("Client company does not exist, so ssh.");
         //logger.info("client company does not exist so cannot be edited - [{}]: [{}]", cc.getName(), resp.getRetn());
         return resp;
     }
