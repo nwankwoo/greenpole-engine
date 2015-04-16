@@ -6,6 +6,7 @@
 package org.greenpole.entrycode.emmanuel;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
@@ -13,6 +14,7 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
@@ -112,5 +114,14 @@ public class InitialPublicOfferLogic {
     ipo_hib.setOfferSize(ipoModel.getOfferPrice()*ipoModel.getTotalSharesOnOffer());
     ipo_hib.setOpeningDate(ipoModel.getOpeningDate());
     ipo_hib.setClosingDate(ipoModel.getClosingDate());
+    }
+    /**
+     * views the share unit quotations of client companies
+     * @return the list of share unit quotations
+     */
+    private List<org.greenpole.hibernate.entity.ShareQuotation> viewShareUnitQuotations(){
+    List<org.greenpole.hibernate.entity.ShareQuotation> list = new ArrayList();
+    list = cq.retrieveShareUnitQuatationList();
+    return list;
     }
 }

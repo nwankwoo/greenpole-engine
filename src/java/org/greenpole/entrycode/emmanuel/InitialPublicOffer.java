@@ -27,10 +27,8 @@ import org.greenpole.hibernate.entity.ClientCompany;
 @XmlRootElement
 @XmlSeeAlso({InitialPublicOffer.class})
 @XmlAccessorType(XmlAccessType.NONE)
-@XmlType(propOrder = {"versionId","clientCompany","totalSharesOnOffer","methodOnOffer","startingMinSub","contMinSub","offerPrice","offerSize","openingDate","closingDate"," ipoApplications","certificates"})
+@XmlType(propOrder = {"clientCompany","totalSharesOnOffer","methodOnOffer","startingMinSub","contMinSub","offerPrice","offerSize","openingDate","closingDate"," ipoApplications","certificates"})
 public class InitialPublicOffer implements Serializable{
-    @XmlElement
-    private long versionId;
     @XmlElement
     private ClientCompany clientCompany;
     @XmlElement 
@@ -55,14 +53,11 @@ public class InitialPublicOffer implements Serializable{
      private  List <?> certificates;
     public InitialPublicOffer(){
     }
-
     @Override
     public String toString() {
-        return "InitialPublicOffer{" + "versionId=" + getVersionId() + ", clientCompany=" + getClientCompany() + ", totalSharesOnOffer=" + getTotalSharesOnOffer() + ", methodOnOffer=" + getMethodOnOffer() + ", startingMinSub=" + getStartingMinSub() + ", contMinSub=" + getContMinSub() + ", offerPrice=" + getOfferPrice() + ", offerSize=" + getOfferSize() + ", openingDate=" + getOpeningDate() + ", closingDate=" + getClosingDate() + ", ipoApplications=" + getIpoApplications() + ", certificates=" + getCertificates() + '}';
-    }
-
-    public InitialPublicOffer(long versionId, ClientCompany clientCompany, int totalSharesOnOffer, String methodOnOffer, int startingMinSub, int contMinSub, Double offerPrice, int offerSize, Date openingDate, Date closingDate) {
-        this.versionId = versionId;
+        return "InitialPublicOffer{" + "clientCompany=" + clientCompany + ", totalSharesOnOffer=" + totalSharesOnOffer + ", methodOnOffer=" + methodOnOffer + ", startingMinSub=" + startingMinSub + ", contMinSub=" + contMinSub + ", offerPrice=" + offerPrice + ", offerSize=" + offerSize + ", openingDate=" + openingDate + ", closingDate=" + closingDate + ", ipoApplications=" + ipoApplications + ", certificates=" + certificates + '}';
+    } 
+    public InitialPublicOffer(ClientCompany clientCompany, int totalSharesOnOffer, String methodOnOffer, int startingMinSub, int contMinSub, Double offerPrice, int offerSize, Date openingDate, Date closingDate) {
         this.clientCompany = clientCompany;
         this.totalSharesOnOffer = totalSharesOnOffer;
         this.methodOnOffer = methodOnOffer;
@@ -73,21 +68,6 @@ public class InitialPublicOffer implements Serializable{
         this.openingDate = openingDate;
         this.closingDate = closingDate;
     }
-
-    /**
-     * @return the versionId
-     */
-    public long getVersionId() {
-        return versionId;
-    }
-
-    /**
-     * @param versionId the versionId to set
-     */
-    public void setVersionId(long versionId) {
-        this.versionId = versionId;
-    }
-
     /**
      * @return the clientCompany
      */
