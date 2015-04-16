@@ -41,7 +41,7 @@ public class PrivatePlacementComponent {
      * @param privatePlacement the private placement details to be processed
      * @return response object back to sender indicating creation request status
      */
-    public Response createPrivatePlacement(Login login, String authenticator, PrivatePlacement privatePlacement) {
+    public Response createPrivatePlacement_Request(Login login, String authenticator, PrivatePlacement privatePlacement) {
         logger.info("user request to create private placement");
 
         Response res = new Response();
@@ -94,7 +94,7 @@ public class PrivatePlacementComponent {
      * @param notificationCode the notification code
      * @return back to sender indicating authorization request status
      */
-    public Response setupPrivatePlacementAuthorise(String notificationCode) {
+    public Response setupPrivatePlacement_Authorise(String notificationCode) {
         Response res = new Response();
         logger.info("Private Placement creation authorised - [{}]", notificationCode);
         try {

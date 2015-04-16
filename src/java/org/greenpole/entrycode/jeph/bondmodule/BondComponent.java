@@ -40,7 +40,7 @@ public class BondComponent {
      * @param bond the bond details to be processed
      * @return response object back to sender indicating creation request status
      */
-    public Response createBondOffer(Login login, String authenticator, Bond bond) {
+    public Response createBondOffer_Request(Login login, String authenticator, Bond bond) {
         logger.info("user [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
 
         Response res = new Response();
@@ -83,7 +83,7 @@ public class BondComponent {
      * @param notificationCode the notification code
      * @return response object back to sender indicating authorization request status
      */
-    public Response setupBondOfferAuthorise(String notificationCode) {
+    public Response setupBondOffer_Authorise(String notificationCode) {
         Response res = new Response();
         logger.info("bond setup creation authorised - [{}]", notificationCode);
         try {
