@@ -54,7 +54,8 @@ public class PrivatePlacementComponent {
 
         try {
             // checks if the client company exits and the current system date is earlier than closing date
-            // TODO: more validateion 
+            // TODO: more validateion - if company has a number of shareholders 
+            // as specified in specification document.
             if (clientCompany.getId() != 0 && date.before(privatePlacement.getClosingDate())) {
                 wrapper = new NotificationWrapper();
                 props = new NotifierProperties(PrivatePlacement.class);
@@ -77,6 +78,7 @@ public class PrivatePlacementComponent {
             logger.info("notification forwarded to queue - notitication code: [{}]");
             return res;
         } catch (Exception ex) {
+            // TODO: change from Exception class to specific user-defined exceptions later
             res.setRetn(200);
             res.setDesc("Private placement already exists or has empty parameters and so cannot be created.");
             logger.info("Private Placement exists or has empty parameters and so cannot be created - [{}]: [{}]", clientCompany.getName(), res.getRetn());
@@ -117,6 +119,7 @@ public class PrivatePlacementComponent {
 
             return res;
         } catch (JAXBException ex) {
+            // TODO: change to more appropriate exception
             res.setRetn(100);
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
