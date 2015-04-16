@@ -118,6 +118,7 @@ public class PrivatePlacementComponent {
 
         } catch (Exception ex) {
             // TODO: change from Exception class to specific user-defined exceptions later
+            // TODO: catch other types of exception
             res.setRetn(200);
             res.setDesc("Error in verifing Client Company for private placement ");
             logger.info("Error in verifing Client Company for private placement : [{}]", res.getRetn());
@@ -158,7 +159,7 @@ public class PrivatePlacementComponent {
 
             return res;
         } catch (JAXBException ex) {
-            // TODO: change to more appropriate exception
+            // TODO: catch other types of exception
             res.setRetn(100);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");

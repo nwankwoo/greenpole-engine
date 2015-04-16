@@ -86,6 +86,8 @@ public class BondComponent {
             return res;
 
         } catch (Exception npx) {
+            // TODO: change from Exception class to specific user-defined exceptions later
+            // TODO: catch other types of exception
             res.setRetn(200);
             res.setDesc("Bond offer already exists or has empty parameters and so cannot be created.");
             logger.info("Bond offer exists or has empty parameters and so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());
@@ -117,6 +119,7 @@ public class BondComponent {
 
             return res;
         } catch (JAXBException ex) {
+            // TODO: catch other types of exception
             res.setRetn(100);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
@@ -138,7 +141,6 @@ public class BondComponent {
         // instantiate required hibernate entities
         org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
         // TODO incorporate client company info into the database
-        // ClientCompany clientCompany = new ClientCompany();
         bond_main.setTitle(bondModel.getTitle());
         bond_main.setBondMaturity((Date) bondModel.getBondMaturity());
         bond_main.setBondUnitPrice(bondModel.getBondUnitPrice());
