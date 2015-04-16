@@ -129,8 +129,8 @@ public class InitialPublicOfferLogic {
      *
      * @return the list of share unit quotations
      */
-    private List<org.greenpole.hibernate.entity.ShareQuotation> viewShareUnitQuotations() {
-        List<org.greenpole.hibernate.entity.ShareQuotation> list = new ArrayList();
+    private List<ShareQuotation> viewShareUnitQuotations() {
+        List<ShareQuotation> list = new ArrayList();
         list = cq.retrieveShareUnitQuatationList();
         return list;
     }
