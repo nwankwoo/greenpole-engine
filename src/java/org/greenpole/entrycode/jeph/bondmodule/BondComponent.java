@@ -13,6 +13,7 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.BondOffer;
+import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.query.*;
 import org.greenpole.hibernate.query.factory.*;
 import org.greenpole.logic.ClientCompanyComponentLogic;
@@ -25,8 +26,7 @@ import org.slf4j.LoggerFactory;
 /**
  *
  * @author Jephthah Sadare
- * @version 1.0
- * Business requirement to process bond requests
+ * @version 1.0 Business requirement to process bond requests
  */
 public class BondComponent {
 
@@ -35,71 +35,93 @@ public class BondComponent {
 
     /**
      * process request to create a type of bond as a bond offer
+     *
      * @param login the user's login details
-     * @param authenticator the authenticator user meant to receive the notification
+     * @param authenticator the authenticator user meant to receive the
+     * notification
      * @param bond the bond details to be processed
      * @return response object back to sender indicating creation request status
      */
-    public Response createBondOffer(Login login, String authenticator, Bond bond) {
+    public Response createBondOffer_Request(Login login, String authenticator, Bond bond) {
         logger.info("user [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
 
         Response res = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
-
+        
+        // ClientCompany cc = cq.getClientCompany(bond.getClientCompanyId());
         // checks if the bond was entered correctly
         try {
-            if (bond.getTitle() != null && !(bond.getTitle().equals(""))) {
-                System.out.println(bond.getTitle());
-                wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(BondComponent.class);
-                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-
-                logger.info("bond [{}]  does not exist", bond.getTitle());
-                List<BondComponent> bc = new ArrayList<>();
-
-                wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Creates Bond " + bond.getTitle());
-                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                wrapper.setFrom(login.getUserId());
-                wrapper.setTo(authenticator);
-                wrapper.setModel(bc);
-
-                res = queue.sendAuthorisationRequest(wrapper);
-                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+            // Check if bond title has a value
+            if (bond.getTitle().isEmpty() || bond.getTitle() == null) {
+                res.setRetn(201);
+                res.setDesc("Bond title is missing");
+                logger.error("Bond title is missing");
+                
                 return res;
             }
-        } catch (NullPointerException npx) {
+            if (null == bond) {
+                res.setRetn(202);
+                res.setDesc("No bond object available");
+                logger.info("No bond object available");
+                
+                return res;
+            }
+            wrapper = new NotificationWrapper();
+            prop = new NotifierProperties(BondComponent.class);
+            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            
+            List<BondComponent> bc = new ArrayList<>();
+
+            wrapper.setCode(Notification.createCode(login));
+            wrapper.setDescription("Creates Bond " + bond.getTitle());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(bc);
+
+            res = queue.sendAuthorisationRequest(wrapper);
+            logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+            return res;
+
+        } catch (Exception npx) {
+            // TODO: change from Exception class to specific user-defined exceptions later
+            // TODO: catch other types of exception
             res.setRetn(200);
             res.setDesc("Bond offer already exists or has empty parameters and so cannot be created.");
-            logger.info("Bond offer exists or has empty parameters and so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());            
+            logger.info("Bond offer exists or has empty parameters and so cannot be created - [{}]: [{}]", bond.getTitle(), res.getRetn());
         }
         return res;
     }
 
     /**
-     * Processes request to persist a bond that already been
-     * saved as a notification file, according to the specified notification code.
+     * Processes request to persist a bond that had already been saved as a
+     * notification file, according to the specified notification code.
+     *
      * @param notificationCode the notification code
-     * @return response object back to sender indicating authorization request status
+     * @return response object back to sender indicating authorization request
+     * status
      */
-    public Response setupBondOfferAuthorise(String notificationCode) {
+    public Response setupBondOffer_Authorise(String notificationCode) {
         Response res = new Response();
         logger.info("bond setup creation authorised - [{}]", notificationCode);
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<Bond> list = (List<Bond>) wrapper.getModel();
             Bond bondModel = list.get(0);
+            // get BondOffer entity initialised with Bond Model
             BondOffer bondOffer = bondCreationMain(bondModel);
             cq.createBondOffer(bondOffer);
             logger.info("bond offer created - [{}]", bondModel.getTitle());
             res.setRetn(0);
             res.setDesc("Successful persistence");
-            
+
             return res;
         } catch (JAXBException ex) {
+            // TODO: catch other types of exception
             res.setRetn(100);
+            res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
 
@@ -108,8 +130,10 @@ public class BondComponent {
     }
 
     /**
-     * Initializes org.greenpole.hibernate.entity.BondOffer entity attributes 
-     * with values of the org.greenpole.entrycode.jeph.models.Bond model attributes
+     * Initializes org.greenpole.hibernate.entity.BondOffer entity attributes
+     * with values of the org.greenpole.entrycode.jeph.models.Bond model
+     * attributes
+     *
      * @param bondModel representing a bond model object
      * @return BondOffer object to setupBondOfferAuthorise method
      */
@@ -117,7 +141,6 @@ public class BondComponent {
         // instantiate required hibernate entities
         org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
         // TODO incorporate client company info into the database
-        // ClientCompany clientCompany = new ClientCompany();
         bond_main.setTitle(bondModel.getTitle());
         bond_main.setBondMaturity((Date) bondModel.getBondMaturity());
         bond_main.setBondUnitPrice(bondModel.getBondUnitPrice());
