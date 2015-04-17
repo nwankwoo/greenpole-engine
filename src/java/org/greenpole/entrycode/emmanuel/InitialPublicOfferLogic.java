@@ -129,7 +129,7 @@ public class InitialPublicOfferLogic {
      *
      * @return the response object called resp
      */
-    public Response getShareUnitQuotations_request() {
+    /*public Response getShareUnitQuotations_request() {
         Response resp = new Response();
         List<org.greenpole.hibernate.entity.ShareQuotation> list = getShareUnitQuotations();
         List<ShareQuotation> share = new ArrayList();
@@ -149,7 +149,7 @@ public class InitialPublicOfferLogic {
             resp.setDesc("Unable to retrieve share quotations records");
         }
         return resp;
-    }
+    }*/
     /**
      * views the share unit quotations of client companies
      *
