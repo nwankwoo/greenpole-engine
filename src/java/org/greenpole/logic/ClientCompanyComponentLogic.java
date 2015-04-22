@@ -6,13 +6,16 @@
 package org.greenpole.logic;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
+import org.greenpole.entity.model.clientcompany.QueryClientCompany;
 import org.greenpole.entity.model.clientcompany.ShareQuotation;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.security.Login;
@@ -20,12 +23,14 @@ import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.response.Response;
+import org.greenpole.hibernate.entity.ClientCompanyAddress;
 import org.greenpole.hibernate.entity.ClientCompanyAddressId;
 import org.greenpole.hibernate.entity.ClientCompanyEmailAddressId;
 import org.greenpole.hibernate.entity.ClientCompanyPhoneNumberId;
 import org.greenpole.hibernate.entity.Depository;
 import org.greenpole.hibernate.entity.NseSector;
 import org.greenpole.notifier.sender.QueueSender;
+import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
@@ -170,13 +175,14 @@ public class ClientCompanyComponentLogic {
     /**
      * Processes request to change a client company that has already been saved 
      * as a notification file, according to the specified notification code.
+     * @param login the user's login details
      * @param notificationCode the notification code
      * @return response to the client company creation request
      */
-    public Response editClientCompany_Authorise(String notificationCode) {
+    public Response editClientCompany_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         boolean freshCreation = false;
-        logger.info("client company change authorised - [{}]", notificationCode);
+        logger.info("authorise client company change, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -207,6 +213,64 @@ public class ClientCompanyComponentLogic {
         }
     }
 
+    public Response queryClientCompany(Login login, QueryClientCompany queryParams) {
+        Response resp = new Response();
+        logger.info("query client company, invoked by [{}]", login.getUserId());
+        
+        Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
+        
+        if (descriptors.size() == 4) {
+            String descriptor = queryParams.getDescriptor();
+            
+            ClientCompany clientCompany;
+            if (queryParams.getClientCompany() != null) {
+                clientCompany = queryParams.getClientCompany();
+            } else {
+                clientCompany = new ClientCompany();
+            }
+            Address address;
+            if (!queryParams.getClientCompany().getAddresses().isEmpty()) {
+                address = queryParams.getClientCompany().getAddresses().get(0);
+            } else {
+                address = new Address();
+            }
+            EmailAddress emailAddress;
+            if (!queryParams.getClientCompany().getEmailAddresses().isEmpty()) {
+                emailAddress = queryParams.getClientCompany().getEmailAddresses().get(0);
+            } else {
+                emailAddress = new EmailAddress();
+            }
+            PhoneNumber phoneNumber;
+            if (!queryParams.getClientCompany().getPhoneNumbers().isEmpty()) {
+                phoneNumber = queryParams.getClientCompany().getPhoneNumbers().get(0);
+            } else {
+                phoneNumber = new PhoneNumber();
+            }
+            Map<String, Double> shareUnit;
+            if (!queryParams.getShareUnit().isEmpty()) {
+                shareUnit = queryParams.getShareUnit();
+            } else {
+                shareUnit = new HashMap<>();
+            }
+            Map<String, Integer> numberOfShareholders;
+            if (queryParams.getNumberOfShareholders().isEmpty()) {
+                numberOfShareholders = queryParams.getNumberOfShareholders();
+            } else {
+                numberOfShareholders = new HashMap<>();
+            }
+            Map<String, Integer> numberOfBondholders;
+            if (queryParams.getNumberOfBondholders().isEmpty()) {
+                numberOfBondholders = queryParams.getNumberOfBondholders();
+            } else {
+                numberOfBondholders = new HashMap<>();
+            }
+
+            //List<org.greenpole.hibernate.entity.ClientCompany> ccResult = cq.queryClientCompany(descriptor, clientCompany, address, phoneNumber, emailAddress, shareUnit, numberOfShareholders, numberOfBondholders)
+        }
+        
+        return resp;
+    }
+    
     /**
      * Processes request to upload a list of share quotations.
      * @param login the user's login details
