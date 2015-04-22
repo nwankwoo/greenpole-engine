@@ -148,7 +148,7 @@ public class PrivatePlacementComponent {
             ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinSubscrptn());
             ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinSubscrptn());
             ppEntity.setOfferPrice(ppModel.getOfferPrice());
-            ppEntity.setOfferSize(ppModel.getOfferSize());
+            //ppEntity.setOfferSize(ppModel.getOfferSize());
             ppEntity.setOpeningDate(ppModel.getOpeningDate());
             ppEntity.setClosingDate(ppModel.getClosingDate());
             cq.createPrivatePlacement(ppEntity);
