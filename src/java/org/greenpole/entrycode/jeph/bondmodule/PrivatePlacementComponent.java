@@ -5,6 +5,7 @@
  */
 package org.greenpole.entrycode.jeph.bondmodule;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.notification.NotificationMessageTag;
@@ -49,7 +50,11 @@ public class PrivatePlacementComponent {
         QueueSender queue;
         NotifierProperties props;
         Date date = new Date();
-
+        SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
+        // SimpleDateFormat formatter = new SimpleDateFormat("dd/MMM/yyyy");
+        // SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
+        
+        
         // nested if statements is used for response object flexibility
         try {
             boolean exits = cq.checkClientCompany(privatePlacement.getClientCompanyId());
@@ -59,7 +64,7 @@ public class PrivatePlacementComponent {
                 // checks if the company is valid
                 if (cc.isValid()) {
                     // checks if system current date (today) is before private placement closing date
-                    if (date.before(privatePlacement.getClosingDate())) {
+                    if (date.before(formatter.parse(privatePlacement.getClosingDate()))) {
                         // checks if the client company has shareholders
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
                             // checks if there is no private placement opened
@@ -67,7 +72,7 @@ public class PrivatePlacementComponent {
                                 wrapper = new NotificationWrapper();
                                 props = new NotifierProperties(PrivatePlacement.class);
                                 queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
-
+                                
                                 List<PrivatePlacementComponent> ppc = new ArrayList<>();
                                 wrapper.setCode(Notification.createCode(login));
                                 wrapper.setDescription("Create Private Placement for " + cc.getName());
@@ -144,9 +149,9 @@ public class PrivatePlacementComponent {
             org.greenpole.hibernate.entity.PrivatePlacement ppEntity = new org.greenpole.hibernate.entity.PrivatePlacement();
             ppEntity.setId(ppModel.getClientCompanyId());
             ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer());
-            ppEntity.setMethodOnOffer(ppModel.getMethodOnOffer());
-            ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinSubscrptn());
-            ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinSubscrptn());
+            ppEntity.setMethodOnOffer(Integer.parseInt(ppModel.getMethodOfOffer()));
+            ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinimumSubscription());
+            ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());
             ppEntity.setOfferPrice(ppModel.getOfferPrice());
             ppEntity.setOfferSize(ppModel.getOfferSize());
             ppEntity.setOpeningDate(ppModel.getOpeningDate());
