@@ -5,9 +5,9 @@
  */
 package org.greenpole.entrycode.jeph.bondmodule;
 
-import org.greenpole.entrycode.jeph.models.Bond;
 import java.util.*;
 import javax.xml.bind.JAXBException;
+import org.greenpole.entity.model.jeph.models.payment.Bond;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
