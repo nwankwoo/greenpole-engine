@@ -141,6 +141,7 @@ public class PrivatePlacementComponent {
      */
     public Response setupPrivatePlacement_Authorise(String notificationCode) {
         Response res = new Response();
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
         logger.info("Private Placement creation authorised - [{}]", notificationCode);
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -154,8 +155,8 @@ public class PrivatePlacementComponent {
             ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());
             ppEntity.setOfferPrice(ppModel.getOfferPrice());
             //ppEntity.setOfferSize(ppModel.getOfferSize());
-            ppEntity.setOpeningDate(ppModel.getOpeningDate());
-            ppEntity.setClosingDate(ppModel.getClosingDate());
+            ppEntity.setOpeningDate(formatter.parse(ppModel.getOpeningDate()));
+            ppEntity.setClosingDate(formatter.parse(ppModel.getClosingDate()));
             cq.createPrivatePlacement(ppEntity);
 
             logger.info("Private Placement create for Client Company ID: [{}]", ppModel.getClientCompanyId());
@@ -169,6 +170,11 @@ public class PrivatePlacementComponent {
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
+        } catch (java.text.ParseException pe) {
+            res.setRetn(100);
+            res.setDesc("error loading notification xml file. See error log");
+            logger.info("error loading notification xml file. See error log");
+            logger.error("error loading notification xml file to object - ", pe);
         }
         return res;
     }

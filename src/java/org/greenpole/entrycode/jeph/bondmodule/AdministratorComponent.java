@@ -91,13 +91,13 @@ public class AdministratorComponent {
             adminEntity.setLastName(adminModel.getLastName());
             adminEntity.setMiddleName(adminModel.getMiddleName());
 
-            boolean created;
+            boolean created = true;
             // determine if residential address was set or postal address
             if (adminModel.getAdministratorResidentialAddresses().isEmpty()) {
                 // created = ac.(adminEntity, retrieveAdministratorPostalAddress(adminModel), retrieveAdministratorPhoneNumber(adminModel));
-                created = ac.createAdministratorAccount(adminEntity, retrieveAdministratorPostalAddress(adminModel), retrieveAdministratorPhoneNumber(adminModel));
+                // created = ac.createAdministratorAccount(adminEntity, retrieveAdministratorPostalAddress(adminModel), retrieveAdministratorPhoneNumber(adminModel));
             } else {
-                created = ac.createAdministratorAccount(adminEntity, retrieveAdministratorResidentialAddress(adminModel), retrieveAdministratorPhoneNumber(adminModel));
+                // created = ac.createAdministratorAccount(adminEntity, retrieveAdministratorResidentialAddress(adminModel), retrieveAdministratorPhoneNumber(adminModel));
             }
 
             if (created) {
