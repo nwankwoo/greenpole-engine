@@ -6,7 +6,6 @@
 package org.greenpole.entrycode.emmanuel;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
@@ -14,6 +13,14 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entrycode.emmanuel.model.Administrator;
+import org.greenpole.entrycode.emmanuel.model.AdministratorEmailAddress;
+import org.greenpole.entrycode.emmanuel.model.AdministratorPhoneNumber;
+import org.greenpole.entrycode.emmanuel.model.AdministratorResidentialAddress;
+import org.greenpole.entrycode.emmanuel.model.Holder;
+import org.greenpole.hibernate.entity.AdministratorEmailAddressId;
+import org.greenpole.hibernate.entity.AdministratorPhoneNumberId;
+import org.greenpole.hibernate.entity.AdministratorResidentialAddressId;
 //import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
@@ -28,9 +35,10 @@ import org.slf4j.LoggerFactory;
  * @author user
  */
 public class InitialPublicOfferLogic {
-    
+
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();//expecting IPO query and IPO query factory
     private static final Logger logger = LoggerFactory.getLogger(InitialPublicOffer.class);
+    private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();
 
     /**
      * Processes request to set up an Initial Public Offer.
@@ -65,9 +73,9 @@ public class InitialPublicOfferLogic {
             resp.setRetn(0);
             resp.setDesc("Successful");
             return resp;
-            
+
         }
-        
+
         resp.setRetn(200);
         resp.setDesc("Client company has no shareholders accounts or certificates so initial public offer cannot be created.");
         return resp;
@@ -129,7 +137,7 @@ public class InitialPublicOfferLogic {
      *
      * @return the response object called resp
      */
-    /*public Response getShareUnitQuotations_request() {
+    public Response getShareUnitQuotations_request() {
         Response resp = new Response();
         List<org.greenpole.hibernate.entity.ShareQuotation> list = getShareUnitQuotations();
         List<ShareQuotation> share = new ArrayList();
@@ -137,7 +145,6 @@ public class InitialPublicOfferLogic {
         try {
             for (org.greenpole.hibernate.entity.ShareQuotation share_hib : list) {
                 shareQuotation_model.setId(share_hib.getId());
-                shareQuotation_model.setCode(share_hib.getCode());
                 shareQuotation_model.setUnitPrice(share_hib.getUnitPrice());
                 share.add(shareQuotation_model);
             }
@@ -149,7 +156,8 @@ public class InitialPublicOfferLogic {
             resp.setDesc("Unable to retrieve share quotations records");
         }
         return resp;
-    }*/
+    }
+
     /**
      * views the share unit quotations of client companies
      *
@@ -157,7 +165,193 @@ public class InitialPublicOfferLogic {
      */
     public List<org.greenpole.hibernate.entity.ShareQuotation> getShareUnitQuotations() {
         List<org.greenpole.hibernate.entity.ShareQuotation> hib_list = new ArrayList();
-        hib_list = cq.retrieveShareUnitQuatationList();        
+        hib_list = cq.retrieveShareUnitQuatationList();
         return hib_list;
     }
+
+    /**
+     * creates the AdministratorEmailAddresses of a particular holder
+     *
+     * @param adminEmail administrator entity object
+     * @return a list of hibernate Administrator's email address entity object
+     */
+    public List<org.greenpole.hibernate.entity.AdministratorEmailAddress> retrieveEmailAddress(Administrator adminEmail) {
+        org.greenpole.hibernate.entity.AdministratorEmailAddress adminOject = new org.greenpole.hibernate.entity.AdministratorEmailAddress();
+        List<AdministratorEmailAddress> adminEmail_list = adminEmail.getEmailAddress();
+        List<org.greenpole.hibernate.entity.AdministratorEmailAddress> adminEmailHib = new ArrayList();
+        for (AdministratorEmailAddress eA : adminEmail_list) {
+            AdministratorEmailAddressId emailId = new AdministratorEmailAddressId();
+            emailId.setAdministratorId(eA.getAdministratorId());
+            emailId.setEmailAddress(eA.getEmailAddress());
+            adminOject.setId(emailId);
+            adminOject.setIsPrimary(eA.isPrimaryEmail());
+            adminEmailHib.add(adminOject);
+        }
+        return adminEmailHib;
+    }
+
+    /**
+     * creates the AdministratorPhoneNumber of a particular holder
+     *
+     * @param adminPhone object of the Administrator entity model
+     * @return a list of hibernate Administrator's phone number entity object
+     */
+    public List<org.greenpole.hibernate.entity.AdministratorPhoneNumber> retrieveAdminPhoneNumber(Administrator adminPhone) {
+        org.greenpole.hibernate.entity.AdministratorPhoneNumber adminPhoneObject = new org.greenpole.hibernate.entity.AdministratorPhoneNumber();
+        List<AdministratorPhoneNumber> adminPhoneNumberList_model = adminPhone.getPhoneNumber();
+        List<org.greenpole.hibernate.entity.AdministratorPhoneNumber> adminPhoneNumberList_hib = new ArrayList();
+        for (AdministratorPhoneNumber pn : adminPhoneNumberList_model) {
+            AdministratorPhoneNumberId phoneId = new AdministratorPhoneNumberId();
+            phoneId.setAdministratorId(pn.getAdministratorId());
+            phoneId.setPhoneNumber(pn.getPhoneNumber());
+            adminPhoneObject.setId(phoneId);
+            adminPhoneObject.setIsPrimary(pn.isPrimaryPhoneNumber());
+            adminPhoneNumberList_hib.add(adminPhoneObject);
+        }
+        return adminPhoneNumberList_hib;
+    }
+
+    /**
+     * creates the AdministratorResidentialAddress of a particular holder
+     *
+     * @param admin object of the administrator entity model
+     * @return a list of hibernate Administrator's residential address entity
+     * object
+     */
+    public List<org.greenpole.hibernate.entity.AdministratorResidentialAddress> retrieveResidentialAddress(Administrator admin) {
+        org.greenpole.hibernate.entity.AdministratorResidentialAddress adminResidentialAddressObject_hib = new org.greenpole.hibernate.entity.AdministratorResidentialAddress();
+        List<AdministratorResidentialAddress> adminResidentialAddressList = admin.getResidentialAddress();
+        List<org.greenpole.hibernate.entity.AdministratorResidentialAddress> adminResidentialAddsessList_hib = new ArrayList();
+        for (AdministratorResidentialAddress ad : adminResidentialAddressList) {
+            AdministratorResidentialAddressId adminId = new AdministratorResidentialAddressId();
+            adminId.setAdministratorId(ad.getAdministratorId());
+            adminId.setAddressLine1(ad.getAddressLine1());
+            adminId.setState(ad.getState());
+            adminId.setCountry(ad.getCountry());
+            adminResidentialAddressObject_hib.setId(adminId);
+            adminResidentialAddressObject_hib.setIsPrimary(ad.isPrimaryAddress());
+            adminResidentialAddressObject_hib.setAddressLine2(ad.getAddressLine2());
+            adminResidentialAddressObject_hib.setAddressLine3(ad.getAddressLine3());
+            adminResidentialAddressObject_hib.setAddressLine4(ad.getAddressLine4());
+            adminResidentialAddressObject_hib.setCity(ad.getCity());
+            adminResidentialAddressObject_hib.setPostCode(ad.getPostCode());
+            adminResidentialAddsessList_hib.add(adminResidentialAddressObject_hib);
+        }
+        return adminResidentialAddsessList_hib;
+    }
+    public List<org.greenpole.hibernate.entity.Holder> retrieveAdministratorHolder(Administrator admin){
+        org.greenpole.hibernate.entity.Holder holder_hib = new org.greenpole.hibernate.entity.Holder();
+        List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList();
+        List<Holder> holderModel = admin.getHolder();
+        for(Holder holderObject: holderModel){
+        holder_hib.setId(holderObject.getId());
+        holderList.add(holder_hib);
+        }
+   return holderList;
+    }
+    /**
+     * sends an authorisation request to a super user for the creation of an
+     * administrator
+     *
+     * @param login used to get the userId that is performing this transaction
+     * @param authenticator the super user to accept the creation of this
+     * request 
+     * @param admin object the administrator entity model
+     * @return a list of hibernate Administrator's email address entity object
+     */
+    public Response createAdministrator_request(Login login, String authenticator, Administrator admin) {
+        logger.info("request to create an administrator [{}] for holder [{}]", admin.getFirstName() + " " + admin.getLastName(), login.getUserId());
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender qSender;
+        NotifierProperties prop;
+        try {
+            wrapper = new NotificationWrapper();
+            prop = new NotifierProperties(InitialPublicOfferLogic.class);
+            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                    prop.getAuthoriserNotifierQueueName());
+            List<Administrator> adminList = new ArrayList();
+            adminList.add(admin);
+            wrapper.setCode(Notification.createCode(login));
+            wrapper.setDescription("Authenticate creation of administration for" + " " + admin.getFirstName() + " " + admin.getLastName());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(adminList);
+            resp = qSender.sendAuthorisationRequest(wrapper);
+            resp.setRetn(0);
+            resp.setDesc("Successful");
+            return resp;
+        } catch (Exception e) {
+            resp.setRetn(200);
+            resp.setDesc("unable to create administrator, please contact the system administrator");
+            logger.error("administrator creation failed");
+        }
+        return resp;
+    }
+    /**
+     * creates administrator for a deceased holder 
+     * @param notificationCode
+     * @return response object
+     */
+
+    /**
+     * creates administrator for a deceased holder
+     * @param login is used to obtain the login details of the user who performed the transaction
+     * @param notificationCode
+     * @return response object
+     */
+    public Response createAdministrator_authorise(Login login, String notificationCode) {
+        Response resp = new Response();
+        boolean done = false;
+        logger.info("Administrator creation authorised - [{}]", notificationCode);
+        logger.info("details persisted by user: "+login.getUserId());
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Administrator> adminList = (List<Administrator>) wrapper.getModel();
+            Administrator adminModel = adminList.get(0);
+            hd.createAdministratorForShareHolderAndBondHolder(createAdministrator(adminModel), retrieveEmailAddress(adminModel), retrieveAdminPhoneNumber(adminModel), retrieveResidentialAddress(adminModel),retrieveAdministratorHolder(adminModel));
+            this.updateAdministratorHolderName(adminModel);
+            resp.setRetn(0);
+            resp.setDesc("Estate of"+ " "+adminModel.getFirstName());
+        } catch (Exception ex) {
+            resp.setRetn(0);
+            resp.setDesc("Unable to create administrator, please contact the system admin");
+        }
+        return resp;
+    }
+
+    /**
+     * Unwraps the administrator entity model to create the administrator
+     * hibernate entity model
+     *
+     * @param admin administrator entity object
+     * @return a list of hibernate Administrator's email address entity object
+     */
+    private org.greenpole.hibernate.entity.Administrator createAdministrator(Administrator admin) {
+        org.greenpole.hibernate.entity.Administrator admin_hib = new org.greenpole.hibernate.entity.Administrator();
+        admin_hib.setFirstName(admin.getFirstName());
+        admin_hib.setMiddleName(admin.getMiddleName());
+        admin_hib.setLastName(admin.getLastName());
+        return admin_hib;
+    }
+
+    /**
+     * query requires another query that returns the id of the holder updates
+     * the holder account name by concatinating the firstName with Estate of
+     *
+     * @param holder object of the holder entity model
+     * @return the holder entity model of the updated firstName
+     */
+    private void updateAdministratorHolderName(Administrator admin) {
+        String replaceName = "Estate of";
+        String name;
+        String holdReplaceName;
+        org.greenpole.hibernate.entity.Holder holderAccount = new org.greenpole.hibernate.entity.Holder();
+        //require a method that will get the holder's id
+        name = holderAccount.getFirstName();
+        holdReplaceName = replaceName+" "+name;
+        holderAccount.setFirstName(holdReplaceName);
+        hd.updateAdministrationHolderCompanyAccount(holderAccount);
+    }   
 }
