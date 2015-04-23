@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
  * @author user
  */
 public class PowerOfAttorneyLogic {
-    private static final Logger logger = LoggerFactory.getLogger(InitialPublicOffer.class);
+    private static final Logger logger = LoggerFactory.getLogger(PowerOfAttorneyLogic.class);
     private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();
     public Response uploadPowerOfAttorney_request(Login login, String authenticator, PowerOfAttorney power, byte[] signatureOfAttorney) {
         logger.info("request to upload power of attorney for holder [{}] by user [{}]", power.getHolder().getFirstName() + " " + power.getHolder().getLastName(), login.getUserId());
