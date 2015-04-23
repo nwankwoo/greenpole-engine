@@ -19,6 +19,7 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entrycode.emmanuel.model.Holder;
 import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
 import org.greenpole.entrycode.jeph.mocks.SignatureProperties;
 import org.greenpole.notifier.sender.QueueSender;
@@ -27,7 +28,7 @@ import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
+/**sends an authorisation requesst to a super user for the upload of power of attorney
  *
  * @author user
  */
@@ -40,7 +41,7 @@ public class PowerOfAttorneyLogic {
         NotificationWrapper wrapper;
         QueueSender qSender;
         NotifierProperties prop;
-        int sizeOfSignature = 10240;
+        long sizeOfSignature = 10485760;
         SignatureProperties signProp;
         signProp = new SignatureProperties();
         try {
@@ -91,7 +92,8 @@ public class PowerOfAttorneyLogic {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<PowerOfAttorney> adminList = (List<PowerOfAttorney>) wrapper.getModel();
             PowerOfAttorney powerModel = adminList.get(0);
-            org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(powerModel.getId());
+            Holder hold = powerModel.getHolder();
+            org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(hold.getId());
             org.greenpole.hibernate.entity.PowerOfAttorney power = new org.greenpole.hibernate.entity.PowerOfAttorney();
             power.setPeriodType(powerModel.getPeriodType());
             power.setPowerOfAttorneyPrimary(powerModel.isPrimaryPowerOfAttorney());
