@@ -222,12 +222,23 @@ public class ClientCompanyComponentLogic {
         if (descriptors.size() == 4) {
             String descriptor = queryParams.getDescriptor();
             
+            org.greenpole.hibernate.entity.ClientCompany cc_hib = new org.greenpole.hibernate.entity.ClientCompany();
             ClientCompany clientCompany;
             if (queryParams.getClientCompany() != null) {
                 clientCompany = queryParams.getClientCompany();
             } else {
                 clientCompany = new ClientCompany();
             }
+            cc_hib.setCeo(descriptor);
+            cc_hib.setClientCompanyPrimary(true);
+            cc_hib.setCode(descriptor);
+            cc_hib.setMerged(true);
+            cc_hib.setName(descriptor);
+            cc_hib.setSecretary(descriptor);
+            cc_hib.setValid(true);
+            
+            
+            
             Address address;
             if (!queryParams.getClientCompany().getAddresses().isEmpty()) {
                 address = queryParams.getClientCompany().getAddresses().get(0);
