@@ -456,7 +456,7 @@ public class HolderComponent {
             //      thus create certificate
 
             // check if holder ID exists
-            if (unitTransferModel.getHolderIdFrom() == 0 || unitTransferModel.getHolderIdTo() == 0) {
+            if (unitTransferModel.getHolderIdFrom() <= 0 || unitTransferModel.getHolderIdTo() <= 0) {
                 res.setRetn(202);
                 res.setDesc("Holder id can not be zero or null");
                 logger.info("Holder id can not be zero or null");
