@@ -5,6 +5,7 @@
  */
 package org.greenpole.entrycode.emmanuel;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import javax.xml.bind.JAXBException;
@@ -14,6 +15,7 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entrycode.emmanuel.model.HolderChanges;
 import org.greenpole.entrycode.emmanuel.model.InitialPublicOffer;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
@@ -240,6 +242,12 @@ public class ShareholderAndBondholderNubanLogic {
         }
         return resp;
   }
+  /**Persists the Holder NUBAN account after authorisation
+   * 
+   * @param login the user Id that performed the transaction
+   * @param notificationCode the notification code
+   * @return the response object
+   */
   public Response changeShareholderNubanAccount_authorise(Login login, String notificationCode){
         Response resp = new Response();
         logger.info("NUBAN account number update authorised - [{}]", notificationCode);
@@ -260,6 +268,13 @@ public class ShareholderAndBondholderNubanLogic {
         }
     return resp;
     }
+  /**
+   * processes request for the creation of a bond holder NUBAN account 
+   * @param login use to get the user Id of the user that persisted the NUBAN account
+   * @param authenticator the super user to authenticate the request
+   * @param bondHolder object of bond holder entity
+   * @return the response object
+   */
   public Response changeBondholderNubanAccount_request(Login login, String authenticator, HolderBondAccount bondHolder){
   Response resp = new Response();
         NotificationWrapper wrapper;
@@ -296,6 +311,12 @@ public class ShareholderAndBondholderNubanLogic {
         }
         return resp;
   }
+  /**
+   * 
+   * @param login use to get the user Id that persisted the NUBAN account
+   * @param notificationCode the notification code
+   * @return the response object
+   */
   public Response changeBondholderNubanAccount_authorise(Login login, String notificationCode){
         Response resp = new Response();
         logger.info("NUBAN account number update authorised - [{}]", notificationCode);
@@ -316,4 +337,36 @@ public class ShareholderAndBondholderNubanLogic {
         }
     return resp;
     }
+  /**
+   * Processes retrieving of holder edited records 
+   * @param holderChanges
+   * @return the response object
+   */
+  public Response viewReportOnHolderAccountEditing(HolderChanges holderChanges){
+      Response resp = new Response();
+      org.greenpole.hibernate.entity.HolderChanges holderChanges_hib = getHolderDetails(holderChanges);
+      SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
+      try{
+          holderChanges.setChangeDate(formatter.format(holderChanges_hib.getChangeDate()));
+          holderChanges.setChangeType(holderChanges_hib.getChangeType());
+          holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
+          holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
+          holderChanges.setId(holderChanges_hib.getId());
+          resp.setRetn(0);
+          resp.setDesc("Edited Records found");
+      }catch(Exception ex){
+      resp.setRetn(200);
+      resp.setDesc("Edited Records not found");
+      }
+  return resp;
+  }
+  /**
+   * retrieves the edited records of a particular holder using the search criteria's specified
+   * @param holderChanges
+   * @return holderChange_hib the hibernate entity object of the edited record
+   */
+  public org.greenpole.hibernate.entity.HolderChanges getHolderDetails(HolderChanges holderChanges){
+      org.greenpole.hibernate.entity.HolderChanges holderChange_hib = hd.retrieveHolderDetails(holderChanges.getChangeType(), holderChanges.getChangeDate(), holderChanges.getHolder().getId());
+      return holderChange_hib;
+  }
 }

@@ -14,6 +14,7 @@ import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
 import org.greenpole.hibernate.entity.HolderBondAccount;
+import org.greenpole.hibernate.entity.HolderChanges;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.query.GeneralisedAbstractDao;
 
@@ -77,7 +78,12 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     public void changeShareholderNubanAccount(HolderCompanyAccount holderAccount){
     
     }
+    @Override
     public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount){
     
+    }
+    @Override
+    public HolderChanges retrieveHolderDetails(String changeType, String criteria, int holderId){
+    return null;
     }
 }
