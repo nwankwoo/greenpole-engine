@@ -428,8 +428,8 @@ public class HolderComponent {
             logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
         } else {
             res.setRetn(202);
-            res.setDesc("Source and destination company accounts are not the same");
-            logger.info("Source and destination company accounts are not the same");
+            res.setDesc("Source and destination company accounts types are not the same");
+            logger.info("Source and destination company accounts types are not the same");
         }
         return res;
     }
