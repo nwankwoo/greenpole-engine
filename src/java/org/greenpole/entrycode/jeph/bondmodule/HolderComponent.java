@@ -497,22 +497,16 @@ public class HolderComponent {
                                             res.setRetn(203);
                                             res.setDesc("Insufficient unit of shares for transfer operation");
                                         } else {
-                                            if ("".equals(compAcctTo.getChn()) || compAcctTo.getChn() == null) {
-                                                // create certificate
-                                                logger.info("Creating certificate for [{}]", unitTransferModel.getHolderAcctIdTo());
-                                                res.setRetn(0);
-                                                res.setDesc("Successful Persistence");
-                                            } else {
-                                                compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
-                                                compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
+                                            compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
+                                            compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
 
-                                                hcq.createHolderCompanyAccount(compAcctFrom);
-                                                hcq.createHolderCompanyAccount(compAcctTo);
+                                            hcq.createHolderCompanyAccount(compAcctFrom);
+                                            hcq.createHolderCompanyAccount(compAcctTo);
 
-                                                logger.info("share unit of [{}] transfered to : [{}]", unitTransferModel.getUnits(), unitTransferModel.getHolderAcctIdTo());
-                                                res.setRetn(0);
-                                                res.setDesc("Successful Persistence");
-                                            }
+                                            logger.info("share unit of [{}] transfered to : [{}]", unitTransferModel.getUnits(), unitTransferModel.getHolderAcctIdTo());
+                                            res.setRetn(0);
+                                            res.setDesc("Successful Persistence");
+
                                         }
                                     } else {
                                         // response description: have shares with client company
@@ -569,7 +563,9 @@ public class HolderComponent {
         if (transfer.getClientCompanyIdFrom() == transfer.getClieintCompanyIdTo()) {
 
             wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(HolderComponent.class);
+            prop
+                    = new NotifierProperties(HolderComponent.class
+                    );
             queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             List<UnitTransfer> transferObj = new ArrayList<>();
@@ -577,13 +573,17 @@ public class HolderComponent {
             transferObj.add(transfer);
 
             wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription("Authenticate " + transfer.getUnits() + " bond unit transfer request for, " + transfer.getHolderAcctIdFrom() + " " + transfer.getHolderAcctIdTo());
+            wrapper.setDescription(
+                    "Authenticate " + transfer.getUnits() + " bond unit transfer request for, " + transfer.getHolderAcctIdFrom() + " " + transfer.getHolderAcctIdTo());
             wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
             wrapper.setFrom(login.getUserId());
             wrapper.setTo(authenticator);
+
             wrapper.setModel(transferObj);
             res = queue.sendAuthorisationRequest(wrapper);
-            logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+
+            logger.info(
+                    "notification forwarded to queue - notification code: [{}]", wrapper.getCode());
         } else {
             res.setRetn(202);
             res.setDesc("Source and destination company accounts are not the same");
