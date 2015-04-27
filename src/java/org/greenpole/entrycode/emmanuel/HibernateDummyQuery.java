@@ -5,6 +5,7 @@
  */
 package org.greenpole.entrycode.emmanuel;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
@@ -12,6 +13,8 @@ import org.greenpole.hibernate.entity.Administrator;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
+import org.greenpole.hibernate.entity.HolderBondAccount;
+import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.query.GeneralisedAbstractDao;
 
 /**
@@ -47,4 +50,34 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     @Override
      public void uploadPowerOfAttorney(PowerOfAttorney power){
      }
+    @Override
+     public String checkHolderNubanNumber(String nubanAccount){
+     return " ";
+     }
+    @Override
+    public List<HolderCompanyAccount> getAllShareholderNubanAccounts(){
+        List<org.greenpole.hibernate.entity.HolderCompanyAccount> holderAccount = new ArrayList();
+        return holderAccount;
+    }
+    @Override
+    public List<HolderBondAccount> getAllBondholderNubanAccounts(){
+    List<HolderBondAccount> bondHolder = new ArrayList();
+    return bondHolder;
+    }
+    @Override
+    public void addShareholderNubanAccount(){
+    }
+    @Override
+    public void createNubanAccount(HolderCompanyAccount holderAccount){
+    }
+    @Override
+    public void createBondNubanAccount(HolderBondAccount holderAccount){
+    }
+    @Override
+    public void changeShareholderNubanAccount(HolderCompanyAccount holderAccount){
+    
+    }
+    public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount){
+    
+    }
 }

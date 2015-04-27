@@ -12,6 +12,8 @@ import org.greenpole.hibernate.entity.Administrator;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
+import org.greenpole.hibernate.entity.HolderBondAccount;
+import org.greenpole.hibernate.entity.HolderCompanyAccount;
 
 
 /**
@@ -51,4 +53,12 @@ public interface HibernatDummyQuerInterface {
      * @param power
      */
     public void uploadPowerOfAttorney(PowerOfAttorney power);
+    public String checkHolderNubanNumber(String nubanAccount);
+    public List getAllShareholderNubanAccounts();
+    public List getAllBondholderNubanAccounts();
+    public void addShareholderNubanAccount();
+    public void createNubanAccount(HolderCompanyAccount holderAccount);
+    public void createBondNubanAccount(HolderBondAccount holderAccount);
+    public void changeShareholderNubanAccount(HolderCompanyAccount holderAccount);
+    public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount);
 }
