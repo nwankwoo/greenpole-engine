@@ -14,7 +14,6 @@ import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
 import org.greenpole.hibernate.entity.HolderBondAccount;
-import org.greenpole.hibernate.entity.HolderChanges;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.query.GeneralisedAbstractDao;
 
@@ -52,8 +51,9 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
      public void uploadPowerOfAttorney(PowerOfAttorney power){
      }
     @Override
-     public String checkHolderNubanNumber(String nubanAccount){
-     return " ";
+     public boolean checkHolderNubanNumber(String nubanAccount){
+         boolean bool = false;
+     return bool;
      }
     @Override
     public List<HolderCompanyAccount> getAllShareholderNubanAccounts(){
@@ -82,8 +82,30 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount){
     
     }
+    /**
+     * @param holderId
+     * @param clientCompanyId
+     * @return 
     @Override
-    public HolderChanges retrieveHolderDetails(String changeType, String criteria, int holderId){
+    public org.greenpole.hibernate.entity.HolderChanges getHolderEditedDetails(int holderId){
     return null;
     }
+    @Override
+    public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryOne(String changeType, String changeDate, int holderId){
+    return null;
+    }
+    @Override
+    public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryTwo(String changeType, String changeDate1, String changeDate2, int holderId){
+    return null;
+    }
+*/
+    @Override
+    public HolderCompanyAccount retrieveHolderCompanyAccount(int holderId, int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    public HolderBondAccount retrieveHolderBondCompAccount(int holderId, int bondId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
 }
