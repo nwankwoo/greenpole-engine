@@ -7,9 +7,10 @@ package org.greenpole.logic;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
+import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
@@ -25,7 +26,9 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.response.Response;
 import org.greenpole.hibernate.entity.ClientCompanyAddress;
 import org.greenpole.hibernate.entity.ClientCompanyAddressId;
+import org.greenpole.hibernate.entity.ClientCompanyEmailAddress;
 import org.greenpole.hibernate.entity.ClientCompanyEmailAddressId;
+import org.greenpole.hibernate.entity.ClientCompanyPhoneNumber;
 import org.greenpole.hibernate.entity.ClientCompanyPhoneNumberId;
 import org.greenpole.hibernate.entity.Depository;
 import org.greenpole.hibernate.entity.NseSector;
@@ -143,27 +146,35 @@ public class ClientCompanyComponentLogic {
         NotificationWrapper wrapper;
         QueueSender qSender;
         NotifierProperties prop;
-        
+
         //client company must exist to be edited
         if (cq.checkClientCompany(cc.getName())) {
-            wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), 
-                    prop.getAuthoriserNotifierQueueName());
-            
             logger.info("client company exists - [{}]", cc.getName());
-            List<ClientCompany> cclist = new ArrayList<>();
-            cclist.add(cc);
-            //wrap client company object in notification object, along with other information
-            wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription("Authenticate change to client company, " + cc.getName());
-            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-            wrapper.setFrom(login.getUserId());
-            wrapper.setTo(authenticator);
-            wrapper.setModel(cclist);
-            
-            resp = qSender.sendAuthorisationRequest(wrapper);
-            logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+            //if client company exists, it must be a primary client company
+            if (cq.getClientCompanyByName(cc.getName()).isClientCompanyPrimary()) {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
+                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        prop.getAuthoriserNotifierQueueName());
+
+                logger.info("client company is valid and primary - [{}]", cc.getName());
+                List<ClientCompany> cclist = new ArrayList<>();
+                cclist.add(cc);
+                //wrap client company object in notification object, along with other information
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate change to client company, " + cc.getName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(cclist);
+
+                resp = qSender.sendAuthorisationRequest(wrapper);
+                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                return resp;
+            }
+            resp.setRetn(202);
+            resp.setDesc("Client company is not valid, so cannot be edited.");
+            logger.info("client company is not valid so cannot be edited - [{}]: [{}]", cc.getName(), resp.getRetn());
             return resp;
         }
         resp.setRetn(202);
@@ -213,7 +224,13 @@ public class ClientCompanyComponentLogic {
         }
     }
 
-    public Response queryClientCompany(Login login, QueryClientCompany queryParams) {
+    /**
+     * Searches for a list of client companies according to query parameters.
+     * @param login the user's login details
+     * @param queryParams the query parameters
+     * @return the list of client companies according to the query parameters
+     */
+    public Response queryClientCompany_Request(Login login, QueryClientCompany queryParams) {
         Response resp = new Response();
         logger.info("query client company, invoked by [{}]", login.getUserId());
         
@@ -222,61 +239,176 @@ public class ClientCompanyComponentLogic {
         if (descriptors.size() == 4) {
             String descriptor = queryParams.getDescriptor();
             
-            org.greenpole.hibernate.entity.ClientCompany cc_hib = new org.greenpole.hibernate.entity.ClientCompany();
-            ClientCompany clientCompany;
+            org.greenpole.hibernate.entity.ClientCompany cc_hib_search = new org.greenpole.hibernate.entity.ClientCompany();
+            ClientCompanyAddress cc_hib_address_search = new ClientCompanyAddress();
+            ClientCompanyAddressId cc_hib_address_id_search = new ClientCompanyAddressId();
+            ClientCompanyEmailAddress cc_hib_email_search = new ClientCompanyEmailAddress();
+            ClientCompanyEmailAddressId cc_hib_email_id_search = new ClientCompanyEmailAddressId();
+            ClientCompanyPhoneNumber cc_hib_phone_search = new ClientCompanyPhoneNumber();
+            ClientCompanyPhoneNumberId cc_hib_phone_id_search = new ClientCompanyPhoneNumberId();
+            
+            Depository depository_hib_search = new Depository();
+            NseSector nseSector_hib_search = new NseSector();
+            
+            ClientCompany cc_model_search;
             if (queryParams.getClientCompany() != null) {
-                clientCompany = queryParams.getClientCompany();
-            } else {
-                clientCompany = new ClientCompany();
+                cc_model_search = queryParams.getClientCompany();
+
+                depository_hib_search.setName(cc_model_search.getDepositoryName());
+                nseSector_hib_search.setName(cc_model_search.getNseSectorName());
+
+                cc_hib_search.setName(cc_model_search.getName());
+                cc_hib_search.setCeo(cc_model_search.getCeo());
+                cc_hib_search.setClientCompanyPrimary(true); //primary must be set
+                cc_hib_search.setCode(cc_model_search.getCode());
+                cc_hib_search.setSecretary(cc_model_search.getSecretary());
+
+                cc_hib_search.setDepository(depository_hib_search);
+                cc_hib_search.setNseSector(nseSector_hib_search);
+
             }
-            cc_hib.setCeo(descriptor);
-            cc_hib.setClientCompanyPrimary(true);
-            cc_hib.setCode(descriptor);
-            cc_hib.setMerged(true);
-            cc_hib.setName(descriptor);
-            cc_hib.setSecretary(descriptor);
-            cc_hib.setValid(true);
             
-            
-            
-            Address address;
+            Address address_model_search;
             if (!queryParams.getClientCompany().getAddresses().isEmpty()) {
-                address = queryParams.getClientCompany().getAddresses().get(0);
-            } else {
-                address = new Address();
+                address_model_search = queryParams.getClientCompany().getAddresses().get(0);
+                
+                cc_hib_address_id_search.setAddressLine1(address_model_search.getAddressLine1());
+                cc_hib_address_id_search.setCountry(address_model_search.getCountry());
+                cc_hib_address_id_search.setState(address_model_search.getState());
+                
+                cc_hib_address_search.setAddressLine2(address_model_search.getAddressLine2());
+                cc_hib_address_search.setAddressLine3(address_model_search.getAddressLine3());
+                cc_hib_address_search.setAddressLine4(address_model_search.getAddressLine4());
+                cc_hib_address_search.setCity(address_model_search.getCity());
+                cc_hib_address_search.setPostCode(address_model_search.getPostCode());
+                
+                cc_hib_address_search.setId(cc_hib_address_id_search); //put address id in address
+                
+                Set cc_hib_address_set = new HashSet();
+                cc_hib_address_set.add(cc_hib_address_search); //put address in set
+                
+                cc_hib_search.setClientCompanyAddresses(cc_hib_address_set); //put address set in client company entity
             }
-            EmailAddress emailAddress;
+            
+            EmailAddress emailAddress_model_search;
             if (!queryParams.getClientCompany().getEmailAddresses().isEmpty()) {
-                emailAddress = queryParams.getClientCompany().getEmailAddresses().get(0);
-            } else {
-                emailAddress = new EmailAddress();
+                emailAddress_model_search = queryParams.getClientCompany().getEmailAddresses().get(0);
+                
+                cc_hib_email_id_search.setEmailAddress(emailAddress_model_search.getEmailAddress());
+                
+                cc_hib_email_search.setId(cc_hib_email_id_search); //put email id in email
+                
+                Set cc_hib_email_set = new HashSet();
+                cc_hib_email_set.add(cc_hib_email_search); //put email in set
+                
+                cc_hib_search.setClientCompanyEmailAddresses(cc_hib_email_set); //put email set in client company entity
             }
-            PhoneNumber phoneNumber;
+            
+            PhoneNumber phoneNumber_model_search;
             if (!queryParams.getClientCompany().getPhoneNumbers().isEmpty()) {
-                phoneNumber = queryParams.getClientCompany().getPhoneNumbers().get(0);
-            } else {
-                phoneNumber = new PhoneNumber();
+                phoneNumber_model_search = queryParams.getClientCompany().getPhoneNumbers().get(0);
+                
+                cc_hib_phone_id_search.setPhoneNumber(phoneNumber_model_search.getPhoneNumber());
+                
+                cc_hib_phone_search.setId(cc_hib_phone_id_search); //put phone id in phone
+                
+                Set cc_hib_phone_set = new HashSet();
+                cc_hib_phone_set.add(cc_hib_phone_search); //put phone in set
+                
+                cc_hib_search.setClientCompanyEmailAddresses(cc_hib_phone_set); //put phone set in client company entity
             }
-            Map<String, Double> shareUnit;
+            
+            Map<String, Double> shareUnit_search;
             if (!queryParams.getShareUnit().isEmpty()) {
-                shareUnit = queryParams.getShareUnit();
+                shareUnit_search = queryParams.getShareUnit();
             } else {
-                shareUnit = new HashMap<>();
+                shareUnit_search = new HashMap<>();
             }
-            Map<String, Integer> numberOfShareholders;
+            
+            Map<String, Integer> numberOfShareholders_search;
             if (queryParams.getNumberOfShareholders().isEmpty()) {
-                numberOfShareholders = queryParams.getNumberOfShareholders();
+                numberOfShareholders_search = queryParams.getNumberOfShareholders();
             } else {
-                numberOfShareholders = new HashMap<>();
+                numberOfShareholders_search = new HashMap<>();
             }
-            Map<String, Integer> numberOfBondholders;
+            
+            Map<String, Integer> numberOfBondholders_search;
             if (queryParams.getNumberOfBondholders().isEmpty()) {
-                numberOfBondholders = queryParams.getNumberOfBondholders();
+                numberOfBondholders_search = queryParams.getNumberOfBondholders();
             } else {
-                numberOfBondholders = new HashMap<>();
+                numberOfBondholders_search = new HashMap<>();
             }
 
-            //List<org.greenpole.hibernate.entity.ClientCompany> ccResult = cq.queryClientCompany(descriptor, clientCompany, address, phoneNumber, emailAddress, shareUnit, numberOfShareholders, numberOfBondholders)
+            List<org.greenpole.hibernate.entity.ClientCompany> cc_search_result = cq.queryClientCompany(descriptor, cc_hib_search, shareUnit_search, numberOfShareholders_search, numberOfBondholders_search);
+            
+            //unwrap result and set in client company front-end model
+            List<ClientCompany> cc_model_out = new ArrayList<>();
+            
+            List<Address> cc_model_addy_out = new ArrayList<>();
+            List<PhoneNumber> cc_model_phone_out = new ArrayList<>();
+            List<EmailAddress> cc_model_email_out = new ArrayList<>();
+            
+            for (org.greenpole.hibernate.entity.ClientCompany cc_hib_out : cc_search_result) {
+                ClientCompany c = new ClientCompany();
+                
+                c.setDepositoryId(cc_hib_out.getDepository().getId());
+                c.setNseSectorId(cc_hib_out.getNseSector().getId());
+                
+                c.setName(cc_hib_out.getName());
+                c.setCeo(cc_hib_out.getCeo());
+                c.setCode(cc_hib_out.getCode());
+                c.setSecretary(cc_hib_out.getSecretary());
+                
+                //get all available addresses, email addresses and phone numbers
+                List<ClientCompanyAddress> addy_hib_list = cq.getClientCompanyAddress(cc_hib_out.getId());
+                for (ClientCompanyAddress addy_hib_out : addy_hib_list) {
+                    ClientCompanyAddressId addy_id_hib_out = addy_hib_out.getId(); //get client company address id from hibernate entity
+                    Address addy_model_out = new Address(); //prepare address model to set
+                    
+                    addy_model_out.setAddressLine1(addy_id_hib_out.getAddressLine1());
+                    addy_model_out.setState(addy_id_hib_out.getState());
+                    addy_model_out.setCountry(addy_id_hib_out.getCountry());
+                    addy_model_out.setAddressLine2(addy_hib_out.getAddressLine2());
+                    addy_model_out.setAddressLine3(addy_hib_out.getAddressLine3());
+                    addy_model_out.setAddressLine4(addy_hib_out.getAddressLine4());
+                    addy_model_out.setCity(addy_hib_out.getCity());
+                    addy_model_out.setPostCode(addy_hib_out.getPostCode());
+                    addy_model_out.setPrimaryAddress(addy_hib_out.isIsPrimary());
+                    
+                    cc_model_addy_out.add(addy_model_out); //set address in list of addresses
+                }
+                c.setAddresses(cc_model_addy_out); //set address list in client company
+                
+                List<ClientCompanyEmailAddress> email_hib_list = cq.getClientCompanyEmailAddress(cc_hib_out.getId());
+                for (ClientCompanyEmailAddress email_hib_out : email_hib_list) {
+                    ClientCompanyEmailAddressId email_id_hib_out = email_hib_out.getId();
+                    EmailAddress email_model_out = new EmailAddress();
+                    
+                    email_model_out.setEmailAddress(email_id_hib_out.getEmailAddress());
+                    email_model_out.setPrimaryEmail(email_hib_out.isIsPrimary());
+                    
+                    cc_model_email_out.add(email_model_out);
+                }
+                c.setEmailAddresses(cc_model_email_out);
+                
+                List<ClientCompanyPhoneNumber> phone_hib_list = cq.getClientCompanyPhoneNumber(cc_hib_out.getId());
+                for (ClientCompanyPhoneNumber phone_hib_out : phone_hib_list) {
+                    ClientCompanyPhoneNumberId phone_id_hib_out = phone_hib_out.getId();
+                    PhoneNumber phone_model_out = new PhoneNumber();
+                    
+                    phone_model_out.setPhoneNumber(phone_id_hib_out.getPhoneNumber());
+                    phone_model_out.setPrimaryPhoneNumber(phone_hib_out.isIsPrimary());
+                    
+                    cc_model_phone_out.add(phone_model_out);
+                }
+                c.setPhoneNumbers(cc_model_phone_out);
+                
+                cc_model_out.add(c); //finally, add client company to list
+            }
+            
+            resp.setRetn(0);
+            resp.setDesc("Successful");
+            resp.setBody(cc_model_out);
         }
         
         return resp;
@@ -356,19 +488,55 @@ public class ClientCompanyComponentLogic {
             }
             
             resp.setRetn(205);
-            resp.setDesc("Unable to change client company from authorisation. Contact System Administrator");
+            resp.setDesc("Unable to load share unit quotation from authorisation. Contact System Administrator");
             return resp;
         } catch (JAXBException ex) {
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
             
             resp.setRetn(203);
-            resp.setDesc("Unable to change client company from authorisation. Contact System Administrator");
+            resp.setDesc("Unable to load share unit quotation from authorisation. Contact System Administrator");
             
             return resp;
         }
     }
 
+    /**
+     * Retrieves the share unit quotation.
+     * @param login the user's login details
+     * @return the response to the share unit quotation view request
+     */
+    public Response getShareUnitQuotations_request(Login login) {
+        Response resp = new Response();
+        logger.info("view share unit quotations, invoked by [{}]", login.getUserId());
+        
+        try {
+            List<org.greenpole.hibernate.entity.ShareQuotation> share_q_hib_list = cq.retrieveShareUnitQuatationList();
+            List<ShareQuotation> shareQuotations = new ArrayList();
+            ShareQuotation shareQuotation_model = new ShareQuotation();
+            
+            for (org.greenpole.hibernate.entity.ShareQuotation share_q_hib : share_q_hib_list) {
+                org.greenpole.hibernate.entity.ClientCompany cc_hib = cq.getClientCompany(share_q_hib.getClientCompany().getId());
+                ClientCompany cc_model = new ClientCompany();
+                cc_model.setName(cc_hib.getName());
+                cc_model.setCode(cc_hib.getCode());
+                shareQuotation_model.setClientCompany(cc_model);
+                shareQuotation_model.setUnitPrice(share_q_hib.getUnitPrice());
+                shareQuotations.add(shareQuotation_model);
+            }
+            resp.setBody(shareQuotations);
+            resp.setRetn(0);
+            resp.setDesc("Successful");
+        } catch (Exception ex) {
+            logger.info("error retrieving share unit quotations. See error log");
+            logger.error("error retrieving share unit quotations - ", ex);
+            
+            resp.setRetn(200);
+            resp.setDesc("Unable to retrieve share quotation records. Contact system administrator");
+        }
+        return resp;
+    }
+    
     /**
      * Unwraps the list share quotation models to create the list hibernate share quotation entities.
      * @param quotationList the list of share quotation models
@@ -497,6 +665,9 @@ public class ClientCompanyComponentLogic {
         cc_main.setCeo(ccModel.getCeo());
         cc_main.setCode(ccModel.getCode());
         cc_main.setSecretary(ccModel.getSecretary());
+        cc_main.setValid(true);
+        cc_main.setMerged(false);
+        cc_main.setClientCompanyPrimary(true);
         //set depository id in object before setting object in hibernate client company object
         depository.setId(ccModel.getDepositoryId());
         cc_main.setDepository(depository);
