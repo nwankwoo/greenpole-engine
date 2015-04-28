@@ -455,11 +455,11 @@ public class HolderComponent {
             // 1. from and/or to have holder id BUT no CHN
             //      thus create certificate
 
-            // check if holder ID exists
-            if (unitTransferModel.getHolderIdFrom() <= 0 || unitTransferModel.getHolderIdTo() <= 0) {
+            // check transfer type
+            if ("shares".equals(unitTransferModel.getTransferType().toLowerCase())) {
                 res.setRetn(202);
-                res.setDesc("Holder id can not be zero or null");
-                logger.info("Holder id can not be zero or null");
+                res.setDesc("Transfer type should be shares");
+                logger.info("Transfer type should be shares");
             } else {
                 // check if the holder exist
                 // boolean holderFromExist = hcq.checkHolderByHolderId(unitTransferModel.getHolderIdFrom());
@@ -503,7 +503,7 @@ public class HolderComponent {
                                             hcq.createHolderCompanyAccount(compAcctFrom);
                                             hcq.createHolderCompanyAccount(compAcctTo);
 
-                                            logger.info("share unit of [{}] transfered to : [{}]", unitTransferModel.getUnits(), unitTransferModel.getHolderAcctIdTo());
+                                            logger.info("share unit of [{}] transfered", unitTransferModel.getUnits());
                                             res.setRetn(0);
                                             res.setDesc("Successful Persistence");
 
@@ -573,8 +573,7 @@ public class HolderComponent {
             transferObj.add(transfer);
 
             wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription(
-                    "Authenticate " + transfer.getUnits() + " bond unit transfer request for, " + transfer.getHolderAcctIdFrom() + " " + transfer.getHolderAcctIdTo());
+            wrapper.setDescription("Authenticate " + transfer.getUnits() + " bond unit transfer request for, " + transfer.getHolderIdFrom() + " " + transfer.getHolderIdTo());
             wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
             wrapper.setFrom(login.getUserId());
             wrapper.setTo(authenticator);
@@ -598,39 +597,6 @@ public class HolderComponent {
         logger.info("Holder creation authorised - [{}]", notificationCode);
 
         try {
-//            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-//
-//            List<UnitTransfer> bondTransferList = (List<UnitTransfer>) wrapper.getModel();
-//            UnitTransfer unitTransferModel = bondTransferList.get(0);
-//            // TODO: create a method to retireve HolderBondAccount using holder bond account ID as parameter
-//            // org.greenpole.hibernate.entity.HolderBondAccount holdBondAcctFromEntity = hcq.getHolderEntityByHolderId(unitTransferModel.getHolderAcctIdFrom);
-//            // org.greenpole.hibernate.entity.HolderBondAccount holdBondAcctToEntity = hcq.getHolderEntityByHolderId(unitTransferModel.getHolderAcctIdoT);
-//            org.greenpole.hibernate.entity.HolderBondAccount fromBondAcctEntity = new org.greenpole.hibernate.entity.HolderBondAccount();
-//            org.greenpole.hibernate.entity.HolderBondAccount toBondAcctEntity = new org.greenpole.hibernate.entity.HolderBondAccount();
-//
-//            if (fromBondAcctEntity.getRemainingPrincipalValue() < unitTransferModel.getUnits()) {
-//                logger.info("Insufficient units to transfer");
-//                res.setRetn(201);
-//                res.setDesc("Insufficient units to transfer");
-//            } else {
-//                if ("".equals(toBondAcctEntity.getChn()) || toBondAcctEntity.getChn() == null) {
-//                    // cancel bond transfer
-//                    logger.info("Bond transfer cancelled. Not CHN");
-//                    res.setRetn(202);
-//                    res.setDesc("Bond transfer cancelled. Not CHN");
-//                } else {
-//                    fromBondAcctEntity.setBondUnits((int) (fromBondAcctEntity.getBondUnits() - unitTransferModel.getUnits()));
-//                    toBondAcctEntity.setBondUnits((int) (toBondAcctEntity.getBondUnits() - unitTransferModel.getUnits()));
-//
-//                    hcq.createHolderCompanyAccount(fromBondAcctEntity);
-//                    hcq.createHolderCompanyAccount(toBondAcctEntity);
-//                }
-//            }
-//
-//            logger.info("Bond units of [{}] transfered to : [{}]", unitTransferModel.getUnits(), unitTransferModel.getHolderAcctIdTo());
-//            res.setRetn(0);
-//            res.setDesc("Successful Persistence");
-
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
 
             List<UnitTransfer> bondTransferList = (List<UnitTransfer>) wrapper.getModel();
@@ -641,33 +607,33 @@ public class HolderComponent {
             // 3. catch for empty list of result
             // SCENARIO:
             // 3. from and to have holder id AND company account id
-            // 2. from and/or to have holder id BUT no company account for a PARTICULAR company e.g. UBA Capital
-            //      thus create company account from existing CHN in holder details and transfer
+            // 2. from and/or to have holder id BUT no bond account for a PARTICULAR bond offer
+            //      thus create bond account from existing CHN in holder details and transfer
             // 1. from and/or to have holder id BUT no CHN
-            //      thus create certificate
+            //      thus create bond account
 
-            // check if holder ID exists
-            if (unitTransferModel.getHolderIdFrom() == 0 || unitTransferModel.getHolderIdTo() == 0) {
+            // check transfer type
+            if ("bonds".equals(unitTransferModel.getTransferType().toLowerCase())) {
                 res.setRetn(202);
-                res.setDesc("Holder id can not be zero or null");
-                logger.info("Holder id can not be zero or null");
+                res.setDesc("Transfer type should be bonds");
+                logger.info("Transfer type should be bonds");
             } else {
                 // check if the holder exist
                 // boolean holderFromExist = hcq.checkHolderByHolderId(unitTransferModel.getHolderIdFrom());
                 boolean holderFromExist = true;
                 if (holderFromExist) {
                     // check if holder has (any) CHN
-                    // boolean checkChn = hcq.checkHolderChnByHolderId(unitTransferModel.getHolderIdFrom());
+                    // boolean checkChnFrom = hcq.checkHolderChnByHolderId(unitTransferModel.getHolderIdFrom());
                     boolean checkChnFrom = true;
                     if (checkChnFrom) {
-                        // check if holder has clientCompanyAccount for the particular clientCompany else create clientCompanyAccount
-                        // boolean checkCCAcct = hcq.checkClientCompanyByCompanyId(unitTransferModel.getClientCompanyIdFrom());
-                        boolean checkCCAcct = true;
-                        if (checkCCAcct) {
+                        // check if holder has holderBondAccount for the particular bond offer else create holderBondAccount
+                        // boolean checkHBAcctFrom = hcq.checkBondOfferBondOfferId(unitTransferModel.getBondOfferIdFrom());
+                        boolean checkHBAcctFrom = true;
+                        if (checkHBAcctFrom) {
                             // begin to perform transfer
-                            // combinatation fo HolderCompanyAccount and HolderCompanyAccountId to retrieve a particular HolderAccount Entity
-                            // org.greenpole.hibernate.entity.HolderCompanyAccount compAcctFrom = hcq.getHolderAccountByHolderId(unitTransferModel.getHolderAcctIdFrom());
-                            org.greenpole.hibernate.entity.HolderBondAccount compAcctFrom = new org.greenpole.hibernate.entity.HolderBondAccount();
+                            // combinatation of HolderBondAccount and HolderBondAccountId to retrieve a particular HolderBondAccount Entity
+                            // org.greenpole.hibernate.entity.HolderBondAccount compAcctFrom = hcq.getHolderAccountByBondOfferId(unitTransferModel.getBondOfferIdFrom());
+                            org.greenpole.hibernate.entity.HolderBondAccount bondAcctFrom = new org.greenpole.hibernate.entity.HolderBondAccount();
 
                             boolean holderToExist = true;
                             if (holderToExist) {
@@ -680,62 +646,68 @@ public class HolderComponent {
                                     boolean checkCCAcctTo = true;
                                     if (checkCCAcctTo) {
                                         // begin to perform transfer
-                                        // combinatation fo HolderCompanyAccount and HolderCompanyAccountId to retrieve a particular HolderAccount Entity
-                                        // org.greenpole.hibernate.entity.HolderCompanyAccount compAcctFrom = hcq.getHolderAccountByHolderId(unitTransferModel.getHolderAcctIdFrom());
-                                        org.greenpole.hibernate.entity.HolderBondAccount compAcctTo = new org.greenpole.hibernate.entity.HolderBondAccount();
-                                        if (compAcctFrom.getRemainingPrincipalValue() < unitTransferModel.getUnits()) {
+                                        // combinatation fo HolderCompanyAccount and HolderBondAccountId to retrieve a particular HolderAccount Entity
+                                        // org.greenpole.hibernate.entity.HolderCompanyAccount bondAcctFrom = hcq.getHolderAccountByHolderId(unitTransferModel.getHolderAcctIdFrom());
+                                        // org.greenpole.hibernate.entity.BondOffer bondOfferEntity = hcq.getBondOfferByHolderId(unitTransferModel.getHolderId());
+                                        org.greenpole.hibernate.entity.BondOffer bondOfferEntity = new org.greenpole.hibernate.entity.BondOffer();
+                                        org.greenpole.hibernate.entity.HolderBondAccount bondAcctTo = new org.greenpole.hibernate.entity.HolderBondAccount();
+                                        if (bondAcctFrom.getBondUnits() < unitTransferModel.getUnits()) {
                                             logger.info("Insufficient unit of shares for transfer operation");
                                             res.setRetn(203);
                                             res.setDesc("Insufficient unit of shares for transfer operation");
                                         } else {
-                                            if ("".equals(compAcctTo.getChn()) || compAcctTo.getChn() == null) {
-                                                // create certificate
-                                                logger.info("Creating certificate for [{}]", unitTransferModel.getHolderAcctIdTo());
-                                                res.setRetn(0);
-                                                res.setDesc("Successful Persistence");
-                                            } else {
-                                                compAcctFrom.setRemainingPrincipalValue(compAcctFrom.getRemainingPrincipalValue() - unitTransferModel.getUnits());
-                                                compAcctTo.setRemainingPrincipalValue(compAcctTo.getRemainingPrincipalValue() + unitTransferModel.getUnits());
+                                            double principalValue = bondOfferEntity.getBondUnitPrice() * bondAcctFrom.getBondUnits();
+                                            // double principalValue = unitTransferModel.getUnitPrice() * compAcctFrom.getBondUnits();
 
-                                                hcq.createHolderCompanyAccount(compAcctFrom);
-                                                hcq.createHolderCompanyAccount(compAcctTo);
+                                            bondAcctFrom.setStartingPrincipalValue(bondAcctFrom.getStartingPrincipalValue() - principalValue);
+                                            bondAcctFrom.setRemainingPrincipalValue(bondAcctFrom.getRemainingPrincipalValue() - principalValue);
+                                            bondAcctFrom.setBondUnits(bondAcctFrom.getBondUnits() - unitTransferModel.getUnits());
+                                            
+                                            bondAcctTo.setStartingPrincipalValue(bondAcctTo.getStartingPrincipalValue() + principalValue);
+                                            bondAcctTo.setRemainingPrincipalValue(bondAcctTo.getRemainingPrincipalValue() + principalValue);
+                                            bondAcctTo.setBondUnits(bondAcctTo.getBondUnits() + unitTransferModel.getUnits());
 
-                                                logger.info("bonds unit of [{}] transfered to : [{}]", unitTransferModel.getUnits(), unitTransferModel.getHolderAcctIdTo());
-                                                res.setRetn(0);
-                                                res.setDesc("Successful Persistence");
-                                            }
+                                            hcq.createHolderCompanyAccount(bondAcctFrom);
+                                            hcq.createHolderCompanyAccount(bondAcctTo);
+
+                                            logger.info("bonds unit of [{}] transfered", unitTransferModel.getUnits());
+                                            res.setRetn(0);
+                                            res.setDesc("Successful Persistence");
                                         }
                                     } else {
-                                        // response description: have shares with client company
                                         res.setRetn(205);
-                                        res.setDesc("Holder to receive bonds has no account with client company");
-                                        logger.info("Holder to receive bonds has no account with client company");
+                                        res.setDesc("Holder to receive bonds has no bond account for the bond offer - create bond account");
+                                        logger.info("Holder to receive bonds has no bond account for the bond offer -  create bond account");
                                     }
-
                                 } else {
-                                    // create a certificate for the holder
-                                    res.setRetn(204);
-                                    res.setDesc("Create certificate for holder");
-                                    logger.info("Create certificate for holder");
+                                    // response description: have shares with client company
+                                    res.setRetn(205);
+                                    res.setDesc("Holder to receive bonds has no CHN");
+                                    logger.info("Holder to receive bonds has no CHN");
                                 }
+
+                            } else {
+                                res.setRetn(205);
+                                res.setDesc("Holder does not exist");
+                                logger.info("Holder does not exist");
                             }
                         } else {
-                            // response description: have shares with client company
                             res.setRetn(205);
-                            res.setDesc("Holder does not have bonds with client company");
-                            logger.info("Holder does not have bonds with client company");
+                            res.setDesc("Holder does not exist");
+                            logger.info("Holder does not exist");
                         }
-
                     } else {
-                        // create a certificate for the holder
-                        res.setRetn(204);
-                        res.setDesc("Create certificate for holder");
-                        logger.info("Create certificate for holder");
+                        // response description: have shares with client company
+                        res.setRetn(205);
+                        res.setDesc("Holder does not have bonds with client company");
+                        logger.info("Holder does not have bonds with client company");
                     }
+
                 } else {
-                    res.setRetn(203);
-                    res.setDesc("Holder to transfer shares does not exist in database");
-                    logger.info("Holder to transfer shares does not exist in database");
+                    // create a certificate for the holder
+                    res.setRetn(204);
+                    res.setDesc("Holder does not have CHN");
+                    logger.info("Holder does not have CHN");
                 }
             }
         } catch (JAXBException ex) {
