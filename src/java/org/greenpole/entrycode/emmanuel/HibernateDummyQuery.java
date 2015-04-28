@@ -84,6 +84,7 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
     /**
      * @param holderId
+     * @param clientCompanyId
      * @return 
     @Override
     public org.greenpole.hibernate.entity.HolderChanges getHolderEditedDetails(int holderId){
@@ -99,12 +100,11 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 */
     @Override
-    public HolderCompanyAccount retrieveHolderCompanyAccount(int holderId) {
+    public HolderCompanyAccount retrieveHolderCompanyAccount(int holderId, int clientCompanyId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    @Override
-    public HolderBondAccount retrieveHolderBondCompAccount(int holderId) {
+    public HolderBondAccount retrieveHolderBondCompAccount(int holderId, int bondId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     

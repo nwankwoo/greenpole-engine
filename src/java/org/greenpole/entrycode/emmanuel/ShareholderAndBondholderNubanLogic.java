@@ -44,7 +44,7 @@ public class ShareholderAndBondholderNubanLogic {
         try {
             //boolean nubanNumber = hd.checkHolderNubanNumber(holderCompAccount.getNubanAccount());
             org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(holderCompAccount.getHolderId());
-            logger.info("Create of NUBAN account number [{}] for holder [{}]", holderCompAccount.getNubanAccount(), holder.getFirstName() + " " + holder.getLastName());
+            logger.info("Create of NUBAN account number for holder [{}]", holder.getFirstName() + " " + holder.getLastName());
             if (holderCompAccount.getNubanAccount().isEmpty()) {
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(ShareholderAndBondholderNubanLogic.class);
@@ -82,9 +82,10 @@ public class ShareholderAndBondholderNubanLogic {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderCompanyAccount> holderCompAccList = (List<HolderCompanyAccount>) wrapper.getModel();
             HolderCompanyAccount holderCompAcc = holderCompAccList.get(0);
-            org.greenpole.hibernate.entity.HolderCompanyAccount holderCompanyAccount = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+            org.greenpole.hibernate.entity.HolderCompanyAccount holderCompanyAccount = hd.retrieveHolderCompanyAccount(holderCompAcc.getHolderId(), holderCompAcc.getClientCompanyId());
             holderCompanyAccount.setNubanAccount(holderCompAcc.getNubanAccount());
             hd.createNubanAccount(holderCompanyAccount);
+            holderCompanyAccount.setId(holderCompanyAccount.getId());
             resp.setRetn(0);
             resp.setDesc("NUBAN number successfully created");
         } catch (JAXBException ex) {
@@ -103,7 +104,7 @@ public class ShareholderAndBondholderNubanLogic {
         try {
             //boolean nubanNumber = hd.checkHolderNubanNumber(holderBondAcc.getNubanAccount());
             org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(holderBondAcc.getHolderId());
-            logger.info("Creation of NUBAN account number [{}] for bond holder [{}] by user ", holderBondAcc.getNubanAccount(), holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+            logger.info("Creation of NUBAN account number for bond holder [{}] by user  [{}] ",  holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
             if (holderBondAcc.getNubanAccount().isEmpty()) {
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(ShareholderAndBondholderNubanLogic.class);
@@ -141,8 +142,9 @@ public class ShareholderAndBondholderNubanLogic {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderBondAccount> bondHolderList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondHolderModel = bondHolderList.get(0);
-            org.greenpole.hibernate.entity.HolderBondAccount bondHolder_hib = new org.greenpole.hibernate.entity.HolderBondAccount();
+            org.greenpole.hibernate.entity.HolderBondAccount bondHolder_hib = hd.retrieveHolderBondCompAccount(bondHolderModel.getHolderId(), bondHolderModel.getId());
             bondHolder_hib.setNubanAccount(bondHolderModel.getNubanAccount());
+            bondHolder_hib.setId(bondHolder_hib.getId());
             hd.createBondNubanAccount(bondHolder_hib);
             resp.setRetn(0);
             resp.setDesc("NUBAN number successfully created");
@@ -163,7 +165,7 @@ public class ShareholderAndBondholderNubanLogic {
              //boolean nubanNumber = false;
             //nubanNumber = hd.checkHolderNubanNumber(holderAccount.getNubanAccount());
             org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(holderCompAccount.getHolderId());
-            logger.info("Update of NUBAN account number [{}] for holder [{}] by [{}]", holderCompAccount.getNubanAccount(), holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+            logger.info("Update of NUBAN account for holder [{}] by [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
             if (!holderCompAccount.getNubanAccount().isEmpty()) {
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(ShareholderAndBondholderNubanLogic.class);
@@ -173,7 +175,7 @@ public class ShareholderAndBondholderNubanLogic {
 
                 holderAccountList.add(holderCompAccount);
                 wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Authenticate change of NUBAN account number " + holderCompAccount.getNubanAccount() + " for holder" + holder.getFirstName() + " " + holder.getLastName() + " by user " + login.getUserId());
+                wrapper.setDescription("Authenticate change of NUBAN account number " + " for holder" + holder.getFirstName() + " " + holder.getLastName() + " by user " + login.getUserId());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
@@ -209,12 +211,10 @@ public class ShareholderAndBondholderNubanLogic {
             List<HolderCompanyAccount> HolderList = (List<HolderCompanyAccount>) wrapper.getModel();
             HolderCompanyAccount holderCompAcct = HolderList.get(0);
             if(!holderCompAcct.getNubanAccount().isEmpty()){
-            Holder holder = hd.retrieveHolderObject(holderCompAcct.getHolderId());
-            org.greenpole.hibernate.entity.HolderCompanyAccount hca = hd.retrieveHolderCompanyAccount(holderCompAcct.getHolderId());
-            org.greenpole.hibernate.entity.HolderCompanyAccount holderCompAcct_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-            holderCompAcct_hib.setId(hca.getId());
-            holderCompAcct_hib.setNubanAccount(holderCompAcct.getNubanAccount());
-            hd.changeShareholderNubanAccount(holderCompAcct_hib);
+            org.greenpole.hibernate.entity.HolderCompanyAccount hca = hd.retrieveHolderCompanyAccount(holderCompAcct.getHolderId(), holderCompAcct.getClientCompanyId());
+            hca.setId(hca.getId());
+            hca.setNubanAccount(holderCompAcct.getNubanAccount());
+            hd.changeShareholderNubanAccount(hca);
             resp.setRetn(0);
             resp.setDesc("NUBAN number successfully updated");
             return resp;
@@ -289,11 +289,10 @@ public class ShareholderAndBondholderNubanLogic {
             List<HolderBondAccount> bondHolderList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondHolderAcct = bondHolderList.get(0);
             if(!bondHolderAcct.getNubanAccount().isEmpty()){
-            org.greenpole.hibernate.entity.HolderBondAccount bondHolderAcct_hib = hd.retrieveHolderBondCompAccount(bondHolderAcct.getHolderId());
-            org.greenpole.hibernate.entity.HolderBondAccount holderBondAcc = new org.greenpole.hibernate.entity.HolderBondAccount();
-            holderBondAcc.setNubanAccount(bondHolderAcct.getNubanAccount());
-            holderBondAcc.setId(bondHolderAcct_hib.getId());
-            hd.changeBondholderNubanAccount(holderBondAcc);
+            org.greenpole.hibernate.entity.HolderBondAccount bondHolderAcct_hib = hd.retrieveHolderBondCompAccount(bondHolderAcct.getHolderId(), bondHolderAcct.getId());
+            bondHolderAcct_hib.setNubanAccount(bondHolderAcct.getNubanAccount());
+            bondHolderAcct_hib.setId(bondHolderAcct_hib.getId());
+            hd.changeBondholderNubanAccount(bondHolderAcct_hib);
             logger.info("NUBAN number successfully changed");
             resp.setRetn(0);
             resp.setDesc("NUBAN number was successfully updated");

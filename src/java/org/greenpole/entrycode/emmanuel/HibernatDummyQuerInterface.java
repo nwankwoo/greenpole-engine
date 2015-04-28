@@ -74,6 +74,6 @@ public interface HibernatDummyQuerInterface {
 
    // public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryTwo(String changeType, String changeDate1, String changeDate2, int holderId);
 
-    public org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(int holderId);
-    public org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondCompAccount(int holderId);
+    public org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(int holderId, int clientCompanyId);
+    public org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondCompAccount(int holderId, int bondId);
 }
