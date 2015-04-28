@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
+import org.greenpole.entity.model.clientcompany.ShareQuotation;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
@@ -18,6 +19,7 @@ import org.greenpole.entrycode.emmanuel.model.AdministratorEmailAddress;
 import org.greenpole.entrycode.emmanuel.model.AdministratorPhoneNumber;
 import org.greenpole.entrycode.emmanuel.model.AdministratorResidentialAddress;
 import org.greenpole.entrycode.emmanuel.model.Holder;
+import org.greenpole.entrycode.emmanuel.model.InitialPublicOffer;
 import org.greenpole.hibernate.entity.AdministratorEmailAddressId;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumberId;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddressId;
@@ -93,7 +95,10 @@ public class InitialPublicOfferLogic {
         Response resp = new Response();
         logger.info("Initial Public Offer authorised - [{}]", notificationCode);
         try {
-            org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<InitialPublicOffer> ipoList = (List<InitialPublicOffer>) wrapper.getModel();
+            InitialPublicOffer ipoModel = ipoList.get(0);
+            org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = setUpInitialPublicOfferAfterAuthorization(ipoModel);
             cq.createInitialPublicOffer(ipo_hib);
             resp.setRetn(0);
             resp.setDesc("Initial Public Offer was Successfully created");
@@ -117,11 +122,9 @@ public class InitialPublicOfferLogic {
      * @return the hibernate entity object
      * @throws JAXBException
      */
-    private void setUpInitialPublicOfferAfterAuthorization(String notificationCode) throws JAXBException {
-        NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+    private org.greenpole.hibernate.entity.InitialPublicOffer setUpInitialPublicOfferAfterAuthorization(InitialPublicOffer ipoModel) throws JAXBException {
         org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
-        InitialPublicOffer ipoModel = (InitialPublicOffer) wrapper.getModel();
-        ipo_hib.setClientCompany(ipoModel.getClientCompany());
+        ipo_hib.setId(ipoModel.getClientCompany().getId());
         ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer());
         ipo_hib.setMethodOnOffer(ipoModel.getMethodOnOffer());
         ipo_hib.setStartingMinSub(ipoModel.getStartingMinSub());
@@ -130,6 +133,7 @@ public class InitialPublicOfferLogic {
         ipo_hib.setOfferSize(ipoModel.getOfferPrice() * ipoModel.getTotalSharesOnOffer());
         ipo_hib.setOpeningDate(ipoModel.getOpeningDate());
         ipo_hib.setClosingDate(ipoModel.getClosingDate());
+        return ipo_hib;
     }
 
     /**
@@ -144,7 +148,7 @@ public class InitialPublicOfferLogic {
         ShareQuotation shareQuotation_model = new ShareQuotation();
         try {
             for (org.greenpole.hibernate.entity.ShareQuotation share_hib : list) {
-                shareQuotation_model.setId(share_hib.getId());
+                shareQuotation_model.setClientCompanyId(share_hib.getId());
                 shareQuotation_model.setUnitPrice(share_hib.getUnitPrice());
                 share.add(shareQuotation_model);
             }
