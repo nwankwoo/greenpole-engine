@@ -30,7 +30,9 @@ import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderPhoneNumber;
 import org.greenpole.hibernate.entity.HolderPostalAddress;
 import org.greenpole.hibernate.entity.HolderResidentialAddress;
+import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
+import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.hibernate.query.impl.HolderComponentQueryImpl;
 import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Notification;
@@ -46,6 +48,7 @@ import org.slf4j.LoggerFactory;
 public class HolderComponent {
 
     private final HolderComponentQuery hcq;
+    private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private static final Logger logger = LoggerFactory.getLogger(HolderComponent.class);
 
     public HolderComponent() {
@@ -408,55 +411,99 @@ public class HolderComponent {
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
-        // NOTE: check if statement again!
-        if (transfer.getClientCompanyIdFrom() == transfer.getClieintCompanyIdTo()) {
-            wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(HolderComponent.class);
-            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
-            List<UnitTransfer> transferObj = new ArrayList<>();
-            // List<org.greenpole.entity.model.holder.Holder> holderList = new ArrayList<>();            
-            transferObj.add(transfer);
+        boolean holderFromExist;
+        boolean holderToExist;
+        boolean chkCCExist;
+        boolean chkHCAcctFrom;
+        org.greenpole.hibernate.entity.Holder fromHolderEntity;
+        org.greenpole.hibernate.entity.Holder toHolder;
+        org.greenpole.hibernate.entity.ClientCompany ccEntity;
+        org.greenpole.hibernate.entity.HolderCompanyAccount hCompAcctFrom;
 
-            wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription("Authenticate " + transfer.getUnits() + " share transfer request for, " + transfer.getHolderIdFrom() + " " + transfer.getHolderIdTo());
-            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-            wrapper.setFrom(login.getUserId());
-            wrapper.setTo(authenticator);
-            wrapper.setModel(transferObj);
-            res = queue.sendAuthorisationRequest(wrapper);
-            logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+        // boolean holderFromExist = hcq.checkHolderByHolderId(transfer.getHolderIdFrom());        
+        holderFromExist = true;
+        if (holderFromExist) {
+            // org.greenpole.hibernate.entity.Holder fromHolderEntity = hcq.getHolderByHolderId(transfer.getHolderIdFrom());
+            fromHolderEntity = new org.greenpole.hibernate.entity.Holder();
+            // check if client company exists
+            chkCCExist = cq.checkClientCompany(transfer.getClientCompanyIdFrom());
+            if (chkCCExist) {
+                ccEntity = cq.getClientCompany(transfer.getClientCompanyIdFrom());
+                // check for holder company account details for a particular holder and client company
+                // chkHCAcctFrom = hcq.checkHolderCompanyAccount(ccEntity.getId(), fromHolder.getId());
+                chkHCAcctFrom = true;
+                if (chkHCAcctFrom) {
+                    // get holder company account details for a particular holder and client company
+                    // org.greenpole.hibernate.entity.HolderCompanyAccount hCompAcctFrom = getHolderCompanyAccount(ccEntity.getId(), fromHolder.getId());
+                    hCompAcctFrom = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                    // check if share units is sufficient
+                    if (hCompAcctFrom.getShareUnits() < transfer.getUnits()) {
+                        // check if toHolder exists else send message to create holder
+                        // boolean holderToExist = hcq.checkHolderByHolderId(unitTransferModel.getHolderIdFrom());
+                        holderToExist = true;
+                        if (holderToExist) {
+                            // org.greenpole.hibernate.entity.Holder toHolder = hcq.getHolderByHolderId(transfer.getHolderIdFrom());
+                            toHolder = new org.greenpole.hibernate.entity.Holder();
+                            // check for CHN
+                            if (!"".equals(toHolder.getChn()) || toHolder.getChn() != null) {
+                                wrapper = new NotificationWrapper();
+                                prop = new NotifierProperties(HolderComponent.class);
+                                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                                List<UnitTransfer> transferObj = new ArrayList<>();
+                                // List<org.greenpole.entity.model.holder.Holder> holderList = new ArrayList<>();            
+                                transferObj.add(transfer);
+                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setDescription("Authenticate " + transfer.getUnits() + " share transfer request for, " + transfer.getHolderIdFrom() + " " + transfer.getHolderIdTo());
+                                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                wrapper.setFrom(login.getUserId());
+                                wrapper.setTo(authenticator);
+                                wrapper.setModel(transferObj);
+                                res = queue.sendAuthorisationRequest(wrapper);
+                                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+                            } else {
+                                res.setRetn(202);
+                                res.setDesc("Holder does not have CHN - Action: create certificate");
+                                logger.info("Holder does not have CHN - Action: create certificate");
+                            }
+                        } else {
+                            res.setRetn(202);
+                            res.setDesc("Create holder account for share unit transfer recipient");
+                            logger.info("Create holder account for share unit transfer recipient");
+                        }
+                    } else {
+                        res.setRetn(202);
+                        res.setDesc("Insufficient share unit for transfer");
+                        logger.info("Insufficient share unit for transfer");
+                    }
+                } else {
+                    res.setRetn(202);
+                    res.setDesc("Create holder company account");
+                    logger.info("Create holder company account");
+                }
+            } else {
+                res.setRetn(202);
+                res.setDesc("Cleint company does not exist - Action: Create client company");
+                logger.info("Cleint company does not exist - Action: Create client company");
+            }
         } else {
             res.setRetn(202);
-            res.setDesc("Source and destination company accounts types are not the same");
-            logger.info("Source and destination company accounts types are not the same");
+            res.setDesc("Holder does not exist - Action: create holder");
+            logger.info("Holder does not exist - Action: create holder");
         }
         return res;
     }
 
     public Response shareUnitTransfer_Authorise(Login login, String notificationCode) {
-        logger.info("share transfer authorisation reequest", login.getUserId());
+        logger.info("share transfer authorisation request", login.getUserId());
         Response res = new Response();
         logger.info("Holder creation authorised - [{}]", notificationCode);
-
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
             UnitTransfer unitTransferModel = transferList.get(0);
-            // TODO: 
-            // 1. check first if the holder exists THEN check if the holderAccount exist for both parties
-            // 2. create method to retrieve HolderCompanyAccount ENTITY using holder company account id as parameter
-            // 3. catch for empty list of result
-            // SCENARIO:
-            // 3. from and to have holder id AND company account id
-            // 2. from and/or to have holder id BUT no company account for a PARTICULAR company e.g. UBA Capital
-            //      thus create company account from existing CHN in holder details and transfer
-            // 1. from and/or to have holder id BUT no CHN
-            //      thus create certificate
-
             // check transfer type
-            if ("shares".equals(unitTransferModel.getTransferType().toLowerCase())) {
+            if (!"shares".equals(unitTransferModel.getTransferType().toLowerCase())) {
                 res.setRetn(202);
                 res.setDesc("Transfer type should be shares");
                 logger.info("Transfer type should be shares");
@@ -477,7 +524,6 @@ public class HolderComponent {
                             // combinatation fo HolderCompanyAccount and HolderCompanyAccountId to retrieve a particular HolderAccount Entity
                             // org.greenpole.hibernate.entity.HolderCompanyAccount compAcctFrom = hcq.getHolderAccountByHolderId(unitTransferModel.getHolderAcctIdFrom());
                             org.greenpole.hibernate.entity.HolderCompanyAccount compAcctFrom = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-
                             boolean holderToExist = true;
                             if (holderToExist) {
                                 // check if holder has (any) CHN
@@ -494,23 +540,20 @@ public class HolderComponent {
                                         org.greenpole.hibernate.entity.HolderCompanyAccount compAcctTo = new org.greenpole.hibernate.entity.HolderCompanyAccount();
                                         if (compAcctFrom.getShareUnits() < unitTransferModel.getUnits()) {
                                             logger.info("Insufficient unit of shares for transfer operation");
-                                            res.setRetn(203);
+                                            res.setRetn(202);
                                             res.setDesc("Insufficient unit of shares for transfer operation");
                                         } else {
                                             compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
                                             compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
-
                                             hcq.createHolderCompanyAccount(compAcctFrom);
                                             hcq.createHolderCompanyAccount(compAcctTo);
-
                                             logger.info("share unit of [{}] transfered", unitTransferModel.getUnits());
                                             res.setRetn(0);
                                             res.setDesc("Successful Persistence");
-
                                         }
                                     } else {
                                         // response description: have shares with client company
-                                        res.setRetn(205);
+                                        res.setRetn(206);
                                         res.setDesc("Holder to receive shares does not have shares with client company");
                                         logger.info("Holder to receive shares does not have shares with client company");
                                     }
@@ -544,7 +587,6 @@ public class HolderComponent {
         } catch (JAXBException ex) {
             // TODO: catch other types of exception
             // catch ArrayIndexOutOfBoundException for an empty list
-            // 
             res.setRetn(100);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
@@ -559,34 +601,78 @@ public class HolderComponent {
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
-        // NOTE: check if statement again!
-        if (transfer.getClientCompanyIdFrom() == transfer.getClieintCompanyIdTo()) {
 
-            wrapper = new NotificationWrapper();
-            prop
-                    = new NotifierProperties(HolderComponent.class
-                    );
-            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+        boolean holderToExist;
+        boolean holderFromExist;
+        boolean chkHBAcctFrom;
+        org.greenpole.hibernate.entity.Holder holderEntityTo;
+        org.greenpole.hibernate.entity.Holder holderEntityFrom;
+        org.greenpole.hibernate.entity.HolderBondAccount hbaEntity;
+        // check if fromHolder exists
+        // boolean holderFromExist = hcq.checkHolderByHolderId(transfer.getHolderIdFrom());        
+        holderFromExist = true;
+        if (holderFromExist) {
+            // get holder entity
+            // holderEntityFrom = hcq.getHolderEntity(transfer.getHolderIdTo());
+            holderEntityFrom = new org.greenpole.hibernate.entity.Holder();
+            // check for CHN
+            if (!"".equals(holderEntityFrom.getChn()) || holderEntityFrom.getChn() != null) {
+                // check bond account 
+                // chkHBAcctFrom = hcq.checkHolderBondAccount(holderEntityFrom.getId(), transfer.getBondOfferId());
+                chkHBAcctFrom = true;
+                if (chkHBAcctFrom) {
+                    // hbaEntity = hcq.getHolderBondAccount(holderEntityFrom.getId(), transfer.getBondOfferId());
+                    hbaEntity = new org.greenpole.hibernate.entity.HolderBondAccount();
+                    // check for toHolder entity// get holder entity
+                    // boolean holderFromExist = hcq.checkHolderByHolderId(transfer.getHolderIdFrom());        
+                    holderToExist = true;
+                    if (holderToExist) {
+                        // holderEntityFrom = hcq.getHolderEntity(transfer.getHolderIdTo());
+                        holderEntityTo = new org.greenpole.hibernate.entity.Holder();
+                        // check for CHN
+                        if (!"".equals(holderEntityTo.getChn()) || holderEntityTo.getChn() != null) {
+                            wrapper = new NotificationWrapper();
+                            prop = new NotifierProperties(HolderComponent.class);
+                            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
-            List<UnitTransfer> transferObj = new ArrayList<>();
+                            List<UnitTransfer> transferObj = new ArrayList<>();
 
-            transferObj.add(transfer);
+                            transferObj.add(transfer);
 
-            wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription("Authenticate " + transfer.getUnits() + " bond unit transfer request for, " + transfer.getHolderIdFrom() + " " + transfer.getHolderIdTo());
-            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-            wrapper.setFrom(login.getUserId());
-            wrapper.setTo(authenticator);
+                            wrapper.setCode(Notification.createCode(login));
+                            wrapper.setDescription("Authenticate " + transfer.getUnits() + " bond unit transfer request for, " + transfer.getHolderIdFrom() + " " + transfer.getHolderIdTo());
+                            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                            wrapper.setFrom(login.getUserId());
+                            wrapper.setTo(authenticator);
 
-            wrapper.setModel(transferObj);
-            res = queue.sendAuthorisationRequest(wrapper);
+                            wrapper.setModel(transferObj);
+                            res = queue.sendAuthorisationRequest(wrapper);
 
-            logger.info(
-                    "notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+                            logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+                        } else {
+                            res.setRetn(204);
+                            res.setDesc("Holder does not have CHN - transaction terminated");
+                            logger.info("Holder does not have CHN - transaction terminated");
+                        }
+                    } else {
+                        res.setRetn(203);
+                        res.setDesc("Holder does not exist - Action: create holder");
+                        logger.info("Holder does not exist - Action: create holder");
+                    }
+                } else {
+                    res.setRetn(205);
+                    res.setDesc("Bond offer not available - transaction terminated");
+                    logger.info("Bond offer not available - transaction terminated");
+                }
+            } else {
+                res.setRetn(204);
+                res.setDesc("Holder does not have CHN - transaction terminated");
+                logger.info("Holder does not have CHN - transaction terminated");
+            }
         } else {
-            res.setRetn(202);
-            res.setDesc("Source and destination company accounts are not the same");
-            logger.info("Source and destination company accounts are not the same");
+            res.setRetn(203);
+            res.setDesc("Holder does not exist - Action: create holder");
+            logger.info("Holder does not exist - Action: create holder");
         }
         return res;
     }
@@ -601,17 +687,6 @@ public class HolderComponent {
 
             List<UnitTransfer> bondTransferList = (List<UnitTransfer>) wrapper.getModel();
             UnitTransfer unitTransferModel = bondTransferList.get(0);
-            // TODO: 
-            // 1. check first if the holder exists THEN check if the holderAccount exist for both parties
-            // 2. create method to retrieve HolderBondAccount ENTITY using holder company account id as parameter
-            // 3. catch for empty list of result
-            // SCENARIO:
-            // 3. from and to have holder id AND company account id
-            // 2. from and/or to have holder id BUT no bond account for a PARTICULAR bond offer
-            //      thus create bond account from existing CHN in holder details and transfer
-            // 1. from and/or to have holder id BUT no CHN
-            //      thus create bond account
-
             // check transfer type
             if ("bonds".equals(unitTransferModel.getTransferType().toLowerCase())) {
                 res.setRetn(202);
@@ -662,7 +737,7 @@ public class HolderComponent {
                                             bondAcctFrom.setStartingPrincipalValue(bondAcctFrom.getStartingPrincipalValue() - principalValue);
                                             bondAcctFrom.setRemainingPrincipalValue(bondAcctFrom.getRemainingPrincipalValue() - principalValue);
                                             bondAcctFrom.setBondUnits(bondAcctFrom.getBondUnits() - unitTransferModel.getUnits());
-                                            
+
                                             bondAcctTo.setStartingPrincipalValue(bondAcctTo.getStartingPrincipalValue() + principalValue);
                                             bondAcctTo.setRemainingPrincipalValue(bondAcctTo.getRemainingPrincipalValue() + principalValue);
                                             bondAcctTo.setBondUnits(bondAcctTo.getBondUnits() + unitTransferModel.getUnits());
@@ -846,4 +921,5 @@ public class HolderComponent {
         }
         return (HolderBondAccount) returnBondAccountList;
     }
+
 }
