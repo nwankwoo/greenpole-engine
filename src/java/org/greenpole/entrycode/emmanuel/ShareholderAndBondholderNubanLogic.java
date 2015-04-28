@@ -16,8 +16,8 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
-import org.greenpole.entrycode.emmanuel.model.HolderChanges;
 import org.greenpole.entrycode.emmanuel.model.InitialPublicOffer;
+import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
@@ -81,9 +81,9 @@ public class ShareholderAndBondholderNubanLogic {
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderCompanyAccount> holderCompAccList = (List<HolderCompanyAccount>) wrapper.getModel();
-            HolderCompanyAccount holderModel = holderCompAccList.get(0);
+            HolderCompanyAccount holderCompAcc = holderCompAccList.get(0);
             org.greenpole.hibernate.entity.HolderCompanyAccount holderCompanyAccount = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-            holderCompanyAccount.setNubanAccount(holderModel.getNubanAccount());
+            holderCompanyAccount.setNubanAccount(holderCompAcc.getNubanAccount());
             hd.createNubanAccount(holderCompanyAccount);
             resp.setRetn(0);
             resp.setDesc("NUBAN number successfully created");
@@ -207,16 +207,23 @@ public class ShareholderAndBondholderNubanLogic {
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderCompanyAccount> HolderList = (List<HolderCompanyAccount>) wrapper.getModel();
-            HolderCompanyAccount HolderModel = HolderList.get(0);
-            org.greenpole.hibernate.entity.HolderCompanyAccount Holder_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-            Holder_hib.setNubanAccount(HolderModel.getNubanAccount());
-            hd.changeShareholderNubanAccount(Holder_hib);
+            HolderCompanyAccount holderCompAcct = HolderList.get(0);
+            if(!holderCompAcct.getNubanAccount().isEmpty()){
+            Holder holder = hd.retrieveHolderObject(holderCompAcct.getHolderId());
+            org.greenpole.hibernate.entity.HolderCompanyAccount hca = hd.retrieveHolderCompanyAccount(holderCompAcct.getHolderId());
+            org.greenpole.hibernate.entity.HolderCompanyAccount holderCompAcct_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+            holderCompAcct_hib.setId(hca.getId());
+            holderCompAcct_hib.setNubanAccount(holderCompAcct.getNubanAccount());
+            hd.changeShareholderNubanAccount(holderCompAcct_hib);
             resp.setRetn(0);
             resp.setDesc("NUBAN number successfully updated");
+            return resp;
+            }
         } catch (JAXBException ex) {
-            resp.setRetn(200);
+            resp.setRetn(300);
             resp.setDesc("NUBAN number was not updated due to error, please see error log");
             logger.error("Failed to update NUBAN number due to error: " + ex);
+            return resp;
         }
         return resp;
     }
@@ -256,7 +263,7 @@ public class ShareholderAndBondholderNubanLogic {
                 resp.setRetn(0);
                 resp.setDesc("Successful");
             } else {
-                resp.setRetn(200);
+                resp.setRetn(300);
                 resp.setDesc("Unable to change NUBAN account number for bond holder because holder hans no NUBAN account number");
             }
         } catch (Exception e) {
@@ -280,100 +287,29 @@ public class ShareholderAndBondholderNubanLogic {
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderBondAccount> bondHolderList = (List<HolderBondAccount>) wrapper.getModel();
-            HolderBondAccount bondHolderModel = bondHolderList.get(0);
-            org.greenpole.hibernate.entity.HolderBondAccount bondHolder_hib = new org.greenpole.hibernate.entity.HolderBondAccount();
-            bondHolder_hib.setNubanAccount(bondHolderModel.getNubanAccount());
-            hd.changeBondholderNubanAccount(bondHolder_hib);
+            HolderBondAccount bondHolderAcct = bondHolderList.get(0);
+            if(!bondHolderAcct.getNubanAccount().isEmpty()){
+            org.greenpole.hibernate.entity.HolderBondAccount bondHolderAcct_hib = hd.retrieveHolderBondCompAccount(bondHolderAcct.getHolderId());
+            org.greenpole.hibernate.entity.HolderBondAccount holderBondAcc = new org.greenpole.hibernate.entity.HolderBondAccount();
+            holderBondAcc.setNubanAccount(bondHolderAcct.getNubanAccount());
+            holderBondAcc.setId(bondHolderAcct_hib.getId());
+            hd.changeBondholderNubanAccount(holderBondAcc);
+            logger.info("NUBAN number successfully changed");
             resp.setRetn(0);
             resp.setDesc("NUBAN number was successfully updated");
+            return resp;
+            }
+            else{
+             logger.info("NUBAN number is empty");
+            resp.setRetn(300);
+            resp.setDesc("NUBAN number to update must not be empty");
+            return resp;
+            }
         } catch (JAXBException ex) {
             resp.setRetn(200);
             resp.setDesc("NUBAN number was not updated due to error, please see error log");
             logger.error("Failed to update NUBAN number due to error: " + ex);
         }
         return resp;
-    }
-
-    /**
-     * Processes retrieving of holder edited records
-     *
-     * @param holderChanges
-     * @return the response object
-     */
-    public Response viewReportOnHolderAccountEditing(HolderChanges holderChanges) {
-        Response resp = new Response();
-        org.greenpole.hibernate.entity.HolderChanges holderChanges_hib = getHolderDetails(holderChanges);
-        List<org.greenpole.hibernate.entity.HolderChanges> holderChangeList = new ArrayList();
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
-        
-        try {
-            Date convertedModelChangeDate = formatter.parse(holderChanges.getChangeDate());
-            if (holderChanges.getChangeType().equalsIgnoreCase("Change of name") && holderChanges.getChangeDate().equalsIgnoreCase(formatter.format(holderChanges_hib.getChangeDate()))) {
-            holderChanges_hib = hd.retrieveHolderChangesQueryOne(holderChanges.getChangeType(), holderChanges.getChangeDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-            else if(holderChanges.getChangeType().equalsIgnoreCase("Change of name") && holderChanges.getFromDate().endsWith(formatter.format(holderChanges_hib.getChangeDate())) && holderChanges.getToDate().endsWith(formatter.format(holderChanges_hib.getChangeDate()))){
-            holderChanges_hib = hd.retrieveHolderChangesQueryTwo(holderChanges.getChangeType(), holderChanges.getFromDate(), holderChanges.getToDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-            else if(holderChanges.getChangeType().endsWith("Change of name") && convertedModelChangeDate.before(holderChanges_hib.getChangeDate())){
-             holderChanges_hib = hd.retrieveHolderChangesQueryOne(holderChanges.getChangeType(), holderChanges.getChangeDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-            else if(holderChanges.getChangeType().endsWith("Change of name") && convertedModelChangeDate.after(holderChanges_hib.getChangeDate())){
-             holderChanges_hib = hd.retrieveHolderChangesQueryOne(holderChanges.getChangeType(), holderChanges.getChangeDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-            else if(holderChanges.getChangeType().equalsIgnoreCase("Correction of name") && holderChanges.getChangeDate().equalsIgnoreCase(formatter.format(holderChanges_hib.getChangeDate()))){
-            holderChanges_hib = hd.retrieveHolderChangesQueryOne(holderChanges.getChangeType(), holderChanges.getChangeDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-            else if(holderChanges.getChangeType().equalsIgnoreCase("Correction of name") && holderChanges.getFromDate().endsWith(formatter.format(holderChanges_hib.getChangeDate())) && holderChanges.getToDate().endsWith(formatter.format(holderChanges_hib.getChangeDate()))){
-            holderChanges_hib = hd.retrieveHolderChangesQueryTwo(holderChanges.getChangeType(), holderChanges.getFromDate(), holderChanges.getToDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-            else if(holderChanges.getChangeType().equalsIgnoreCase("Change of address") && holderChanges.getChangeDate().equalsIgnoreCase(formatter.format(holderChanges_hib.getChangeDate()))) {
-            holderChanges_hib = hd.retrieveHolderChangesQueryOne(holderChanges.getChangeType(), holderChanges.getChangeDate(), holderChanges.getHolder().getId());
-            holderChanges.setCurrentForm(holderChanges_hib.getCurrentForm());
-            holderChanges.setInitialForm(holderChanges_hib.getInitialForm());
-            holderChangeList.add(holderChanges_hib);
-            resp.setBody(holderChangeList);
-            }
-        } catch (Exception ex) {
-            resp.setRetn(200);
-            resp.setDesc("Edited Records not found");
-        }
-        return resp;
-    }
-
-    /**
-     * retrieves the edited records of a particular holder using the search
-     * criteria's specified
-     *
-     * @param holderChanges
-     * @return holderChange_hib the hibernate entity object of the edited record
-     */
-    
-    public org.greenpole.hibernate.entity.HolderChanges getHolderDetails(HolderChanges holderChanges) {
-        org.greenpole.hibernate.entity.HolderChanges holderChange_hib = hd.getHolderEditedDetails(holderChanges.getHolder().getId());
-        return holderChange_hib;
     }
 }

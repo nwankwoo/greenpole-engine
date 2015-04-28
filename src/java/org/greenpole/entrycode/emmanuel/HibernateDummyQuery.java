@@ -82,6 +82,9 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount){
     
     }
+    /**
+     * @param holderId
+     * @return 
     @Override
     public org.greenpole.hibernate.entity.HolderChanges getHolderEditedDetails(int holderId){
     return null;
@@ -94,4 +97,15 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryTwo(String changeType, String changeDate1, String changeDate2, int holderId){
     return null;
     }
+*/
+    @Override
+    public HolderCompanyAccount retrieveHolderCompanyAccount(int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public HolderBondAccount retrieveHolderBondCompAccount(int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
 }
