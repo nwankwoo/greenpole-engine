@@ -483,6 +483,7 @@ public class HolderComponent {
         logger.info("share transfer authorisation request", login.getUserId());
         Response res = new Response();
         logger.info("Holder creation authorised - [{}]", notificationCode);
+        boolean compAcct;
         org.greenpole.hibernate.entity.HolderCompanyAccount compAcctFrom;
         org.greenpole.hibernate.entity.HolderCompanyAccount compAcctTo;
         try {
@@ -498,27 +499,36 @@ public class HolderComponent {
                     // boolean holderToExist = hcq.checkHolderByHolderId(unitTransferModel.getHolderIdFrom());
                     boolean holderToExist = true;
                     if (holderToExist) {
-                        // org.greenpole.hibernate.entity.HolderCompanyAccount compAcctFrom = hcq.getHolderAccountByHolderId(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
-                        compAcctTo = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-                        if (!"".equals(compAcctTo.getChn()) || compAcctTo.getChn() != null) {
-                            if (compAcctFrom.getShareUnits() < unitTransferModel.getUnits()) {
-                                logger.info("Insufficient unit of shares for transfer operation");
-                                res.setRetn(202);
-                                res.setDesc("Insufficient unit of shares for transfer operation");
+                        // compAcct = hcq.checkHolderCompAccount(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
+                        compAcct = true;
+                        if (compAcct) {
+                            // compAcctFrom = hcq.getHolderCompanyAccount(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
+                            compAcctTo = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                            if (!"".equals(compAcctTo.getChn()) || compAcctTo.getChn() != null) {
+                                if (compAcctFrom.getShareUnits() < unitTransferModel.getUnits()) {
+                                    logger.info("Insufficient unit of shares for transfer operation");
+                                    res.setRetn(202);
+                                    res.setDesc("Insufficient unit of shares for transfer operation");
+                                } else {
+                                    compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
+                                    compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
+                                    hcq.createHolderCompanyAccount(compAcctFrom);
+                                    hcq.createHolderCompanyAccount(compAcctTo);
+                                    logger.info("share unit of [{}] transfered", unitTransferModel.getUnits());
+                                    res.setRetn(0);
+                                    res.setDesc("Successful Persistence");
+                                }
                             } else {
-                                compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
-                                compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
-                                hcq.createHolderCompanyAccount(compAcctFrom);
-                                hcq.createHolderCompanyAccount(compAcctTo);
-                                logger.info("share unit of [{}] transfered", unitTransferModel.getUnits());
-                                res.setRetn(0);
-                                res.setDesc("Successful Persistence");
+                                res.setRetn(204);
+                                res.setDesc("CHN not available - Certificate for holder created");
+                                logger.info("CHN not available - Certificate for holder created");
                             }
                         } else {
-                            res.setRetn(204);
-                            res.setDesc("CHN not available - Certificate for holder created");
-                            logger.info("CHN not available - Certificate for holder created");
+                            res.setRetn(203);
+                            res.setDesc("Holder does not have shares with client company");
+                            logger.info("Holder does not have shares with client company");
                         }
+
                     } else {
                         res.setRetn(203);
                         res.setDesc("Holder does not exist in database");
@@ -656,7 +666,7 @@ public class HolderComponent {
                             res.setRetn(203);
                             res.setDesc("Insufficient unit of shares for transfer operation");
                         } else {
-                            double principalValue =  unitTransferModel.getUnitPrice() * bondAcctFrom.getBondUnits();
+                            double principalValue = unitTransferModel.getUnitPrice() * bondAcctFrom.getBondUnits();
                             bondAcctFrom.setStartingPrincipalValue(bondAcctFrom.getStartingPrincipalValue() - principalValue);
                             bondAcctFrom.setRemainingPrincipalValue(bondAcctFrom.getRemainingPrincipalValue() - principalValue);
                             bondAcctFrom.setBondUnits(bondAcctFrom.getBondUnits() - unitTransferModel.getUnits());
