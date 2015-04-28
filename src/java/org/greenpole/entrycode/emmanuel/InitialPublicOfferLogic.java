@@ -148,7 +148,7 @@ public class InitialPublicOfferLogic {
         ShareQuotation shareQuotation_model = new ShareQuotation();
         try {
             for (org.greenpole.hibernate.entity.ShareQuotation share_hib : list) {
-                shareQuotation_model.setClientCompanyId(share_hib.getId());
+                shareQuotation_model.setId(share_hib.getClientCompany().getId());
                 shareQuotation_model.setUnitPrice(share_hib.getUnitPrice());
                 share.add(shareQuotation_model);
             }

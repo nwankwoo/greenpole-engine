@@ -6,6 +6,7 @@
 package org.greenpole.entrycode.emmanuel;
 
 import java.util.List;
+import org.greenpole.entrycode.emmanuel.model.HolderChanges;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
 import org.greenpole.hibernate.entity.Administrator;
@@ -13,7 +14,6 @@ import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
 import org.greenpole.hibernate.entity.HolderBondAccount;
-import org.greenpole.hibernate.entity.HolderChanges;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 
 /**
@@ -53,7 +53,7 @@ public interface HibernatDummyQuerInterface {
      */
     public void uploadPowerOfAttorney(PowerOfAttorney power);
 
-    public String checkHolderNubanNumber(String nubanAccount);
+    public boolean checkHolderNubanNumber(String nubanAccount);
 
     public List getAllShareholderNubanAccounts();
 
@@ -68,6 +68,7 @@ public interface HibernatDummyQuerInterface {
     public void changeShareholderNubanAccount(HolderCompanyAccount holderAccount);
 
     public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount);
-
-    public HolderChanges retrieveHolderDetails(String changeType, String criteria, int holderId);
+    public org.greenpole.hibernate.entity.HolderChanges getHolderEditedDetails(int holderId);
+    public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryOne(String changeType, String changeDate, int holderId);
+    public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryTwo(String changeType, String changeDate1, String changeDate2, int holderId);
 }
