@@ -52,7 +52,7 @@ public class InitialPublicOfferLogic {
      * @param cc the client company under which the IPO is to be set
      * @return response to the initial public offer request
      */
-    public Response setUpInitialPoblicOffer(InitialPublicOffer ipo, Login login, String authenticator, ClientCompany cc) {
+    public Response setUpInitialPoblicOffer_request(InitialPublicOffer ipo, Login login, String authenticator, ClientCompany cc) {
         logger.info("request to set up an Initial Public Offer [{}] from [{}]", cc.getName(), login.getUserId());
         Response resp = new Response();
         NotificationWrapper wrapper;
@@ -148,7 +148,7 @@ public class InitialPublicOfferLogic {
         ShareQuotation shareQuotation_model = new ShareQuotation();
         try {
             for (org.greenpole.hibernate.entity.ShareQuotation share_hib : list) {
-                shareQuotation_model.setClientCompanyId(share_hib.getId());
+                shareQuotation_model.setId(share_hib.getClientCompany().getId());
                 shareQuotation_model.setUnitPrice(share_hib.getUnitPrice());
                 share.add(shareQuotation_model);
             }
