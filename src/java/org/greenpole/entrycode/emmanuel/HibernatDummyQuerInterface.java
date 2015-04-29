@@ -12,7 +12,8 @@ import org.greenpole.hibernate.entity.Administrator;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
-
+import org.greenpole.hibernate.entity.HolderBondAccount;
+import org.greenpole.hibernate.entity.HolderCompanyAccount;
 
 /**
  *
@@ -25,8 +26,8 @@ public interface HibernatDummyQuerInterface {
      * @param admin
      * @param emailAddress
      * @param phoneNumber
-     * @param residentialAddress 
-     * @param holder 
+     * @param residentialAddress
+     * @param holder
      */
     public void createAdministratorForShareHolderAndBondHolder(Administrator admin, List<AdministratorEmailAddress> emailAddress, List<AdministratorPhoneNumber> phoneNumber, List<AdministratorResidentialAddress> residentialAddress, List<Holder> holder);
 
@@ -35,15 +36,14 @@ public interface HibernatDummyQuerInterface {
     public void createPhoneNumber(AdministratorPhoneNumber phoneNumber);
 
     public void createAdministratorResidentialAddress(AdministratorResidentialAddress adminResidentialAddress);
-    
+
     //public boolean checkHolder(Holder holder);
-    
     /**
      *
      * @param holder
      */
-        
     public void updateAdministrationHolderCompanyAccount(org.greenpole.hibernate.entity.Holder holder);
+
     public Holder retrieveHolderObject(int holderId);
 
     /**
@@ -51,4 +51,29 @@ public interface HibernatDummyQuerInterface {
      * @param power
      */
     public void uploadPowerOfAttorney(PowerOfAttorney power);
+
+    public boolean checkHolderNubanNumber(String nubanAccount);
+
+    public List getAllShareholderNubanAccounts();
+
+    public List getAllBondholderNubanAccounts();
+
+    public void addShareholderNubanAccount();
+
+    public void createNubanAccount(HolderCompanyAccount holderAccount);
+
+    public void createBondNubanAccount(HolderBondAccount holderAccount);
+
+    public void changeShareholderNubanAccount(HolderCompanyAccount holderAccount);
+
+    public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount);
+
+    //public org.greenpole.hibernate.entity.HolderChanges getHolderEditedDetails(int holderId);
+
+    //public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryOne(String changeType, String changeDate, int holderId);
+
+   // public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryTwo(String changeType, String changeDate1, String changeDate2, int holderId);
+
+    public org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(int holderId, int clientCompanyId);
+    public org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondCompAccount(int holderId, int bondId);
 }
