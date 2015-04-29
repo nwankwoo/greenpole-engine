@@ -228,11 +228,11 @@ public class ClientCompanyComponentLogic {
      * Searches for a list of client companies according to query parameters.
      * @param login the user's login details
      * @param queryParams the query parameters
-     * @return the list of client companies according to the query parameters
+     * @return the response to the client company query request
      */
     public Response queryClientCompany_Request(Login login, QueryClientCompany queryParams) {
         Response resp = new Response();
-        logger.info("query client company, invoked by [{}]", login.getUserId());
+        logger.info("request to query client company, invoked by [{}]", login.getUserId());
         
         Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
         
@@ -406,11 +406,18 @@ public class ClientCompanyComponentLogic {
                 cc_model_out.add(c); //finally, add client company to list
             }
             
+            logger.info("client company query successful");
             resp.setRetn(0);
             resp.setDesc("Successful");
             resp.setBody(cc_model_out);
+            
+            return resp;
         }
         
+        logger.info("client company query unsuccessful");
+        resp.setRetn(210);
+        resp.setDesc("Unsuccessful client company query, due to incomplete descriptor. Contact system administrator");
+
         return resp;
     }
     
