@@ -8,8 +8,7 @@ package org.greenpole.entrycode.emmanuel;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FilenameFilter;
-import java.io.IOException;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -141,38 +140,45 @@ public class PowerOfAttorneyLogic {
 
     public Response getPowerOfAttorney_request(PowerOfAttorney attorneyPower) {
         Response resp = new Response();
-        BufferedImage image =null;
-        List<BufferedImage> imageList = new ArrayList();
+        //byte[] image = null;
+        //List<BufferedImage> imageList = new ArrayList();
+        SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
+        List<byte[]> signatureBody = new ArrayList<>();
         org.greenpole.hibernate.entity.PowerOfAttorney power_hib = new org.greenpole.hibernate.entity.PowerOfAttorney();
         try {
-
             org.greenpole.hibernate.entity.Holder hold = getPowerOfAttorney(attorneyPower.getHolder());
+            byte[] convertedSignature = readFile(power_hib.getSignaturePath());
+            signatureBody.add(convertedSignature);
             attorneyPower.setId(hold.getId());
             attorneyPower.setTitle(power_hib.getTitle());
             //attorneyPower.setPeriodType(power_hib.getPeriodType());
             attorneyPower.setType(power_hib.getType());
-            image = readImage(power_hib.getFilePath());
-            imageList.add(image);
-            resp.setBody(imageList);
+            attorneyPower.setStartDate(formatter.format(power_hib.getStartDate()));
+            attorneyPower.setEndDate(formatter.format(power_hib.getEndDate()));
+            attorneyPower.setId(power_hib.getId());
+            attorneyPower.setPrimaryPowerOfAttorney(power_hib.isPowerOfAttorneyPrimary());
+            attorneyPower.setSignatureFile(convertedSignature);
+            resp.setBody(signatureBody);
+            resp.setRetn(0);
+            resp.setDesc("Power of Attorney records found");
+            return resp;
         } catch (Exception ex) {
+            resp.setRetn(220);
+            resp.setDesc("No records found for power of attorney");
         }
-
         return resp;
     }
 
-    public BufferedImage readImage(String imagePath) throws IOException {
-        File dir = new File(imagePath);
-        String message = "";
-        BufferedImage img = null;
-        String[] extensions = new String[]{"gif", "jpg"};
-        for (String ext : extensions) {
-            if (dir.getName().endsWith("." + ext)) {
-                if (dir.isDirectory()) {
-                    //BufferedImage img = null;
-                    img = ImageIO.read(dir);
-                } 
-            } 
+    public byte[] readFile(String path) {
+        FileInputStream fileInputStream = null;
+        File file = new File(path);
+        byte[] signatureFile = new byte[(int) file.length()];
+        try {
+            fileInputStream = new FileInputStream(file);
+            fileInputStream.read(signatureFile);
+            fileInputStream.close();
+        } catch (Exception ex) {
         }
-        return img;
+        return signatureFile;
     }
 }
