@@ -5,10 +5,13 @@
  */
 package org.greenpole.entrycode.jeph.bondmodule;
 
+import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream;
 import java.util.Date;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
@@ -244,7 +247,7 @@ public class HolderComponent {
         NotifierProperties prop;
         boolean holderIdExist;
 
-        if (holderSign.getHolderId() > 0) {
+        if (holderSign.getHolderId() <= 0) {
             // holderIdExist = hcq.chkHolder(holderSign.getHolderId());
             holderIdExist = true;
             if (holderIdExist) {
@@ -263,7 +266,8 @@ public class HolderComponent {
                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
             } else {
                 res.setRetn(201);
-                res.setDesc("Error: Invalid Holder Id");
+                res.setDesc("Error: No signature exists for holder");
+                logger.info("Error: No signature exists for holder");
             }
 
         } else {
@@ -274,10 +278,48 @@ public class HolderComponent {
         return res;
     }
 
-    public Response queryHolderSignature_Authorise() {
+    public Response queryHolderSignature_Authorise(Login login, String notificationCode) {
+        logger.info("request authorisation to query holder signature: Login - [{}]", login.getUserId());
         Response res = new Response();
-
+        logger.info("Holder creation authorised - [{}]", notificationCode);
+        try {
+            logger.info("Holder creation authorised - [{}]", notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<org.greenpole.entrycode.jeph.models.HolderSignature> holdSignList = (List<org.greenpole.entrycode.jeph.models.HolderSignature>) wrapper.getModel();
+            // org.greenpole.hibernate.entity.HolderSignature holdSignEntity = hcq.getHolderSignature(holdSignList.get(0).getHolderId());
+            org.greenpole.hibernate.entity.HolderSignature holdSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
+            org.greenpole.entrycode.jeph.models.HolderSignature holderSignSend = new org.greenpole.entrycode.jeph.models.HolderSignature();
+            holderSignSend.setTitle(holdSignEntity.getTitle());
+            byte[] signatureImage = readSignatureFile(holdSignEntity.getSignaturePath());
+            holderSignSend.setSignImg(signatureImage);
+            holdSignList.clear();
+            holdSignList.add(holderSignSend);
+            res.setRetn(0);
+            res.setDesc("Holder signature details");
+            res.setBody(holdSignList);
+        } catch (JAXBException jbex) {
+        }
         return res;
+    }
+
+    public byte[] readSignatureFile(String signaturePath) {
+        ByteArrayOutputStream signByteOut = null;
+        byte[] signInByte = null;
+        try {
+            File signFile = new File(signaturePath);
+            BufferedImage signImg = ImageIO.read(signFile);
+            signByteOut = new ByteArrayOutputStream();
+            ImageIO.write(signImg, "jpg", signByteOut);
+            signByteOut.flush();
+            signInByte = signByteOut.toByteArray();
+        } catch (IOException ioe) {
+        } finally {
+            try {
+                signByteOut.close();
+            } catch (Exception e) {
+            }
+        }
+        return signInByte;
     }
 
     public Response createBondHolderAccount_Request(Login login, String authenticator, Holder hold) {
