@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.PhoneNumber;
@@ -116,7 +117,8 @@ public class HolderComponent {
 
             boolean created;
             // determine if residential address was set or postal address
-            if ("".equals(holdModel.getHolderResidentialAddresses().getAddressLine1()) || "".equals(holdModel.getHolderResidentialAddresses().getAddressLine2())) {
+            // if ("".equals(holdModel.getHolderResidentialAddresses().getAddressLine1()) || "".equals(holdModel.getHolderResidentialAddresses().getAddressLine2())) {
+            if (holdModel.getHolderResidentialAddresses().isEmpty()) {
                 created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, false), retrieveHolderPostalAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
             } else {
                 created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, false), retrieveHolderResidentialAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
@@ -146,7 +148,8 @@ public class HolderComponent {
         return res;
     }
 
-    public Response uploadHolderSignature_Request(Login login, String authenticator, HolderSignature holderSign, byte[] holderSignImage) {
+    public Response uploadHolderSignature_Request(Login login, String authenticator,
+            org.greenpole.entrycode.jeph.models.HolderSignature holderSign, byte[] holderSignImage) {
         logger.info("request to upload holder signature: Login - [{}]", login.getUserId());
 
         Response res = new Response();
@@ -160,23 +163,17 @@ public class HolderComponent {
 
         prop = new NotifierProperties(HolderComponent.class);
         queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-        // image size should not be larger than 2 megabytes = 2097152 bytes
-        // 1,048,576 bytes or 1,024 kilobytes is 1 megabytes
         if (holderSignImage.length <= 2097152) {
             try {
                 InputStream inputByteImage;
                 inputByteImage = new ByteArrayInputStream(holderSignImage);
                 BufferedImage byteToImage = ImageIO.read(inputByteImage);
-                // implement random number + time stamp as image name            
                 String signatureFileName = createSignatureFileName();
                 String filePath = signProp.getSignaturePath() + signatureFileName + ".jpg";
                 ImageIO.write(byteToImage, "jpg", new File(filePath));
-                // file path not yet specified . . .
                 holderSign.setSignaturePath(filePath);
-
-                List<HolderSignature> holderListSignature = new ArrayList<>();
+                List<org.greenpole.entrycode.jeph.models.HolderSignature> holderListSignature = new ArrayList<>();
                 holderListSignature.add(holderSign);
-
                 wrapper.setCode(Notification.createCode(login));
                 wrapper.setDescription("Authenticate creation of holder singature");
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
@@ -184,7 +181,6 @@ public class HolderComponent {
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holderListSignature);
                 res = queue.sendAuthorisationRequest(wrapper);
-
                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
 
             } catch (IOException ioex) {
@@ -208,17 +204,16 @@ public class HolderComponent {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<org.greenpole.entrycode.jeph.models.HolderSignature> holdSigntureList = (List<org.greenpole.entrycode.jeph.models.HolderSignature>) wrapper.getModel();
             org.greenpole.entrycode.jeph.models.HolderSignature holderSignModel = holdSigntureList.get(0);
+            // org.greenpole.hibernate.entity.HolderSignature holderSignEntity = hcq.getHolderSignature(holderSignModel.getHolderId());
             org.greenpole.hibernate.entity.HolderSignature holderSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
-
-            holderSignEntity.setHolderSignaturePrimary(holderSignModel.isHolderSignaturePrimary());
-            // HINT: 
-            // holderSignEntity.setTitle() to be implemented in entity
-            // holderSignEntity.setTitle(holderSignModel.getTitle());
-            holderSignEntity.setSignaturePath(holderSignModel.getSignaturePath());
-            // holderSignEntity.setHolder(holderSignModel);
-            // TODO:
-            // method createHolderSignature
-            // ch.createHolderSingature(holderSignEntity);            
+            holderSignEntity.setHolderSignaturePrimary(false);
+            // hcq.createOrUpdateHolderSingature(holderSignEntity);
+            // org.greenpole.hibernate.entity.HolderSignature holderSignEntity = hcq.getHolderSignature(holderSignModel.getHolderId());
+            org.greenpole.hibernate.entity.HolderSignature holderSignEntityUpdate = new org.greenpole.hibernate.entity.HolderSignature();
+            holderSignEntityUpdate.setHolderSignaturePrimary(true);
+            holderSignEntityUpdate.setTitle(holderSignModel.getTitle());
+            holderSignEntityUpdate.setSignaturePath(holderSignModel.getSignaturePath());
+            // hcq.createOrUpdateHolderSingature(holderSignEntityUpdate);            
             res.setRetn(0);
             res.setDesc("Successful Persistence - Holder Signature");
             return res;
@@ -235,6 +230,53 @@ public class HolderComponent {
             logger.info("error. See error log");
             logger.error("error - ", ex);
         }
+        return res;
+    }
+
+    public Response queryHolderSignature_Request(Login login, String authenticator,
+            org.greenpole.entrycode.jeph.models.HolderSignature holderSign) {
+        logger.info("request to query holder signature for [{}] : Login - [{}]", holderSign.getHolderId(), login.getUserId());
+
+        Response res = new Response();
+        NotificationWrapper wrapper;
+        SignatureProperties signProp;
+        QueueSender queue;
+        NotifierProperties prop;
+        boolean holderIdExist;
+
+        if (holderSign.getHolderId() > 0) {
+            // holderIdExist = hcq.chkHolder(holderSign.getHolderId());
+            holderIdExist = true;
+            if (holderIdExist) {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponent.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                List<org.greenpole.entrycode.jeph.models.HolderSignature> holderSignList = new ArrayList<>();
+                holderSignList.add(holderSign);
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate query for signature - Holder id: " + holderSign.getHolderId());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holderSignList);
+                res = queue.sendAuthorisationRequest(wrapper);
+                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+            } else {
+                res.setRetn(201);
+                res.setDesc("Error: Invalid Holder Id");
+            }
+
+        } else {
+            res.setRetn(200);
+            res.setDesc("Error: Holder Id should not be empty");
+        }
+
+        return res;
+    }
+
+    public Response queryHolderSignature_Authorise() {
+        Response res = new Response();
+
         return res;
     }
 
@@ -297,8 +339,8 @@ public class HolderComponent {
             holdEntity.setChn(holdModel.getChn());
 
             boolean created;
-            // determine if residential address was set or postal address
-            if ("".equals(holdModel.getHolderResidentialAddresses().getAddressLine1()) || "".equals(holdModel.getHolderResidentialAddresses().getAddressLine2())) {
+            // if ("".equals(holdModel.getHolderResidentialAddresses().getAddressLine1()) || "".equals(holdModel.getHolderResidentialAddresses().getAddressLine2())) {
+            if (holdModel.getHolderResidentialAddresses().isEmpty()) {
                 created = hcq.createHolderAccount(holdEntity, retrieveHolderBondAccount(holdModel, false), retrieveHolderPostalAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
             } else {
                 created = hcq.createHolderAccount(holdEntity, retrieveHolderBondAccount(holdModel, false), retrieveHolderResidentialAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
@@ -424,6 +466,9 @@ public class HolderComponent {
                 // hCompAcctFrom = getHolderCompanyAccount(transfer.getClientCompanyIdFrom(), transfer.getHolderIdFrom());
                 fromHCAcct = new org.greenpole.hibernate.entity.HolderCompanyAccount();
                 if (!"".equals(fromHolder.getChn()) || fromHolder.getChn() != null) {
+                    if ("".equals(fromHCAcct.getChn()) || fromHCAcct.getChn() == null) {
+                        fromHCAcct.setChn(fromHolder.getChn());
+                    }
                     if (fromHCAcct.getShareUnits() < transfer.getUnits()) {
                         // boolean holderToExist = hcq.checkHolderByHolderId(transfer.getHolderIdTo());
                         holderToExist = true;
@@ -478,8 +523,8 @@ public class HolderComponent {
             }
         } else {
             res.setRetn(202);
-            res.setDesc("Error: Holder does not exist - transaction terminated");
-            logger.info("Error: Holder does not exist - transaction terminated");
+            res.setDesc("Error: Holder transfering shares does not exist - transaction terminated");
+            logger.info("Error: Holder transfering shares does not exist - transaction terminated");
         }
         return res;
     }
@@ -494,6 +539,7 @@ public class HolderComponent {
         org.greenpole.hibernate.entity.HolderCompanyAccount compAcctTo;
         org.greenpole.hibernate.entity.Holder fromHolder;
         org.greenpole.hibernate.entity.Holder toHolder;
+        org.greenpole.entity.model.holder.Holder toHolderModel;
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
@@ -508,10 +554,7 @@ public class HolderComponent {
                 if (chkHCAcctFromExist) {
                     // compAcctFrom = hcq.getHolderCompanyAccount(unitTransferModel.getHolderIdFrom(), unitTransferModel.getClientCompanyIdFrom());
                     compAcctFrom = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-                    if (!"".equals(fromHolder.getChn()) || fromHolder.getChn() != null) {
-                        if ("".equals(compAcctFrom.getChn()) || compAcctFrom.getChn() == null) {
-                            compAcctFrom.setChn(fromHolder.getChn());
-                        }
+                    if (!"".equals(compAcctFrom.getChn()) || compAcctFrom.getChn() != null) { // W A T C H
                         // boolean holderToExist = hcq.checkHolderByHolderId(unitTransferModel.getHolderIdFrom());
                         boolean holderToExist = true;
                         if (holderToExist) {
@@ -538,7 +581,7 @@ public class HolderComponent {
                                         logger.info("share unit of [{}] transfered from holder id [{}] to holder id [{}]",
                                                 unitTransferModel.getUnits(), unitTransferModel.getHolderIdFrom(), unitTransferModel.getHolderIdTo());
                                         res.setRetn(0);
-                                        res.setDesc("Successful Persistence");
+                                        res.setDesc("Share units transfer operation successful");
                                     }
                                 } else {
                                     res.setRetn(204);
@@ -546,6 +589,40 @@ public class HolderComponent {
                                     logger.info("CHN not available - Certificate for holder created");
                                 }
                             } else {
+                                String resDesc = "";
+                                res.setDesc("Creating holder company account for holder " + unitTransferModel.getHolderIdTo());
+                                logger.info("Creating holder company account for holder [{}]", unitTransferModel.getHolderIdTo());
+                                toHolderModel = new org.greenpole.entity.model.holder.Holder(toHolder.getId(),
+                                        toHolder.getHolderAcctNumber(), toHolder.getChn(), toHolder.getFirstName(),
+                                        toHolder.getMiddleName(), toHolder.getLastName(), toHolder.getType(),
+                                        toHolder.getGender(), toHolder.getDob().toString(), false, false, true,
+                                        toHolder.getPryAddress(), (List) toHolder.getHolderPhoneNumbers(),
+                                        (List) toHolder.getHolderResidentialAddresses(),
+                                        (List) toHolder.getHolderCompanyAccounts(),
+                                        (List) toHolder.getHolderBondAccounts(),
+                                        (List) toHolder.getHolderPostalAddresses(),
+                                        (List) toHolder.getHolderEmailAddresses(),
+                                        (org.greenpole.entity.model.stockbroker.Stockbroker) toHolder.getStockbrokers());
+                                hcq.createHolderCompanyAccount(retrieveHolderCompanyAccount(toHolderModel, true));
+                                resDesc = res.getDesc();
+                                res.setDesc(resDesc + "\nHolder company account for holder " + unitTransferModel.getHolderIdTo() + " created");
+                                // compAcctTo = hcq.getHolderCompanyAccount(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
+                                compAcctTo = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                                if (compAcctFrom.getShareUnits() < unitTransferModel.getUnits()) {
+                                    logger.info("Insufficient unit of shares for transfer operation");
+                                    resDesc = res.getDesc();
+                                    res.setRetn(202);
+                                    res.setDesc(resDesc + "\nInsufficient unit of shares for transfer operation");
+                                } else {
+                                    compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
+                                    compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
+                                    hcq.createHolderCompanyAccount(compAcctFrom);
+                                    hcq.createHolderCompanyAccount(compAcctTo);
+                                    logger.info("share unit of [{}] transfered from holder id [{}] to holder id [{}]",
+                                            unitTransferModel.getUnits(), unitTransferModel.getHolderIdFrom(), unitTransferModel.getHolderIdTo());
+                                    res.setRetn(0);
+                                    res.setDesc(resDesc + "\nShare units transfer operation successful");
+                                }
                                 res.setRetn(203);
                                 res.setDesc("Error: Holder does not have a holder company account - create company account for holder");
                                 logger.info("Error: Holder does not have a holder company account - create company account for holder");
@@ -556,19 +633,98 @@ public class HolderComponent {
                             logger.info("Error: Holder does not exist - create holder account");
                         }
                     } else {
+//                        if (!"".equals(fromHolder.getChn()) || fromHolder.getChn() != null) {
+//                            compAcctFrom.setChn(fromHolder.getChn());
+//                            // boolean holderToExist = hcq.checkHolderByHolderId(unitTransferModel.getHolderIdFrom());
+//                            boolean holderToExist = true;
+//                            if (holderToExist) {
+//                                // toHolder = hcq.getHolder(unitTransferModel.getHolderIdTo());
+//                                toHolder = new org.greenpole.hibernate.entity.Holder();
+//                                // chkHCAcctToExist = hcq.checkHolderCompAccount(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
+//                                chkHCAcctToExist = true;
+//                                if (chkHCAcctToExist) {
+//                                    // compAcctTo = hcq.getHolderCompanyAccount(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
+//                                    compAcctTo = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+//                                    if (!"".equals(toHolder.getChn()) || toHolder.getChn() != null) {
+//                                        if ("".equals(compAcctTo.getChn()) || compAcctTo.getChn() == null) {
+//                                            compAcctTo.setChn(toHolder.getChn());
+//                                        }
+//                                        if (compAcctFrom.getShareUnits() < unitTransferModel.getUnits()) {
+//                                            logger.info("Insufficient unit of shares for transfer operation");
+//                                            res.setRetn(202);
+//                                            res.setDesc("Insufficient unit of shares for transfer operation");
+//                                        } else {
+//                                            compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
+//                                            compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
+//                                            hcq.createHolderCompanyAccount(compAcctFrom);
+//                                            hcq.createHolderCompanyAccount(compAcctTo);
+//                                            logger.info("share unit of [{}] transfered from holder id [{}] to holder id [{}]",
+//                                                    unitTransferModel.getUnits(), unitTransferModel.getHolderIdFrom(), unitTransferModel.getHolderIdTo());
+//                                            res.setRetn(0);
+//                                            res.setDesc("Share units transfer operation successful");
+//                                        }
+//                                    } else {
+//                                        res.setRetn(204);
+//                                        res.setDesc("CHN not available - Certificate for holder created");
+//                                        logger.info("CHN not available - Certificate for holder created");
+//                                    }
+//                                } else {
+//                                    String resDesc = "";
+//                                    res.setDesc("Creating holder company account for holder " + unitTransferModel.getHolderIdTo());
+//                                    logger.info("Creating holder company account for holder [{}]", unitTransferModel.getHolderIdTo());
+//                                    toHolderModel = new org.greenpole.entity.model.holder.Holder(toHolder.getId(),
+//                                            toHolder.getHolderAcctNumber(), toHolder.getChn(), toHolder.getFirstName(),
+//                                            toHolder.getMiddleName(), toHolder.getLastName(), toHolder.getType(),
+//                                            toHolder.getGender(), toHolder.getDob().toString(), false, false, true,
+//                                            toHolder.getPryAddress(), (List) toHolder.getHolderPhoneNumbers(),
+//                                            (List) toHolder.getHolderResidentialAddresses(),
+//                                            (List) toHolder.getHolderCompanyAccounts(),
+//                                            (List) toHolder.getHolderBondAccounts(),
+//                                            (List) toHolder.getHolderPostalAddresses(),
+//                                            (List) toHolder.getHolderEmailAddresses(),
+//                                            (org.greenpole.entity.model.stockbroker.Stockbroker) toHolder.getStockbrokers());
+//                                    hcq.createHolderCompanyAccount(retrieveHolderCompanyAccount(toHolderModel, true));
+//                                    // compAcctTo = hcq.getHolderCompanyAccount(unitTransferModel.getHolderIdTo(), unitTransferModel.getClientCompanyIdTo());
+//                                    compAcctTo = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+//                                    if (compAcctFrom.getShareUnits() < unitTransferModel.getUnits()) {
+//                                        logger.info("Insufficient unit of shares for transfer operation");
+//                                        resDesc = res.getDesc();
+//                                        res.setRetn(202);
+//                                        res.setDesc(resDesc + "\nInsufficient unit of shares for transfer operation");
+//                                    } else {
+//                                        compAcctFrom.setShareUnits((int) (compAcctFrom.getShareUnits() - unitTransferModel.getUnits()));
+//                                        compAcctTo.setShareUnits((int) (compAcctTo.getShareUnits() + unitTransferModel.getUnits()));
+//                                        hcq.createHolderCompanyAccount(compAcctFrom);
+//                                        hcq.createHolderCompanyAccount(compAcctTo);
+//                                        logger.info("share unit of [{}] transfered from holder id [{}] to holder id [{}]",
+//                                                unitTransferModel.getUnits(), unitTransferModel.getHolderIdFrom(), unitTransferModel.getHolderIdTo());
+//                                        res.setRetn(0);
+//                                        res.setDesc(resDesc + "\nShare units transfer operation successful");
+//                                    }
+//                                    res.setRetn(203);
+//                                    res.setDesc("Error: Holder does not have a holder company account - create company account for holder");
+//                                    logger.info("Error: Holder does not have a holder company account - create company account for holder");
+//                                }
+//                            } else {
+//                                res.setRetn(203);
+//                                res.setDesc("Error: Holder does not exist - create holder account");
+//                                logger.info("Error: Holder does not exist - create holder account");
+//                            }
+//                        } else {
                         res.setRetn(204);
-                        res.setDesc("CHN not available - transaction terminated");
-                        logger.info("CHN not available - transaction terminated");
+                        res.setDesc("Holder transfering shares unit does not have CHN - transaction terminated");
+                        logger.info("Holder transfering shares unit does not have CHN - transaction terminated");
+                        //}
                     }
                 } else {
                     res.setRetn(204);
-                    res.setDesc("Holder does not have a company account - transaction terminated");
-                    logger.info("Holder does not have a company account - transaction terminated");
+                    res.setDesc("Holder transfering shares unit does not have a company account - transaction terminated");
+                    logger.info("Holder transfering shares unit does not have a company account - transaction terminated");
                 }
             } else {
                 res.setRetn(203);
-                res.setDesc("Error: Holder does not exist in database - transaction terminated");
-                logger.info("Error: Holder does not exist in database - transaction terminated");
+                res.setDesc("Error: Holder transfering shares unit does not exist - transaction terminated");
+                logger.info("Error: Holder transfering shares unit does not exist - transaction terminated");
             }
         } catch (JAXBException ex) {
             res.setRetn(100);
@@ -906,7 +1062,7 @@ public class HolderComponent {
             // NOTE: Bond Units is reperesented as interger in the entity and database
             // but represented as double from the model
             bondAccountEntity.setBondUnits((int) Math.round(hBondAcct.getBondUnits()));
-            bondAccountEntity.setStartingPrincipalValue(hBondAcct.getPrincipalValue());
+            bondAccountEntity.setStartingPrincipalValue(hBondAcct.getStartingPrincipalValue());
 
             returnBondAccountList.add(bondAccountEntity);
         }
