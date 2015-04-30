@@ -31,14 +31,18 @@ public class HolderSignature {
     private String signaturePath;
     @XmlElement
     private boolean holderSignaturePrimary;
-    
+
+    public HolderSignature() {
+
+    }
+
     /**
-     * 
+     *
      * @param id
      * @param holderId
      * @param title
      * @param signaturePath
-     * @param holderSignaturePrimary 
+     * @param holderSignaturePrimary
      */
     public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary) {
         this.id = id;
