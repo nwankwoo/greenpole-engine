@@ -886,46 +886,55 @@ public class HolderComponent {
         QueueSender queue;
         NotifierProperties prop;
         String resDes = null;
-        boolean flag = false;
+        boolean flag = true;
 
         if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
-            resDes = "\nError: Holder first name should not be empty";
-        } else if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
-            resDes += "\nError: Holder middle name should not be empty";
-        } else if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
-            resDes += "\nError: Holder last name should not be empty";
-        } else if ("".equals(holder.getChn()) || holder.getChn() == null) {
-            resDes += "\nError: Holder CHN should not be empty";
-        } else if ("".equals(holder.getGender()) || holder.getGender() == null) {
-            resDes += "\nError: Holder gender should not be empty";
-        } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
-            resDes += "\nError: Holder date of birth should not be empty";
-        } else if (holder.getHolderResidentialAddresses().get(0).isPrimaryAddress()) {
+            resDes = "\nError: Holder first name should not be empty"; flag = false;
+        } 
+        if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+            resDes += "\nError: Holder middle name should not be empty"; flag = false;
+        }
+        if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+            resDes += "\nError: Holder last name should not be empty"; flag = false;
+        }
+        if ("".equals(holder.getChn()) || holder.getChn() == null) {
+            resDes += "\nError: Holder CHN should not be empty"; flag = false;
+        }
+        if ("".equals(holder.getGender()) || holder.getGender() == null) {
+            resDes += "\nError: Holder gender should not be empty"; flag = false;
+        }
+        if ("".equals(holder.getDob()) || holder.getDob() == null) {
+            resDes += "\nError: Holder date of birth should not be empty"; flag = false;
+        }
+        if (holder.getHolderResidentialAddresses().get(0).isPrimaryAddress()) {
             if ("".equals(holder.getHolderResidentialAddresses().get(0).getAddressLine1()) || holder.getHolderResidentialAddresses().get(0).getAddressLine1() == null) {
-                resDes += "\nError: Residential address line 1 should not be empty";
+                resDes += "\nError: Residential address line 1 should not be empty";  flag = false;
             } else if ("".equals(holder.getHolderResidentialAddresses().get(0).getAddressLine2()) || holder.getHolderResidentialAddresses().get(0).getAddressLine2() == null) {
-                resDes += "\nError: Residential address line 2 should not be empty";
+                resDes += "\nError: Residential address line 2 should not be empty";  flag = false;
             } else if ("".equals(holder.getHolderResidentialAddresses().get(0).getAddressLine3()) || holder.getHolderResidentialAddresses().get(0).getAddressLine3() == null) {
-                resDes += "\nError: Residential address line 3 should not be empty";
+                resDes += "\nError: Residential address line 3 should not be empty";  flag = false;
             }
         } else if (holder.getHolderPostalAddresses().get(0).isPrimaryAddress()) {
             if (!"".equals(holder.getHolderPostalAddresses().get(0).getAddressLine1()) || holder.getHolderPostalAddresses().get(0).getAddressLine1() == null) {
-                resDes += "\nError: Postal address line 1 should not be empty";
+                resDes += "\nError: Postal address line 1 should not be empty";  flag = false;
             } else if (!"".equals(holder.getHolderPostalAddresses().get(0).getAddressLine2()) || holder.getHolderPostalAddresses().get(0).getAddressLine2() == null) {
-                resDes += "\nError: Postal address line 2 should not be empty";
+                resDes += "\nError: Postal address line 2 should not be empty";  flag = false;
             } else if (!"".equals(holder.getHolderPostalAddresses().get(0).getAddressLine3()) || holder.getHolderPostalAddresses().get(0).getAddressLine3() == null) {
-                resDes += "\nError: Postal address line 3 should not be empty";
-            }
-        } else if (holder.getHolderPhoneNumbers().get(0).isPrimaryPhoneNumber()) {
-            if (!"".equals(holder.getHolderPhoneNumbers().get(0).getPhoneNumber()) || holder.getHolderPhoneNumbers().get(0).getPhoneNumber() == null) {
-                resDes += "\nError: Primary phone number should not be empty";
-            }
-        } else if (holder.getHolderEmailAddresses().get(0).isPrimaryEmail()) {
-            if (!"".equals(holder.getHolderEmailAddresses().get(0).getEmailAddress()) || holder.getHolderEmailAddresses().get(0).getEmailAddress() == null) {
-                resDes += "\nError: Primary email address should not be empty";
+                resDes += "\nError: Postal address line 3 should not be empty";  flag = false;
             }
         } else {
-            flag = true;
+            resDes += "\nError: Primary address not specified";  flag = false;
+        }
+        
+        if (holder.getHolderPhoneNumbers().get(0).isPrimaryPhoneNumber()) {
+            if (!"".equals(holder.getHolderPhoneNumbers().get(0).getPhoneNumber()) || holder.getHolderPhoneNumbers().get(0).getPhoneNumber() == null) {
+                resDes += "\nError: Primary phone number should not be empty"; flag = false;
+            }
+        }
+        if (holder.getHolderEmailAddresses().get(0).isPrimaryEmail()) {
+            if (!"".equals(holder.getHolderEmailAddresses().get(0).getEmailAddress()) || holder.getHolderEmailAddresses().get(0).getEmailAddress() == null) {
+                resDes += "\nError: Primary email address should not be empty"; flag = false;
+            }
         }
         if (flag) {
             wrapper = new NotificationWrapper();
