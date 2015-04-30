@@ -57,7 +57,7 @@ public class PowerOfAttorneyLogic {
                 String signatureFileName = createSignatureFileName();
                 String filePath = signProp.getSignaturePath() + " " + signatureFileName + ".jpg ";
                 ImageIO.write(byteImageConverted, "jpg", new File(filePath));
-                power.setSignaturePath(filePath);
+                power.setFilePath(filePath);
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(PowerOfAttorneyLogic.class);
                 qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
@@ -101,9 +101,9 @@ public class PowerOfAttorneyLogic {
             Holder hold = powerModel.getHolder();
             org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(hold.getId());
             org.greenpole.hibernate.entity.PowerOfAttorney power = new org.greenpole.hibernate.entity.PowerOfAttorney();
-            power.setPeriodType(powerModel.getPeriodType());
+            //power.setPeriodType(powerModel.getPeriodType());
             power.setPowerOfAttorneyPrimary(powerModel.isPrimaryPowerOfAttorney());
-            power.setSignaturePath(powerModel.getSignaturePath());
+            power.setFilePath(powerModel.getFilePath());
             power.setTitle(powerModel.getTitle());
             power.setType(powerModel.getType());
             power.setStartDate(formatter.parse(powerModel.getStartDate()));
@@ -149,9 +149,9 @@ public class PowerOfAttorneyLogic {
             org.greenpole.hibernate.entity.Holder hold = getPowerOfAttorney(attorneyPower.getHolder());
             attorneyPower.setId(hold.getId());
             attorneyPower.setTitle(power_hib.getTitle());
-            attorneyPower.setPeriodType(power_hib.getPeriodType());
+            //attorneyPower.setPeriodType(power_hib.getPeriodType());
             attorneyPower.setType(power_hib.getType());
-            image = readImage(power_hib.getSignaturePath());
+            image = readImage(power_hib.getFilePath());
             imageList.add(image);
             resp.setBody(imageList);
         } catch (Exception ex) {

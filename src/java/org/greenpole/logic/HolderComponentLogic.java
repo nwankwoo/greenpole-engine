@@ -18,11 +18,17 @@ import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.holder.Holder;
+import org.greenpole.entity.model.holder.HolderBondAccount;
 import org.greenpole.entity.model.holder.HolderChanges;
+import org.greenpole.entity.model.holder.HolderCompanyAccount;
 import org.greenpole.entity.model.holder.QueryHolder;
 import org.greenpole.entity.model.holder.QueryHolderChanges;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.hibernate.entity.Bank;
+import org.greenpole.hibernate.entity.BondOffer;
+import org.greenpole.hibernate.entity.ClientCompany;
+import org.greenpole.hibernate.entity.HolderBondAccountId;
 import org.greenpole.hibernate.entity.HolderChangeType;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.hibernate.entity.HolderEmailAddress;
@@ -175,6 +181,10 @@ public class HolderComponentLogic {
             
             org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib_search = new org.greenpole.hibernate.entity.HolderCompanyAccount();
             HolderCompanyAccountId hca_id_hib_search = new HolderCompanyAccountId();
+            ClientCompany cc_hib_search = new ClientCompany();
+            
+            org.greenpole.hibernate.entity.HolderBondAccount hba_hib_search = new org.greenpole.hibernate.entity.HolderBondAccount();
+            HolderBondAccountId hba_id_hib_search = new HolderBondAccountId();
             
             org.greenpole.hibernate.entity.Stockbroker broker_hib_search = new org.greenpole.hibernate.entity.Stockbroker();
             
@@ -199,6 +209,7 @@ public class HolderComponentLogic {
                 h_hib_search.setTaxExempted(h_model_search.isTaxExempted());
                 h_hib_search.setPryAddress(h_model_search.getPryAddress());
                 h_hib_search.setType(h_model_search.getType());
+                h_hib_search.setPryHolder(true); //must be set
             }
 
             Address h_res_model_search;
@@ -278,6 +289,36 @@ public class HolderComponentLogic {
                 
                 h_hib_search.setHolderPhoneNumbers(h_phone_hib_set);
             }
+            
+            HolderCompanyAccount hca_model_search;
+            if (!queryParams.getHolder().getHolderCompanyAccounts().isEmpty()) {
+                hca_model_search = queryParams.getHolder().getHolderCompanyAccounts().get(0);
+                
+                hca_id_hib_search.setClientCompanyId(hca_model_search.getClientCompanyId());
+                
+                hca_hib_search.setEsop(hca_model_search.isEsop());
+                
+                hca_hib_search.setId(hca_id_hib_search);
+                
+                Set hca_hib_set = new HashSet();
+                hca_hib_set.add(hca_hib_search);
+                
+                h_hib_search.setHolderCompanyAccounts(hca_hib_set);
+            }
+            
+            HolderBondAccount hba_model_search;
+            if (!queryParams.getHolder().getHolderBondAccounts().isEmpty()) {
+                hba_model_search = queryParams.getHolder().getHolderBondAccounts().get(0);
+                
+                hba_id_hib_search.setBondOfferId(hba_model_search.getBondOfferId());
+                
+                hba_hib_search.setId(hba_id_hib_search);
+                
+                Set hba_hib_set = new HashSet();
+                hba_hib_set.add(hba_hib_search);
+                
+                h_hib_search.setHolderBondAccounts(hba_hib_set);
+            }
 
             Map<String, Integer> shareUnits_search;
             if (!queryParams.getShareUnits().isEmpty()) {
@@ -291,6 +332,50 @@ public class HolderComponentLogic {
                 totalHoldings_search = queryParams.getTotalHoldings();
             } else {
                 totalHoldings_search = new HashMap<>();
+            }
+
+            List<org.greenpole.hibernate.entity.Holder> h_search_result = hq.queryHolderAccount(descriptor, h_hib_search, shareUnits_search, totalHoldings_search);
+            
+            //unwrap result and set in holder front-end model
+            List<Holder> h_model_out = new ArrayList<>();
+            
+            List<Address> h_res_out = new ArrayList<>();
+            List<Address> h_pos_out = new ArrayList<>();
+            List<PhoneNumber> h_phone_out = new ArrayList<>();
+            List<EmailAddress> h_email_out = new ArrayList<>();
+            
+            for (org.greenpole.hibernate.entity.Holder h_hib_out : h_search_result) {
+                Holder h = new Holder();
+                
+                h.setFirstName(h_hib_out.getFirstName());
+                h.setMiddleName(h_hib_out.getMiddleName());
+                h.setLastName(h_hib_out.getLastName());
+                h.setGender(h_hib_out.getGender());
+                h.setDob(formatter.format(h_hib_out.getDob()));
+                h.setChn(h_hib_out.getChn());
+                h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
+                h.setTaxExempted(h_hib_out.isTaxExempted());
+                h.setPryAddress(h_hib_out.getPryAddress());
+                h.setType(h_hib_out.getType());
+                h.setPryHolder(h_hib_out.isPryHolder());
+                
+                //get all available addresses, email addresses and phone numbers
+                List<HolderResidentialAddress> res_hib_list = hq.getHolderResidentialAddress(h_hib_out.getId());
+                for (HolderResidentialAddress res_hib_out : res_hib_list) {
+                    HolderResidentialAddressId res_id_hib_out = res_hib_out.getId();
+                    
+                    Address addy_model = new Address();
+                    
+                    addy_model.setAddressLine1(res_id_hib_out.getAddressLine1());
+                    addy_model.setState(res_id_hib_out.getState());
+                    addy_model.setCountry(res_id_hib_out.getCountry());
+                    addy_model.setAddressLine2(res_hib_out.getAddressLine2());
+                    addy_model.setAddressLine3(res_hib_out.getAddressLine3());
+                    addy_model.setAddressLine4(res_hib_out.getAddressLine4());
+                    addy_model.setPostCode(res_hib_out.getPostCode());
+                    addy_model.setCity(res_hib_out.getCity());
+                    addy_model.setPrimaryAddress(res_hib_out.isIsPrimary());
+                }
             }
         }
         //failed response here
