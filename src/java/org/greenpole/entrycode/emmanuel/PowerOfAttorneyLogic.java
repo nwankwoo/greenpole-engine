@@ -49,30 +49,41 @@ public class PowerOfAttorneyLogic {
         long sizeOfSignature = 10485760;
         SignatureProperties signProp;
         signProp = new SignatureProperties();
+        Date current_date = new Date();
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+        boolean isPrimaryPowerOfAttorney_status = hd.updatePowerOfAttorneyStatus(power.getHolder().getId());
+        org.greenpole.hibernate.entity.PowerOfAttorney currentPowerofAttorney = hd.retrieveCurrentPowerOfAttorney(power.getHolder().getId());
         try {
             if (signatureOfAttorney.length <= sizeOfSignature) {
-                InputStream inputStream = new ByteArrayInputStream(signatureOfAttorney);
-                BufferedImage byteImageConverted = ImageIO.read(inputStream);
-                String signatureFileName = createSignatureFileName();
-                String filePath = signProp.getSignaturePath() + " " + signatureFileName + ".jpg ";
-                ImageIO.write(byteImageConverted, "jpg", new File(filePath));
-                power.setFilePath(filePath);
-                wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(PowerOfAttorneyLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                        prop.getAuthoriserNotifierQueueName());
-                List<PowerOfAttorney> powerList = new ArrayList();
-                powerList.add(power);
-                wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Authenticate power of attorney for " + " " + power.getHolder().getFirstName() + " " + power.getHolder().getLastName() + " " + " by user" + login.getUserId());
-                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                wrapper.setFrom(login.getUserId());
-                wrapper.setTo(authenticator);
-                wrapper.setModel(powerList);
-                resp = qSender.sendAuthorisationRequest(wrapper);
-                resp.setRetn(0);
-                resp.setDesc("Successful");
-                return resp;
+                    if (current_date.after(currentPowerofAttorney.getEndDate())) {
+                        InputStream inputStream = new ByteArrayInputStream(signatureOfAttorney);
+                        BufferedImage byteImageConverted = ImageIO.read(inputStream);
+                        String signatureFileName = createSignatureFileName();
+                        String filePath = signProp.getSignaturePath() + " " + signatureFileName + ".jpg ";
+                        ImageIO.write(byteImageConverted, "jpg", new File(filePath));
+                        power.setFilePath(filePath);
+                        wrapper = new NotificationWrapper();
+                        prop = new NotifierProperties(PowerOfAttorneyLogic.class);
+                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop.getAuthoriserNotifierQueueName());
+                        List<PowerOfAttorney> powerList = new ArrayList();
+                        powerList.add(power);
+                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setDescription("Authenticate power of attorney for " + " " + power.getHolder().getFirstName() + " " + power.getHolder().getLastName() + " " + " by user" + login.getUserId());
+                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setFrom(login.getUserId());
+                        wrapper.setTo(authenticator);
+                        wrapper.setModel(powerList);
+                        resp = qSender.sendAuthorisationRequest(wrapper);
+                        resp.setRetn(0);
+                        resp.setDesc("Successful");
+                        return resp;
+                    } else {
+                        resp.setRetn(210);
+                        resp.setDesc("Failed to upload power of attorney because the expiration period of the previous one has not ended");
+                        logger.info("Power of attorney not uploaded, see error logg for details ");
+                        return resp;
+                    }
             } else {
                 resp.setRetn(200);
                 resp.setDesc("Unable to complete transaction because signaturesize is bigger than 10MB");
@@ -92,6 +103,7 @@ public class PowerOfAttorneyLogic {
         Response resp = new Response();
         logger.info("Upload of power of attorney authorised - [{}]", notificationCode);
         logger.info("Upload of power of attorney performed by: " + login.getUserId());
+        Date current_date = new Date();
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -101,19 +113,35 @@ public class PowerOfAttorneyLogic {
             org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(hold.getId());
             org.greenpole.hibernate.entity.PowerOfAttorney power = new org.greenpole.hibernate.entity.PowerOfAttorney();
             //power.setPeriodType(powerModel.getPeriodType());
-            power.setPowerOfAttorneyPrimary(powerModel.isPrimaryPowerOfAttorney());
-            power.setFilePath(powerModel.getFilePath());
-            power.setTitle(powerModel.getTitle());
-            power.setType(powerModel.getType());
-            power.setStartDate(formatter.parse(powerModel.getStartDate()));
-            power.setEndDate(formatter.parse(powerModel.getEndDate()));
-            power.setHolder(holder);
-            hd.uploadPowerOfAttorney(powerModel);
-            resp.setRetn(0);
-            resp.setDesc("Successful");
+            boolean isPrimaryPowerOfAttorney_status = hd.updatePowerOfAttorneyStatus(powerModel.getHolder().getId());
+            org.greenpole.hibernate.entity.PowerOfAttorney currentPowerofAttorney = hd.retrieveCurrentPowerOfAttorney(powerModel.getHolder().getId());
+            //if (isPrimaryPowerOfAttorney_status == true) {
+                if (current_date.after(currentPowerofAttorney.getEndDate())) {
+                    power.setPowerOfAttorneyPrimary(powerModel.isPrimaryPowerOfAttorney());
+                    power.setSignaturePath(powerModel.getFilePath());
+                    power.setTitle(powerModel.getTitle());
+                    power.setType(powerModel.getType());
+                    power.setStartDate(formatter.parse(powerModel.getStartDate()));
+                    power.setEndDate(formatter.parse(powerModel.getEndDate()));
+                    power.setHolder(holder);
+                    power.setId(powerModel.getId());
+                    hd.uploadPowerOfAttorney(powerModel);
+                    logger.info("Power of attorney uploaded with the title [{}] " + powerModel.getTitle());
+                    resp.setRetn(0);
+                    resp.setDesc("Successful");
+                    return resp;
+                } else {
+                    resp.setRetn(210);
+                    resp.setDesc("Failed to upload power of attorney because the expiration period of the previous one has not ended");
+                    logger.info("Power of attorney not uploaded, see error logg for details ");
+                    return resp;
+                }
+
+            
+
         } catch (Exception ex) {
             resp.setRetn(0);
-            resp.setDesc("Unable to create administrator, please contact the system admin" + ex);
+            resp.setDesc("Unable to upload power of attorney, please contact the system admin" + ex);
             logger.info("see error log for details");
             logger.error("error: " + ex);
         }

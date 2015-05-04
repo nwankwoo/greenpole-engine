@@ -23,7 +23,6 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import org.greenpole.entity.exception.ConfigNotFoundException;
-import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

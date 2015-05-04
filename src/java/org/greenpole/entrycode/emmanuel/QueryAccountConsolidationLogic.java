@@ -15,9 +15,12 @@ import org.greenpole.entity.model.holder.Holder;
 //import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entrycode.emmanuel.model.AccountConsolidation;
+import org.greenpole.entrycode.emmanuel.model.CompanyAccountConsolidation;
+import org.greenpole.entrycode.emmanuel.model.QueryAccountConsolidation;
 import org.greenpole.entrycode.emmanuel.model.QueryConsolidationOfShareholderAccount;
-import org.greenpole.hibernate.entity.AccountConsolidation;
-import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
+//import org.greenpole.hibernate.entity.AccountConsolidation;
+//import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
@@ -46,11 +49,13 @@ public class QueryAccountConsolidationLogic {
         QueueSender qSender;
         NotifierProperties prop;
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-        CompanyAccountConsolidation compAccCon = new CompanyAccountConsolidation();
+        org.greenpole.hibernate.entity.CompanyAccountConsolidation compAccCon = new org.greenpole.hibernate.entity.CompanyAccountConsolidation();
         List<CompanyAccountConsolidation> compAccCon_list = new ArrayList();
         List<AccountConsolidation> AccCon_list = new ArrayList();
         AccountConsolidation AccCon = new AccountConsolidation();
         Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
+        QueryAccountConsolidation queryAccountConsolidation = new QueryAccountConsolidation();
+        List<QueryAccountConsolidation> queryAccountConsolidation_list = new ArrayList();
         //org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(queryParams.getAccountConsolidation().getHolder().getId());
         //Holder holder_model = new Holder();
         if (descriptors.size() == 1) {
@@ -75,59 +80,63 @@ public class QueryAccountConsolidationLogic {
                     return resp;
                 }
             }
+            queryAccountConsolidation.setQueryConsolidationOfShareholderAccount(queryParams);
             List<org.greenpole.hibernate.entity.CompanyAccountConsolidation> compAccCon_result_list = hd.queryAccountConsolidation(descriptor, compAccCon, queryParams.getStart_date(), queryParams.getEnd_date());
-            /**
-             * if(!compAccCon_result_list.isEmpty()){ /** Iterator iterator =
-             * compAccCon_result_list.iterator(); while(iterator.hasNext()){
-             * wrapper = new NotificationWrapper(); prop = new
-             * NotifierProperties(QueryAccountConsolidationLogic.class); qSender
-             * = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-             * prop.getAuthoriserNotifierQueueName());
-             * wrapper.setCode(Notification.createCode(login));
-             * wrapper.setDescription("You have been tagged to view report on
-             * consolidation of share holder account " + " by user" +
-             * login.getUserId());
-             * wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-             * wrapper.setFrom(login.getUserId()); wrapper.setTo(tagUsers);
-             * wrapper.setModel(tagUsers); resp =
-             * qSender.sendNotificationRequest(wrapper); }
-             *
-             * }
-             * else{ resp.setRetn(210); resp.setDesc("Account consolidation list
-             * is empty"); return resp; }
-             */
-
-            for (CompanyAccountConsolidation can : compAccCon_result_list) {
-                compAccCon.setId(can.getId());
-                compAccCon.setInitialChn(can.getInitialChn());
-                compAccCon.setCurrentChn(can.getCurrentChn());
-                compAccCon.setMergeDate(can.getMergeDate());
-                compAccCon.setReceiverStartUnit(can.getReceiverStartUnit());
-                compAccCon.setReceiverUnitState(can.getReceiverUnitState());
-                compAccCon.setTiedToCurrentHolderId(can.getTiedToCurrentHolderId());
-                compAccCon.setTiedToInitialHolderId(can.getTiedToInitialHolderId());
-                compAccCon.setUnitAfterTransfer(can.getUnitAfterTransfer());
-                compAccCon.setForCompanyId(can.getForCompanyId());
-                compAccCon_list.add(compAccCon);
-
+            for (org.greenpole.hibernate.entity.CompanyAccountConsolidation can : compAccCon_result_list) {
+                CompanyAccountConsolidation compAccCon_model = new CompanyAccountConsolidation();
+                compAccCon_model.setId(can.getId());
+                compAccCon_model.setInitialChn(can.getInitialChn());
+                compAccCon_model.setCurrentChn(can.getCurrentChn());
+                compAccCon_model.setMergeDate(formatter.format(can.getMergeDate()));
+                compAccCon_model.setReceiverStartUnit(can.getReceiverStartUnit());
+                compAccCon_model.setReceiverUnitState(can.getReceiverUnitState());
+                compAccCon_model.setTiedToCurrentHolderId(can.getTiedToCurrentHolderId());
+                compAccCon_model.setTiedToInitialHolderId(can.getTiedToInitialHolderId());
+                compAccCon_model.setUnitAfterTransfer(can.getUnitAfterTransfer());
+                compAccCon_model.setForCompanyId(can.getForCompanyId());
+                compAccCon_list.add(compAccCon_model);
                 List<org.greenpole.hibernate.entity.AccountConsolidation> accCon_list = hd.queryAccCon(queryParams.getAccountConsolidation().getHolder().getId());
-                for (AccountConsolidation ac : accCon_list) {
+                for (org.greenpole.hibernate.entity.AccountConsolidation ac : accCon_list) {
+
                     AccCon.setAdditionalChanges(ac.getAdditionalChanges());
                     AccCon.setDemerge(ac.isDemerge());
-                    AccCon.setDemergeDate(ac.getDemergeDate());
-                    AccCon.setHolder(ac.getHolder());
+                    AccCon.setDemergeDate(formatter.format(ac.getDemergeDate()));
                     AccCon.setHolderName(ac.getHolderName());
                     AccCon.setId(ac.getId());
-                    AccCon.setMergeDate(ac.getMergeDate());
+                    AccCon.setMergeDate(formatter.format(ac.getMergeDate()));
                     AccCon.setMergedToHolderId(ac.getMergedToHolderId());
                     AccCon.setMergedToHolderName(ac.getMergedToHolderName());
+                    AccCon_list.add(AccCon);
                 }
-
+                compAccCon_model.setAccountConsolidation(AccCon);
+                queryAccountConsolidation.setAccountConsolidation(AccCon_list);
+                queryAccountConsolidation_list.add(queryAccountConsolidation);
             }
             resp.setRetn(0);
             resp.setDesc("Successful");
-            resp.setBody(compAccCon_result_list);
+            resp.setBody(queryAccountConsolidation_list);
         }
         return resp;
     }
+    /**
+     * public Response tagUsers_Response(Login login_user, List<Login> tagUsers)
+     * { Response resp = new Response(); NotificationWrapper wrapper;
+     * QueueSender qSender; NotifierProperties prop; if (!tagUsers.isEmpty()) {
+     * Iterator iterator = tagUsers.iterator(); while (iterator.hasNext()) {
+     * wrapper = new NotificationWrapper(); prop = new
+     * NotifierProperties(QueryAccountConsolidationLogic.class); qSender = new
+     * QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+     * prop.getAuthoriserNotifierQueueName());
+     * wrapper.setCode(Notification.createCode(login_user));
+     * wrapper.setDescription("You have been tagged to view report on
+     * consolidation of share holder account by " + login_user);
+     * wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+     * wrapper.setFrom(login_user.getUserId()); wrapper.setTo(tagUsers);
+     * //wrapper.setModel(tagUsers); resp =
+     * qSender.sendNotificationRequest(wrapper); //resp =
+     * viewAccountConsolidation_request(login_user, queryParams); return resp; }
+     * } else{ resp.setRetn(210); resp.setDesc("Tagged users list is empty");
+     * return resp; } return resp; }
+    *
+     */
 }
