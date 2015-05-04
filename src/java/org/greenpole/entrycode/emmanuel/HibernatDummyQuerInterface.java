@@ -6,12 +6,15 @@
 package org.greenpole.entrycode.emmanuel;
 
 import java.util.List;
+import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
+import org.greenpole.hibernate.entity.AccountConsolidation;
 import org.greenpole.hibernate.entity.Administrator;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
+import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
 import org.greenpole.hibernate.entity.HolderBondAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 
@@ -76,4 +79,7 @@ public interface HibernatDummyQuerInterface {
 
     public org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(int holderId, int clientCompanyId);
     public org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondCompAccount(int holderId, int bondId);
+    public List<CompanyAccountConsolidation> queryAccountConsolidation(String descriptor, CompanyAccountConsolidation compAccCon, String start_date, String end_date);
+    public List<Login> getUserList(List<Login> login);
+    public List<AccountConsolidation> queryAccCon(int holderId);
 }
