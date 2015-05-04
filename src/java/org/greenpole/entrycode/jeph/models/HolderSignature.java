@@ -31,25 +31,19 @@ public class HolderSignature {
     private String signaturePath;
     @XmlElement
     private boolean holderSignaturePrimary;
+    @XmlElement
+    private byte[] signImg;
 
     public HolderSignature() {
-
     }
 
-    /**
-     *
-     * @param id
-     * @param holderId
-     * @param title
-     * @param signaturePath
-     * @param holderSignaturePrimary
-     */
-    public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary) {
+    public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary, byte[] signImg) {
         this.id = id;
         this.holderId = holderId;
         this.title = title;
         this.signaturePath = signaturePath;
         this.holderSignaturePrimary = holderSignaturePrimary;
+        this.signImg = signImg;
     }
 
     public int getId() {
@@ -90,6 +84,14 @@ public class HolderSignature {
 
     public void setHolderSignaturePrimary(boolean holderSignaturePrimary) {
         this.holderSignaturePrimary = holderSignaturePrimary;
+    }
+
+    public byte[] getSignImg() {
+        return signImg;
+    }
+
+    public void setSignImg(byte[] signImg) {
+        this.signImg = signImg;
     }
 
 }
