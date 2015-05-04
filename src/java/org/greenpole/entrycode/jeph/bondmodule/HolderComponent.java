@@ -56,6 +56,7 @@ public class HolderComponent {
     private final HolderComponentQuery hcq;
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private static final Logger logger = LoggerFactory.getLogger(HolderComponent.class);
+    private final SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy");
 
     public HolderComponent() {
         this.hcq = new HolderComponentQueryImpl();
@@ -115,7 +116,7 @@ public class HolderComponent {
             holdEntity.setGender(holdModel.getGender());
             holdEntity.setDob(formatter.parse(holdModel.getDob()));
             holdEntity.setChn(holdModel.getChn());
-            
+
             boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, false), retrieveHolderResidentialAddress(holdModel, false), retrieveHolderPostalAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
             // boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, false), 
             // retrieveAddressModel(ccModel), retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel),
@@ -867,6 +868,108 @@ public class HolderComponent {
 //        return res;
 //    }
 //
+    public Response editDetails_Request(Login login, String authenticator, Holder holder,
+            org.greenpole.entrycode.jeph.models.HolderChangeType changeInfo) {
+        if (!"".equals(changeInfo.getChangeType()) || changeInfo.getChangeType() == null) {
+            logger.info("request [{}] on holder details: Login - [{}]", changeInfo.getChangeType(), login.getUserId());
+        } else {
+            logger.info("Change type for holder details was not specified");
+        }
+        Response res = new Response();
+        NotificationWrapper wrapper;
+        SignatureProperties signProp;
+        QueueSender queue;
+        NotifierProperties prop;
+        String resDes = null;
+        boolean flag = false;
+
+        if (!changeInfo.getHolderChanges().isEmpty()) {
+            if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
+                resDes = "\nError: Holder first name should not be empty";
+            } else {
+                flag = true;
+            }
+            if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+                resDes += "\nError: Holder middle name should not be empty";
+            } else {
+                flag = true;
+            }
+            if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+                resDes += "\nError: Holder last name should not be empty";
+            } else {
+                flag = true;
+            }
+            if ("".equals(holder.getChn()) || holder.getChn() == null) {
+                resDes += "\nError: Holder CHN should not be empty";
+            } else {
+                flag = true;
+            }
+            if ("".equals(holder.getGender()) || holder.getGender() == null) {
+                resDes += "\nError: Holder gender should not be empty";
+            } else {
+                flag = true;
+            }
+            if ("".equals(holder.getDob()) || holder.getDob() == null) {
+                resDes += "\nError: Holder date of birth should not be empty";
+            } else {
+                flag = true;
+            }
+            if (!holder.getAddresses().isEmpty()) {
+                for (Address addr : holder.getAddresses()) {
+                    if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
+                        resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                    } else if ("".equals(addr.getState()) || addr.getState() == null) {
+                        resDes += "\nState should not be empty. Delete entire address if you must";
+                    } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
+                        resDes += "\nCountry should not be empty. Delete entire address if you must";
+                    }
+                }
+            } else if (!holder.getHolderEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                        resDes += "\nEmail address should not be empty. Delete email entry if you must";
+                    }
+                }
+            } else if (!holder.getHolderPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                        resDes += "\nPhone number should not be empty. Delete phone number entry if you must";
+                    }
+                }
+            } else {
+                flag = true;
+            }
+            if (flag) {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponent.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                List<Object> objs = new ArrayList<>();
+                // List<Holder> holdList = new ArrayList<>();
+                // List<HolderChangeType> holdChangeList = new ArrayList<>();
+                // holdList.add(holder);
+                objs.add(holder);
+                objs.add(changeInfo);
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate " + changeInfo.getChangeType() + " of holder account, " + holder.getFirstName() + " " + holder.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(objs);
+                res = queue.sendAuthorisationRequest(wrapper);
+                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+            } else {
+                res.setRetn(200);
+                res.setDesc("Error: " + resDes);
+                logger.info("Error filing holder details: ", resDes);
+            }
+        } else {
+            res.setRetn(200);
+            res.setDesc("Error: Changes to holder details were not captured");
+            logger.info("Error: Changes to holder details were not captured");
+        }
+        return res;
+    }
+
     public Response editHolderDetails_Request(Login login, String authenticator, Holder holder, String changeInfo) {
         if ("correction".equals(changeInfo)) {
             logger.info("request [{}] on holder details: Login - [{}]", changeInfo, login.getUserId());
@@ -912,12 +1015,12 @@ public class HolderComponent {
             flag = true;
         }
         if (!holder.getAddresses().isEmpty()) {
-            for (Address addy : holder.getAddresses()) {
-                if ("".equals(addy.getAddressLine1()) || addy.getAddressLine1() == null) {
+            for (Address addr : holder.getAddresses()) {
+                if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
                     resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
-                } else if ("".equals(addy.getState()) || addy.getState() == null) {
+                } else if ("".equals(addr.getState()) || addr.getState() == null) {
                     resDes += "\nState should not be empty. Delete entire address if you must";
-                } else if ("".equals(addy.getCountry()) || addy.getCountry() == null) {
+                } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
                     resDes += "\nCountry should not be empty. Delete entire address if you must";
                 }
             }
@@ -954,6 +1057,52 @@ public class HolderComponent {
             res.setRetn(200);
             res.setDesc("Error: " + resDes);
             logger.info("Error filing holder details: ", resDes);
+        }
+        return res;
+    }
+
+    public Response editDetails_Authorise(Login login, String notificationCode) {
+        logger.info("request authorisation to persist holder details : Login - [{}]", login.getUserId());
+        Response res = new Response();
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+        logger.info("Holder creation authorised - [{}]", notificationCode);
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Object> objs = (List<Object>) wrapper.getModel();            
+            Holder holdModel = (Holder) objs.get(0);            
+            org.greenpole.entrycode.jeph.models.HolderChangeType holderChangeList = (org.greenpole.entrycode.jeph.models.HolderChangeType) objs.get(1);            
+            
+            org.greenpole.hibernate.entity.Holder holdEntity = hcq.getHolder(holdModel.getHolderId());            
+            holdEntity.setFirstName(holdModel.getFirstName());
+            holdEntity.setLastName(holdModel.getLastName());
+            holdEntity.setMiddleName(holdModel.getMiddleName());
+            holdEntity.setType(holdModel.getType());
+            holdEntity.setGender(holdModel.getGender());
+            holdEntity.setDob(formatter.parse(holdModel.getDob()));
+            holdEntity.setChn(holdModel.getChn());
+
+            boolean created = hcq.updateHolderAccount(holdEntity, retrieveHolderResidentialAddress(holdModel, false), retrieveHolderPostalAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
+            // boolean updated = hcq.updateHolderChanges(holder);
+            boolean updated = true;
+            if (created && updated) {
+                res.setRetn(0);
+                res.setDesc("Holder details saved");
+                return res;
+            } else {
+                res.setRetn(200);
+                res.setDesc("An error occured saving hodler details");
+                return res;
+            }
+        } catch (JAXBException ex) {
+            res.setRetn(100);
+            res.setDesc("error loading notification xml file. See error log");
+            logger.info("error loading notification xml file. See error log");
+            logger.error("error loading notification xml file to object - ", ex);
+        } catch (Exception ex) {
+            res.setRetn(100);
+            res.setDesc("error. See error log");
+            logger.info("error. See error log");
+            logger.error("error - ", ex);
         }
         return res;
     }
@@ -1003,6 +1152,23 @@ public class HolderComponent {
         return res;
     }
 
+    public boolean updateHolderChanges(Holder holderModel, org.greenpole.entrycode.jeph.models.HolderChangeType hct) {
+        HolderChangeType holderChangeType = new HolderChangeType();
+        HolderChanges hcs = new HolderChanges();
+        if (!hct.getHolderChanges().isEmpty()) {            
+            for (HolderChanges hc : hct.getHolderChanges()) {
+                hcs.setInitialForm(hc.getInitialForm());
+                hcs.setCurrentForm(hc.getCurrentForm());
+                hcs.setChangeDate(hc.getChangeDate());
+                
+            }
+        }
+        holderChangeType.setChangeType(hct.getChangeType());
+        holderChangeType.setDescription(hct.getDescription());
+        // hcq.updateHolderChanges(holderChangeType);
+        return true;
+    }
+    
     private List<HolderPostalAddress> retrieveHolderPostalAddress(Holder holdModel, boolean newEntry) {
         org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
         List<org.greenpole.entity.model.Address> hpaddyList = (List<org.greenpole.entity.model.Address>) holdModel.getHolderPostalAddresses();
