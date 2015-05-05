@@ -142,7 +142,7 @@ public class ShareholderAndBondholderNubanLogic {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderBondAccount> bondHolderList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondHolderModel = bondHolderList.get(0);
-            org.greenpole.hibernate.entity.HolderBondAccount bondHolder_hib = hd.retrieveHolderBondCompAccount(bondHolderModel.getHolderId(), bondHolderModel.getId());
+            org.greenpole.hibernate.entity.HolderBondAccount bondHolder_hib = hd.retrieveHolderBondCompAccount(bondHolderModel.getHolderId(), bondHolderModel.getBondOfferId());
             bondHolder_hib.setNubanAccount(bondHolderModel.getNubanAccount());
             bondHolder_hib.setId(bondHolder_hib.getId());
             hd.createBondNubanAccount(bondHolder_hib);
@@ -289,7 +289,7 @@ public class ShareholderAndBondholderNubanLogic {
             List<HolderBondAccount> bondHolderList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondHolderAcct = bondHolderList.get(0);
             if(!bondHolderAcct.getNubanAccount().isEmpty()){
-            org.greenpole.hibernate.entity.HolderBondAccount bondHolderAcct_hib = hd.retrieveHolderBondCompAccount(bondHolderAcct.getHolderId(), bondHolderAcct.getId());
+            org.greenpole.hibernate.entity.HolderBondAccount bondHolderAcct_hib = hd.retrieveHolderBondCompAccount(bondHolderAcct.getHolderId(), bondHolderAcct.getBondOfferId());
             bondHolderAcct_hib.setNubanAccount(bondHolderAcct.getNubanAccount());
             bondHolderAcct_hib.setId(bondHolderAcct_hib.getId());
             hd.changeBondholderNubanAccount(bondHolderAcct_hib);
