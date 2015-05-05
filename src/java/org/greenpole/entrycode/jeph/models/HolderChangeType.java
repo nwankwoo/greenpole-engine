@@ -12,6 +12,7 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0 Used by the middle-tier to capture type of holder change details
  */
 public class HolderChangeType {
     
@@ -29,6 +30,14 @@ public class HolderChangeType {
     public HolderChangeType() {
     }
 
+    /**
+     * 
+     * @param id 
+     * @param changeType type of change which could be correction or change
+     * @param description describes the change in detail
+     * @param holderChangesId holder changes id
+     * @param holderChanges  list of holder changes
+     */
     public HolderChangeType(int id, String changeType, String description, int holderChangesId, List<HolderChanges> holderChanges) {
         this.id = id;
         this.changeType = changeType;

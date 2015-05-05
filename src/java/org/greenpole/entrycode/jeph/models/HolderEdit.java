@@ -19,6 +19,7 @@ import org.greenpole.entity.model.stockbroker.Stockbroker;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0 Used by the middle-tier to capture details holder and holder changes
  */
 public class HolderEdit {
     @XmlElement
@@ -81,6 +82,37 @@ public class HolderEdit {
     @XmlElementWrapper(name = "holderChanges")
     private List<HolderChanges> holderChanges;
 
+    /**
+     * 
+     * @param holderId holder id
+     * @param holderAcctNumber holder account number
+     * @param chn holder chn
+     * @param firstName holder first name
+     * @param middleName holder middle name
+     * @param lastName holder last name
+     * @param type type of account
+     * @param gender gender of holder
+     * @param dob date of birth
+     * @param taxExempted is holder exempted from tax
+     * @param merged is it a merged account
+     * @param pryHolder is ti a primary holder
+     * @param pryAddress primary address
+     * @param addresses list of addresses
+     * @param holderPhoneNumbers list of holder phone numbers
+     * @param holderEmailAddresses list of holder email addresses
+     * @param holderResidentialAddresses list of holder residential addresses
+     * @param holderPostalAddresses list of holder postal addresses
+     * @param holderStockbroker holder stock broker
+     * @param holderCompanyAccounts list of holder other company accounts
+     * @param holderBondAccounts list of holder other bond accounts
+     * @param deletedAddresses
+     * @param deletedEmailAddresses
+     * @param deletedPhoneNumbers
+     * @param changeType type of change to holder details
+     * @param description description of change to holder changes
+     * @param holderChangesId holder change id
+     * @param holderChanges list of holder changes
+     */
     public HolderEdit(int holderId, int holderAcctNumber, String chn, String firstName, String middleName, String lastName, String type, String gender, String dob, boolean taxExempted, boolean merged, boolean pryHolder, String pryAddress, List<Address> addresses, List<PhoneNumber> holderPhoneNumbers, List<EmailAddress> holderEmailAddresses, List<Address> holderResidentialAddresses, List<Address> holderPostalAddresses, Stockbroker holderStockbroker, List<HolderCompanyAccount> holderCompanyAccounts, List<HolderBondAccount> holderBondAccounts, List<Address> deletedAddresses, List<EmailAddress> deletedEmailAddresses, List<PhoneNumber> deletedPhoneNumbers, String changeType, String description, int holderChangesId, List<HolderChanges> holderChanges) {
         this.holderId = holderId;
         this.holderAcctNumber = holderAcctNumber;

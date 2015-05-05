@@ -10,6 +10,7 @@ import javax.xml.bind.annotation.XmlElement;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0 Used by the middle-tier to capture holder changes details
  */
 public class HolderChanges {
     
@@ -29,6 +30,15 @@ public class HolderChanges {
     public HolderChanges() {
     }
 
+    /**
+     * 
+     * @param id
+     * @param initialForm initial data before the change
+     * @param currentForm current data after the change
+     * @param holderChangeTypeId
+     * @param changeDate date when change was made
+     * @param holderId holder id
+     */
     public HolderChanges(int id, String initialForm, String currentForm, int holderChangeTypeId, String changeDate, int holderId) {
         this.id = id;
         this.initialForm = initialForm;

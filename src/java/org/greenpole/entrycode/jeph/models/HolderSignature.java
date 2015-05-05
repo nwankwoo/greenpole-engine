@@ -14,6 +14,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0 Used by the middle-tier to capture holder signature
  */
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.NONE)
@@ -37,6 +38,15 @@ public class HolderSignature {
     public HolderSignature() {
     }
 
+    /**
+     * 
+     * @param id
+     * @param holderId holder id
+     * @param title signature title
+     * @param signaturePath path of uploaded signature image
+     * @param holderSignaturePrimary indicates primary signature
+     * @param signImg signature image in bytes
+     */
     public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary, byte[] signImg) {
         this.id = id;
         this.holderId = holderId;
