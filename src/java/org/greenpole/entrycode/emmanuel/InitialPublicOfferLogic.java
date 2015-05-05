@@ -23,6 +23,8 @@ import org.greenpole.entrycode.emmanuel.model.InitialPublicOffer;
 import org.greenpole.hibernate.entity.AdministratorEmailAddressId;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumberId;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddressId;
+import org.greenpole.hibernate.entity.InitialPublicOffer;
+import org.greenpole.hibernate.entity.ShareQuotation;
 //import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
