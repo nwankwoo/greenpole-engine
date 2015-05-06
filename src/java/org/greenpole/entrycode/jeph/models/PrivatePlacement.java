@@ -32,7 +32,7 @@ public class PrivatePlacement implements Serializable {
     @XmlElement
     private int continuingMinSubscrptn;
     @XmlElement
-    private Double offerPrice;
+    private double offerPrice;
     @XmlElement
     private int offerSize;
     @XmlElement
@@ -54,7 +54,7 @@ public class PrivatePlacement implements Serializable {
      * @param closingDate
      */
     public PrivatePlacement(int clientCompanyId, int totalSharesOnOffer, int methodOnOffer,
-            int startingMinSubscrptn, int continuingMinSubscrptn, Double offerPrice, int offerSize, String openingDate, String closingDate) {
+            int startingMinSubscrptn, int continuingMinSubscrptn, double offerPrice, int offerSize, String openingDate, String closingDate) {
         this.clientCompanyId = clientCompanyId;
         this.totalSharesOnOffer = totalSharesOnOffer;
         this.methodOnOffer = methodOnOffer;
@@ -87,7 +87,7 @@ public class PrivatePlacement implements Serializable {
         return continuingMinSubscrptn;
     }
 
-    public Double getOfferPrice() {
+    public double getOfferPrice() {
         return offerPrice;
     }
 
@@ -123,7 +123,7 @@ public class PrivatePlacement implements Serializable {
         this.continuingMinSubscrptn = continuingMinSubscrptn;
     }
 
-    public void setOfferPrice(Double offerPrice) {
+    public void setOfferPrice(double offerPrice) {
         this.offerPrice = offerPrice;
     }
 
