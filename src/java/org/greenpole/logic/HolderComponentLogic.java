@@ -9,6 +9,7 @@ import com.sun.javafx.scene.control.skin.VirtualFlow;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,9 +33,11 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.hibernate.entity.AccountConsolidation;
 import org.greenpole.hibernate.entity.Bank;
 import org.greenpole.hibernate.entity.BondOffer;
 import org.greenpole.hibernate.entity.ClientCompany;
+import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
 import org.greenpole.hibernate.entity.HolderBondAccountId;
 import org.greenpole.hibernate.entity.HolderChangeType;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
@@ -46,6 +49,7 @@ import org.greenpole.hibernate.entity.HolderPostalAddress;
 import org.greenpole.hibernate.entity.HolderPostalAddressId;
 import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderResidentialAddressId;
+import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
@@ -64,13 +68,14 @@ import org.slf4j.LoggerFactory;
  */
 public class HolderComponentLogic {
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
+    private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     
     /**
      * Request to merge a holder account / multiple holder accounts to a primary holder account.
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the notification
-     * @param accountsToMerge the merge holder accounts object containing merge detailss
+     * @param accountsToMerge the merge holder accounts object containing merge detail
      * @return response to the merge holder accounts request
      */
     public Response mergeHolderAccounts_Request(Login login, String authenticator, HolderMerger accountsToMerge) {
@@ -89,20 +94,24 @@ public class HolderComponentLogic {
             boolean secCheckPassed = false;
             
             //check primary account
-            if (accountsToMerge.getPrimaryHolder().isPryHolder()) {
-                pryCheckPassed = true;
+            if (accountsToMerge.getPrimaryHolder().isPryHolder() && accountsToMerge.getPrimaryHolder().getChn() != null 
+                    && !"".equals(accountsToMerge.getPrimaryHolder().getChn())) {
                 h_hib = hq.getHolder(accountsToMerge.getPrimaryHolder().getHolderId());
+                if (!h_hib.isMerged())
+                    pryCheckPassed = true;
             }
             
             //check secondary accounts
             for (Holder h : accountsToMerge.getSecondaryHolders()) {
-                if (!h.isPryHolder()) {
+                if (h.isPryHolder() && h.getChn() != null && !"".equals(h.getChn())) {
+                    org.greenpole.hibernate.entity.Holder h_entity = hq.getHolder(h.getHolderId());
+                    if (!h_entity.isMerged()) {
+                        h_hib_list.add(h_entity);
+                        secCheckPassed = true;
+                    }
+                } else {
                     secCheckPassed = false;
                     break;
-                } else {
-                    org.greenpole.hibernate.entity.Holder h_entity = hq.getHolder(h.getHolderId());
-                    h_hib_list.add(h_entity);
-                    secCheckPassed = true;
                 }
             }
             
@@ -130,7 +139,7 @@ public class HolderComponentLogic {
                     if (pos < h_hib_list.size())
                         descMsg += ", ";
                 }
-                descMsg = ", requested by " + login.getUserId();
+                descMsg += ", requested by " + login.getUserId();
                 
                 //wrap unit transfer object in notification object, along with other information
                 wrapper.setCode(Notification.createCode(login));
@@ -166,18 +175,324 @@ public class HolderComponentLogic {
         }
     }
     
+    /**
+     * Processes a saved request to merge holder accounts, according to a specified notification code.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the merge holder accounts request
+     */
     public Response mergeHolderAccounts_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorise holder accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
+        
         try {
-            //get client company model from wrapper
+            //get Holder Merger model from wrapper
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-            List<HolderMerger> merger = (List<HolderMerger>) wrapper.getModel();
+            List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
+            HolderMerger merger = merger_list.get(0);
+            
+            boolean pryHolderExists = hq.checkHolderAccount(merger.getPrimaryHolder().getHolderId());
+            
+            if (pryHolderExists) {
+                //get the primary holder first, and company / bond accounts
+                org.greenpole.hibernate.entity.Holder pryHolder = hq.getHolder(merger.getPrimaryHolder().getHolderId());
+
+                if (pryHolder.isPryHolder() && !"".equals(pryHolder.getChn()) && pryHolder.getChn() != null) {
+                    List<org.greenpole.hibernate.entity.Holder> secHolders = new ArrayList<>();
+                    boolean similarToActive = false;
+
+                    List<org.greenpole.hibernate.entity.HolderBondAccount> pryBondAccts = new ArrayList<>();//all pry bond accts to be checked
+                    boolean pryHasBondAccts = hq.hasBondAccount(pryHolder.getId());
+
+                    if (pryHasBondAccts) {
+                        pryBondAccts = hq.getAllHolderBondAccounts(pryHolder.getId());
+                    }
+
+                    List<org.greenpole.hibernate.entity.HolderCompanyAccount> secHolderCompAccts = new ArrayList<>();//all sec comp accts to be moved
+                    List<org.greenpole.hibernate.entity.HolderBondAccount> secHolderBondAccts = new ArrayList<>();//all sec bond accts to be checked
+
+                    //attend to each secondary holder account
+                    mainloop:
+                    for (Holder sec_h_model : merger.getSecondaryHolders()) {
+                        boolean secHolderExists = hq.checkHolderAccount(sec_h_model.getHolderId());
+                        if (secHolderExists) {
+                            org.greenpole.hibernate.entity.Holder secHolder = hq.getHolder(sec_h_model.getHolderId());//get the secondary holder
+                            
+                            if (secHolder.isPryHolder() && !"".equals(secHolder.getChn()) && secHolder.getChn() != null) {
+                                secHolders.add(secHolder);//add secondary holder to list
+
+                                List<org.greenpole.hibernate.entity.HolderCompanyAccount> secCompAccts = new ArrayList<>();//the secondary holder's company accounts
+                                List<org.greenpole.hibernate.entity.HolderBondAccount> secBondAccts = new ArrayList<>();//the secondary holder's bond accounts
+
+                                boolean secHasCompAccts = hq.hasCompanyAccount(sec_h_model.getHolderId());//if secondary holder has company accounts
+                                boolean secHasBondAccts = hq.hasBondAccount(sec_h_model.getHolderId());//if secondary holder has bond accounts
+
+                                if (secHasCompAccts) {
+                                    secCompAccts = hq.getAllHolderCompanyAccounts(sec_h_model.getHolderId());
+                                }
+
+                                if (secHasBondAccts) {
+                                    secBondAccts = hq.getAllHolderBondAccounts(sec_h_model.getHolderId());
+                                }
+
+                                //search through company and bond accounts 
+                                for (org.greenpole.hibernate.entity.HolderCompanyAccount sec_hca : secCompAccts) {
+                                    secHolderCompAccts.add(sec_hca);//add secondary company accounts to list
+                                }
+
+                                for (org.greenpole.hibernate.entity.HolderBondAccount sec_hba : secBondAccts) {
+                                    if (sec_hba.getRemainingPrincipalValue() > 0) {
+                                        for (org.greenpole.hibernate.entity.HolderBondAccount pry_hba : pryBondAccts) {
+                                            if (sec_hba.getBondOffer().getId() == pry_hba.getBondOffer().getId()) {
+                                                similarToActive = true;
+                                            }
+                                        }
+                                        if (!similarToActive) {
+                                            secHolderBondAccts.add(sec_hba);//only add active bonds that have no similar bond offers with any bond acct in the pry holder
+                                        } else {
+                                            break mainloop;//more readable, otherwise use return statement
+                                        }
+                                    }
+                                }
+                            }
+                            resp.setRetn(307);
+                            resp.setDesc("Merge unsuccessful. The secondary Holder - " + secHolder.getFirstName() + " " + secHolder.getLastName()
+                                    + " - account has already been merged, or is missing its CHN."
+                                    + "\nContact Administrator.");
+                            return resp;
+                        }
+                        resp.setRetn(307);
+                        resp.setDesc("Merge unsuccessful. The secondary Holder, id - " + sec_h_model.getHolderId()
+                                + " - account has already been merged, or is missing its CHN."
+                                + "\nContact Administrator.");
+                        return resp;
+                    }
+                    boolean merged;
+                    if (!similarToActive) {
+                        merged = hq.mergeHolderAccounts(pryHolder, secHolders, secHolderCompAccts, secHolderBondAccts);
+                    } else {
+                        resp.setRetn(307);
+                        resp.setDesc("Merge unsuccessful, because one of the secondary holders has an active bond account "
+                                + "similar to a bond account in the primary holder");
+                        return resp;
+                    }
+
+                    if (merged) {
+                        resp.setRetn(0);
+                        resp.setDesc("Successful merge");
+                        return resp;
+                    } else {
+                        resp.setRetn(307);
+                        resp.setDesc("Merge unsuccessful due to database error. Contact Administrator.");
+                        return resp;
+                    }
+                }
+                resp.setRetn(307);
+                resp.setDesc("Merge unsuccessful. Primary Holder account has already been merged, or is missing its CHN."
+                        + "\nContact Administrator.");
+                return resp;
+            }
+            resp.setRetn(307);
+            resp.setDesc("Merge unsuccessful. Primary Holder account does not exist. Contact Administrator.");
+            return resp;
         } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log");
+            logger.error("error loading notification xml file to object - ", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to merge holder accounts. Contact System Administrator");
+            
+            return resp;
         } catch (Exception ex) {
+            logger.info("error merging holder accounts. See error log");
+            logger.error("error merging holder accounts - ", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to merge. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
         }
-        return null;
     }
+    
+    /**
+     * Request to demerge multiple holder accounts from a primary holder account.
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the notification
+     * @param accountsToDemerge the merge holder accounts object containing demerge details
+     * @return response to the demerge holder accounts request
+     */
+    public Response demergeHolderAccounts_Request(Login login, String authenticator, HolderMerger accountsToDemerge) {
+        logger.info("request holder accounts demerge, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            NotificationWrapper wrapper;
+            QueueSender qSender;
+            NotifierProperties prop;
+            
+            org.greenpole.hibernate.entity.Holder h_hib = new org.greenpole.hibernate.entity.Holder();
+            
+            boolean pryCheckPassed = false;
+            
+            //check primary account
+            if (accountsToDemerge.getPrimaryHolder().isPryHolder() && accountsToDemerge.getPrimaryHolder().isMerged()
+                    && accountsToDemerge.getPrimaryHolder().getChn() != null && "".equals(accountsToDemerge.getPrimaryHolder().getChn())) {
+                pryCheckPassed = true;
+                h_hib = hq.getHolder(accountsToDemerge.getPrimaryHolder().getHolderId());
+            }
+            
+            if (pryCheckPassed) {
+                wrapper = new NotificationWrapper();
+                
+                prop = new NotifierProperties(HolderComponentLogic.class);
+                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        prop.getAuthoriserNotifierQueueName());
+
+                logger.info("holder account qualifies for demerge operation");
+                
+                List<HolderMerger> holderMerger = new ArrayList<>();
+                holderMerger.add(accountsToDemerge);
+                
+                String pryName = h_hib.getFirstName() + " " + h_hib.getLastName();
+                
+                //wrap unit transfer object in notification object, along with other information
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Demerge accounts from " + pryName + ", requested by " + login.getUserId());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holderMerger);
+                resp = qSender.sendAuthorisationRequest(wrapper);
+                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                return resp;
+            } else {
+                logger.info("The chosen primary holder account has not been merged, or has but isn't a primary account");
+                resp.setRetn(308);
+                resp.setDesc("Error: \nThe chosen primary holder account has not been merged, or has but isn't a primary account.");
+                return resp;
+            }
+        } catch (Exception ex) {
+            logger.info("error processing holder accounts demerge. See error log");
+            logger.error("error processing holder accounts demerge - ", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process holder accounts demerge. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes a saved request to demerge holder accounts, according to a specified notification code.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the demerge holder accounts request
+     */
+    public Response demergeHolderAccounts_Authorise(Login login, String notificationCode) {
+        Response resp = new Response();
+        logger.info("authorise holder accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
+
+        try {
+            //get Holder Merger model from wrapper
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
+            HolderMerger demerger = merger_list.get(0);
+            
+            Map<org.greenpole.hibernate.entity.Holder, List<CompanyAccountConsolidation>> secondaryMergeInfo = new HashMap<>();
+
+            boolean pryExists = hq.checkHolderAccount(demerger.getPrimaryHolder().getHolderId());
+            if (pryExists) {
+                org.greenpole.hibernate.entity.Holder pryHolder = hq.getHolder(demerger.getPrimaryHolder().getHolderId());
+                
+                if (pryHolder.isPryHolder() && pryHolder.isMerged() && !"".equals(pryHolder.getChn()) && pryHolder.getChn() != null) {
+                    boolean hasSecHolders = hq.checkSecondaryHolders(demerger.getPrimaryHolder().getHolderId());
+
+                    if (hasSecHolders) {
+                        List<org.greenpole.hibernate.entity.Holder> secHolders = hq.getSecondaryHolderAccounts(demerger.getPrimaryHolder().getHolderId());
+
+                        for (org.greenpole.hibernate.entity.Holder secHolder : secHolders) {
+                            boolean hasRecords = hq.checkInConsolidation(secHolder.getId());
+                            boolean hasCompRecords = hq.checkInCompAcctConsolidation(secHolder.getId());//search to inclulde bond accounts that are still active
+                            if (!hasRecords) {
+                                resp.setRetn(309);
+                                resp.setDesc("Demerge unsuccessful. The secondary holder - " + secHolder.getFirstName() + " " + secHolder.getLastName()
+                                        + " - has no record to suggest it was involved in a merge."
+                                        + "\nContact Administrator.");
+                                return resp;
+                            }
+                            if (!hasCompRecords) {
+                                resp.setRetn(309);
+                                resp.setDesc("Demerge unsuccessful. The secondary holder - " + secHolder.getFirstName() + " " + secHolder.getLastName()
+                                        + " - has no record to suggest its company accounts were involved in the merge."
+                                        + "\nContact Administrator.");
+                                return resp;
+                            }
+                        }
+                        
+                        List<CompanyAccountConsolidation> compAcctRecords;
+                        for (org.greenpole.hibernate.entity.Holder secHolder : secHolders) {
+                            compAcctRecords = hq.getCompanyAccountMerges(secHolder.getId());
+
+                            for (CompanyAccountConsolidation cac : compAcctRecords) {
+                                if (cac.isTransfer()) {//company account merge was transfer as a result of similar company acct in pry & sec holder
+                                    int finalUnit = hq.getFinalUnitAfterTransfer(cac.getTiedToCurrentHolderId(), cac.getForCompanyId());
+                                    org.greenpole.hibernate.entity.HolderCompanyAccount pry_hca = hq.getHolderCompanyAccount(cac.getTiedToCurrentHolderId(), cac.getForCompanyId());
+                                    ClientCompany cc_info = cq.getClientCompany(cac.getForCompanyId());//for client company information
+                                    if (finalUnit != pry_hca.getShareUnits()) {
+                                        resp.setRetn(309);
+                                        resp.setDesc("The account for the company - " + cc_info.getName() + " - has already been "
+                                                + "involved in a number of transactions, and so demerge cannot occur."
+                                                + "\nContact Administrator.");
+                                        return resp;
+                                    }
+                                }
+                            }
+                            secondaryMergeInfo.put(secHolder, compAcctRecords);//if everything checks out, add secondary holder and corresponding list into map
+                        }
+                        
+                        boolean demerge = hq.demergeHolderAccounts(pryHolder, secondaryMergeInfo);
+                        if (demerge) {
+                            resp.setRetn(0);
+                            resp.setDesc("Demerge Successful.");
+                            return resp;
+                        } else {
+                            resp.setRetn(309);
+                            resp.setDesc("Demerge unsuccessful. The database rejected the demerge operation. Contact Administrator.");
+                            return resp;
+                        }
+                    }
+                    resp.setRetn(309);
+                    resp.setDesc("Demerge unsuccessful. Primary Holder account has no secondary holder accounts."
+                            + "\nContact Administrator.");
+                    return resp;
+                }
+                resp.setRetn(309);
+                resp.setDesc("Demerge unsuccessful. Primary Holder account has not been merged, or is missing its CHN."
+                        + "\nContact Administrator.");
+                return resp;
+            }
+            resp.setRetn(309);
+            resp.setDesc("Demerge unsuccessful. Primary Holder account does not exist. Contact Administrator.");
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log");
+            logger.error("error loading notification xml file to object - ", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to demerge holder accounts. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error demerging holder accounts. See error log");
+            logger.error("error demerging holder accounts - ", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to demerge. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
     
     /**
      * Request to transfer share units between holder company accounts.
@@ -209,21 +524,17 @@ public class HolderComponentLogic {
                     if (senderHolder.isPryHolder()) {//check if sender is primary
 
                         if (receiverHolder.isPryHolder()) {//check if receiver is primary
-                            boolean senderHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
-
-                            if (senderHolderCompAcctExists) {//check if sender has account
+                            boolean senderHolderChnExists = !"".equals(senderHolder.getChn()) && senderHolder.getChn() != null;
+                            
+                            if (senderHolderChnExists) {//check if sender has chn in their accounts
+                                boolean senderHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
                                 org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
-                                boolean senderHolderCAChnExists = hq.checkHolderCompanyAccount(senderCompAcct.getChn());
 
-                                if (senderHolderCAChnExists) {//check if sender has chn in company account
-
-                                    if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
+                                if (senderHolderCompAcctExists) {//check if sender account has chn
+                                    
+                                    if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) {//check if sender has sufficient units to transact
+                                        boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
                                         boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
-                                        boolean receiverHolderCAChnExists = false;
-                                        if (receiverHolderCompAcctExists) {
-                                            org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
-                                            receiverHolderCAChnExists = hq.checkHolderCompanyAccount(receiverCompAcct.getChn());
-                                        }
 
                                         wrapper = new NotificationWrapper();
                                         prop = new NotifierProperties(HolderComponentLogic.class);
@@ -243,10 +554,9 @@ public class HolderComponentLogic {
                                         wrapper.setFrom(login.getUserId());
                                         wrapper.setTo(authenticator);
                                         wrapper.setModel(transferList);
-
-                                        //check if receiver holder has company account and company account chn to send appropriate message
-                                        if (!receiverHolderCompAcctExists) {//if receiver has no company account, inform user
-                                            if (receiverHolder.getChn() != null && !receiverHolder.getChn().equals("")) {//...and has chn in main account
+                                        
+                                        if(!receiverHolderCompAcctExists) {
+                                            if (receiverHolderChnExists) {
                                                 resp = qSender.sendAuthorisationRequest(wrapper);
                                                 logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
 
@@ -255,35 +565,19 @@ public class HolderComponentLogic {
                                                         + " - has no active account with the company. One will be created for them upon authorisation.");
                                                 logger.info("Holder - [{}] - has no active account with the company. One will be created for them upon authorisation", receiverName);
                                                 return resp;
-                                            } else {//...and has no chn in main account
-                                                resp = qSender.sendAuthorisationRequest(wrapper);
-                                                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
-
-                                                resp.setDesc("Holder - " + receiverName + " - has no active account with the company, with no underlying CHN."
-                                                        + "\nA certificate will be created for them upon authorisation");
-                                                logger.info("Holder - [{}] - has no active account with the company, with no underlying CHN. A certificate will be created for them upon authorisation", receiverName);
-                                                return resp;
                                             }
-                                        } else if (!receiverHolderCAChnExists) {//if receiver has company account, but no chn in it...
-                                            if (receiverHolder.getChn() != null && !receiverHolder.getChn().equals("")) {//...and has chn in main account
-                                                resp = qSender.sendAuthorisationRequest(wrapper);
-                                                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
-
-                                                String originalMsg = resp.getDesc();
-                                                resp.setDesc(originalMsg + "\nHolder - " + receiverName + " - has no CHN in their account with the company."
-                                                        + "\nOne will be added for them upon authorisation.");
-                                                return resp;
-                                            } else {//...and has no chn in main account
-                                                resp.setRetn(302);
-                                                resp.setDesc("Database mismatch. Holder - " + receiverName + " - has account with the company, with no underlying CHN."
-                                                        + "\nA holder cannot have an account with a company without a CHN. Contact System Administrator.");
-                                                return resp;
-                                            }
-                                        } else {//if receiver has company account and chn in it
                                             resp = qSender.sendAuthorisationRequest(wrapper);
                                             logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+
+                                            String originalMsg = resp.getDesc();
+                                            resp.setDesc(originalMsg + "\nHolder - " + receiverName
+                                                    + " - has no active account with the company and no CHN. A certificate will be created for them upon authorisation.");
+                                            logger.info("Holder - [{}] - has no active account with the company. A certificate will be created for them upon authorisation", receiverName);
                                             return resp;
                                         }
+                                        resp = qSender.sendAuthorisationRequest(wrapper);
+                                        logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                                        return resp;
                                     }
                                     resp.setRetn(302);
                                     resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
@@ -291,13 +585,15 @@ public class HolderComponentLogic {
                                     return resp;
                                 }
                                 resp.setRetn(302);
-                                resp.setDesc("The holder - " + senderName + " - has no recorded CHN in his share company account.");
-                                logger.info("The holder - [{}] - has no recorded CHN in his share company account", senderName);
+                                resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from.");
+                                logger.info("The holder - [{}] - has no share company account to send any units from", senderName);
                                 return resp;
                             }
                             resp.setRetn(302);
-                            resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from.");
-                            logger.info("The holder - [{}] - has no share company account to send any units from", senderName);
+                            resp.setDesc("The holder - " + senderName + " - has no recorded CHN in their account."
+                                    + "\nCannot transfer from an account without a CHN.");
+                            logger.info("The holder - [{}] - has no recorded CHN in his account. "
+                                    + "Cannot transfer from an account without a CHN", senderName);
                             return resp;
                         }
                         resp.setRetn(302);
@@ -359,48 +655,35 @@ public class HolderComponentLogic {
                     if (senderHolder.isPryHolder()) {//check if sender is a primary account
 
                         if (receiverHolder.isPryHolder()) {//check if receiver is a primary account
-                            boolean senderHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
+                            boolean senderHolderChnExists = !"".equals(senderHolder.getChn()) && senderHolder.getChn() != null;
+                            
+                            if (senderHolderChnExists) {//check if sender receiver has chn in account
+                                boolean senderHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
 
-                            if (senderHolderCompAcctExists) {//check if sender has account
-                                org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
-                                boolean senderHolderCAChnExists = hq.checkHolderCompanyAccount(senderCompAcct.getChn());
-
-                                if (senderHolderCAChnExists) {//check if sender has chn in company account
+                                if (senderHolderCompAcctExists) {//check if sender has company account
+                                    org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
+                                    boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
                                     boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
 
-                                    if (receiverHolderCompAcctExists) {//check if receiver has account
+                                    if (receiverHolderCompAcctExists) {//check if receiver has company account
                                         org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
-                                        boolean receiverHolderCAChnExists = hq.checkHolderCompanyAccount(receiverCompAcct.getChn());
-
-                                        if (receiverHolderCAChnExists) {
-                                            return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName);
-                                        }
-                                        //no chn in receiver company account? attempt to put one for them
-                                        if (receiverHolder.getChn() != null && !receiverHolder.getChn().equalsIgnoreCase("")) {
-                                            receiverCompAcct.setChn(receiverHolder.getChn());
-                                            //proceed with transfer
-                                            return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName);
-                                        }
-                                        //no chn in receiver main account as well? Inform user of database mismatch.
-                                        //since company account exists, chn must be present.
-                                        //system administrator should be informed to take appropriate action.
-                                        resp.setRetn(302);
-                                        resp.setDesc("Database mismatch. The holder - " + senderName + " - has a company account but no chn."
-                                                + "\nContact Administrator. Holder cannot have company account without chn.");
-                                        logger.info("Database mismatch. The holder - [{}] - has company account but no chn. Business rule violation", senderName);
-                                        return resp;
+                                        //begin transfer
+                                        return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName);
                                     }
-                                    //no company account? attempt to create one for them
-                                    if (receiverHolder.getChn() != null && !receiverHolder.getChn().equalsIgnoreCase("")) {
+                                    //no company account? attempt to create one for them if they have a chn
+                                    if (receiverHolderChnExists) {
                                         org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-                                        receiverCompAcct.setChn(receiverHolder.getChn());
-                                        receiverCompAcct.setTaxExempted(receiverHolder.isTaxExempted());
-                                        hq.createUpdateHolderCompanyAccount(senderCompAcct);
+                                        HolderCompanyAccountId receiverCompAcctId = new HolderCompanyAccountId(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
+                                        receiverCompAcct.setId(receiverCompAcctId);
+                                        receiverCompAcct.setEsop(false);
+                                        receiverCompAcct.setHolderCompAccPrimary(true);
+                                        receiverCompAcct.setMerged(false);
+                                        hq.createUpdateHolderCompanyAccount(receiverCompAcct);
                                         //proceed with transfer
                                         return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName);
                                     }
-                                    //no company account and no chn in main account? create certificate
-                                    //METHOD TO CREATE CERTIFICATE
+                                    //no chn in main account? create certificate
+                                    //METHOD TO CREATE CERTIFICATE HERE!!!
                                     boolean certCreated = true;
                                     if (certCreated) {
                                         //QUERY CERTIFICATE FOR NUMBER
@@ -417,13 +700,13 @@ public class HolderComponentLogic {
                                     }
                                 }
                                 resp.setRetn(303);
-                                resp.setDesc("The holder - " + senderName + " - has no recorded CHN in his share company account. Transaction cancelled.");
-                                logger.info("The holder - [{}] - has no recorded CHN in his share company account. Transaction cancelled.", senderName);
+                                resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from. Transaction cancelled.");
+                                logger.info("The holder - [{}] - has no share company account to send any units from. Transaction cancelled", senderName);
                                 return resp;
                             }
                             resp.setRetn(303);
-                            resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from. Transaction cancelled.");
-                            logger.info("The holder - [{}] - has no share company account to send any units from. Transaction cancelled", senderName);
+                            resp.setDesc("The holder - " + senderName + " - has no recorded CHN in their account. Transaction cancelled.");
+                            logger.info("The holder - [{}] - has no recorded CHN in their account. Transaction cancelled.", senderName);
                             return resp;
                         }
                         resp.setRetn(303);
@@ -494,22 +777,18 @@ public class HolderComponentLogic {
                     if (senderHolder.isPryHolder()) {
                         
                         if (receiverHolder.isPryHolder()) {
-                            boolean senderHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
-
-                            if (senderHolderBondAcctExists) {//check if sender has account
-                                org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
-                                boolean senderHolderBAChnExists = hq.checkHolderBondAccount(senderBondAcct.getChn());
-
-                                if (senderHolderBAChnExists) {//check if sender has chn in bond account
-
+                            boolean senderHolderChnExists = !"".equals(senderHolder.getChn()) && senderHolder.getChn() != null;
+                            boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
+                            
+                            if (senderHolderChnExists && receiverHolderChnExists) {//check if sender and receiver have chn in accounts
+                                boolean senderHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
+                                
+                                if (senderHolderBondAcctExists) {//check if sender has bond account
+                                    org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
+                                    boolean receiverHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
+                                    
                                     if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-                                        boolean receiverHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
-                                        boolean receiverHolderBAChnExists = false;
-                                        if (receiverHolderBondAcctExists) {
-                                            org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
-                                            receiverHolderBAChnExists = hq.checkHolderCompanyAccount(receiverBondAcct.getChn());
-                                        }
-
+                                        
                                         wrapper = new NotificationWrapper();
                                         prop = new NotifierProperties(HolderComponentLogic.class);
                                         qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
@@ -528,48 +807,19 @@ public class HolderComponentLogic {
                                         wrapper.setFrom(login.getUserId());
                                         wrapper.setTo(authenticator);
                                         wrapper.setModel(transferList);
-
-                                        //check if receiver holder has bond account and bond acct chn to send appropriate message
-                                        if (!receiverHolderBondAcctExists) {//if receiver has no company account, inform user
-                                            if (receiverHolder.getChn() != null && !receiverHolder.getChn().equals("")) {//...and has chn in main account
-                                                resp = qSender.sendAuthorisationRequest(wrapper);
-                                                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
-
-                                                String originalMsg = resp.getDesc();
-                                                resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                        + " - has no active account with the company. One will be created for them upon authorisation.");
-                                                logger.info("Holder - [{}] - has no active account with the company. One will be created for them upon authorisation", receiverName);
-                                                return resp;
-                                            } else {//...and has no chn in main account
-                                                resp.setRetn(304);
-                                                resp.setDesc("Holder - " + receiverName + " - has no active account with the company, with no underlying CHN."
-                                                        + "\nBond transfer cancelled.");
-                                                logger.info("Holder - [{}] - has no active account with the company, with no underlying CHN. Bond transfer cancelled", receiverName);
-                                                return resp;
-                                            }
-                                        } else if (!receiverHolderBAChnExists) {//if receiver has company account, but no chn in it...
-                                            if (receiverHolder.getChn() != null && !receiverHolder.getChn().equals("")) {//...and has chn in main account
-                                                resp = qSender.sendAuthorisationRequest(wrapper);
-                                                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
-
-                                                String originalMsg = resp.getDesc();
-                                                resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                        + " - has no CHN in their account with the company."
-                                                        + "\nOne will be added for them upon authorisation.");
-                                                logger.info("Holder - [{}] - has no CHN in their account with the company. One will be added for them upon authorisation", receiverName);
-                                                return resp;
-                                            } else {//...and has no chn in main account
-                                                resp.setRetn(304);
-                                                resp.setDesc("Holder - " + receiverName + " - has active account with the company, with no underlying CHN."
-                                                        + "\nBond transfer cannot take place.");
-                                                logger.info("The holder - [{}] - has no active account with the company, with no underlying CHN. Bond Transfer cannot take place", senderName);
-                                                return resp;
-                                            }
-                                        } else {//if receiver has company account and chn in it
-                                            resp = qSender.sendAuthorisationRequest(wrapper);
-                                            logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
-                                            return resp;
+                                        
+                                        resp = qSender.sendAuthorisationRequest(wrapper);
+                                        logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                                        
+                                        //check if receiver holder has bond account, adjust message accordingly
+                                        if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
+                                            String originalMsg = resp.getDesc();
+                                            resp.setDesc(originalMsg + "\nHolder - " + receiverName
+                                                    + " - has no active account with the company. One will be created for them upon authorisation.");
+                                            logger.info("Holder - [{}] - has no active account with the company. One will be created for them upon authorisation", receiverName);
                                         }
+                                        
+                                        return resp;
                                     }
                                     resp.setRetn(304);
                                     resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
@@ -577,13 +827,13 @@ public class HolderComponentLogic {
                                     return resp;
                                 }
                                 resp.setRetn(304);
-                                resp.setDesc("The holder - " + senderName + " - has no recorded CHN in his share company account.");
-                                logger.info("The holder - [{}] - has no recorded CHN in his share company account", senderName);
+                                resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from.");
+                                logger.info("The holder - [{}] - has no share company account to send any units from", senderName);
                                 return resp;
                             }
                             resp.setRetn(304);
-                            resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from.");
-                            logger.info("The holder - [{}] - has no share company account to send any units from", senderName);
+                            resp.setDesc("Both holders must each have a CHN in their account.");
+                            logger.info("Both holders must each have a CHN in their account");
                             return resp;
                         }
                         resp.setRetn(304);
@@ -645,51 +895,30 @@ public class HolderComponentLogic {
                     if (senderHolder.isPryHolder()) {//check if sender is primary account
                         
                         if (receiverHolder.isPryHolder()) {//check if receiver is primary account
-
-                            boolean senderHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
-
-                            if (senderHolderBondAcctExists) {//check if sender has account
-                                org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
-                                boolean senderHolderBAChnExists = hq.checkHolderBondAccount(senderBondAcct.getChn());
-
-                                if (senderHolderBAChnExists) {//check if sender has chn in company account
+                            boolean senderHolderChnExists = !"".equals(senderHolder.getChn()) && senderHolder.getChn() != null;
+                            boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
+                            
+                            if (senderHolderChnExists && receiverHolderChnExists) {//check if sender and receiver have CHN in their accounts
+                                boolean senderHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
+                                
+                                if (senderHolderBondAcctExists) {//check if sender has bond account
+                                    org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
                                     boolean receiverHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
-
-                                    if (receiverHolderBondAcctExists) {//check if receiver has account
+                                    
+                                    if (receiverHolderBondAcctExists) {//check if receiver has bond account
                                         org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
-                                        boolean receiverHolderBAChnExists = hq.checkHolderBondAccount(receiverBondAcct.getChn());
-
-                                        if (receiverHolderBAChnExists) {
-                                            return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName);
-                                        }
-                                        //no chn in receiver company account? attempt to put one for them
-                                        if (receiverHolder.getChn() != null && !receiverHolder.getChn().equalsIgnoreCase("")) {
-                                            receiverBondAcct.setChn(receiverHolder.getChn());
-                                            //proceed with transfer
-                                            return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName);
-                                        }
-                                        //no chn in receiver main account as well? Inform user of database mismatch.
-                                        //since company account exists, chn must be present.
-                                        //system administrator should be informed to take appropriate action.
-                                        resp.setRetn(305);
-                                        resp.setDesc("Database mismatch. The holder - " + senderName + " - has a bond account but no chn."
-                                                + "\nContact Administrator. Holder cannot have bond account without chn.");
-                                        logger.info("Database mismatch. The holder - [{}] - has bond account but no chn. Business rule violation", senderName);
-                                        return resp;
-                                    }
-                                    //no bond account? attempt to create one for them
-                                    if (receiverHolder.getChn() != null && !receiverHolder.getChn().equalsIgnoreCase("")) {
-                                        org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = new org.greenpole.hibernate.entity.HolderBondAccount();
-                                        receiverBondAcct.setChn(receiverHolder.getChn());
-                                        hq.createUpdateHolderBondAccount(senderBondAcct);
-                                        //proceed with transfer
+                                        //proceed with transaction
                                         return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName);
                                     }
-                                    //no bond account and no chn in main account? cancel transaction
-                                    resp.setRetn(305);
-                                    resp.setDesc("Transaction Unsuccessful. Holder - " + receiverName + " - has no chn to create a bond account. Contact System Administrator.");
-                                    logger.info("Transaction Successful. Certificate could not be created for [{}]", receiverName);
-                                    return resp;
+                                    //no bond account? attempt to create one for them
+                                    org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = new org.greenpole.hibernate.entity.HolderBondAccount();
+                                    HolderBondAccountId receiverBondAcctId = new HolderBondAccountId(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
+                                    receiverBondAcct.setId(receiverBondAcctId);
+                                    receiverBondAcct.setMerged(false);
+                                    receiverBondAcct.setHolderBondAccPrimary(true);
+                                    hq.createUpdateHolderBondAccount(receiverBondAcct);
+                                    //proceed with transfer
+                                    return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName);
                                 }
                                 resp.setRetn(305);
                                 resp.setDesc("The holder - " + senderName + " - has no recorded CHN in his bond account. Transaction cancelled.");
