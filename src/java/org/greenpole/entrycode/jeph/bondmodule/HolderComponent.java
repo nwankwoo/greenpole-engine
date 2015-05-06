@@ -66,52 +66,103 @@ public class HolderComponent {
      * @param login user's login details
      * @param authenticator the authenticator user meant to receive the
      * notification
-     * @param hold object representing holder details
+     * @param holder object representing holder details
      * @return response object for the request
      */
-    public Response createHolder_Request(Login login, String authenticator, Holder hold) {
-        logger.info("request to create holder [{}] [{}] invoked by [{}]", hold.getFirstName(), hold.getLastName(), login.getUserId());
-
+    public Response createHolder_Request(Login login, String authenticator, Holder holder) {
         Response res = new Response();
         NotificationWrapper wrapper;
-        SignatureProperties signProp;
         QueueSender queue;
         NotifierProperties prop;
+        String resDes = null;
+        boolean flag = false;
 
-        if ((!hold.getFirstName().isEmpty() || !"".equals(hold.getFirstName())) && (!hold.getLastName().isEmpty() || !"".equals(hold.getLastName()))) {
-            if (hold.getType().isEmpty() || "".equals(hold.getType())) {
-                res.setRetn(200);
-                res.setDesc("holder account first name is empty");
-                logger.info("holder account is empty");
-
-            } else {
-                try {
-                    wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponent.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-                    List<Holder> holdList = new ArrayList<>();
-                    holdList.add(hold);
-                    wrapper.setCode(Notification.createCode(login));
-                    wrapper.setDescription("Authenticate creation of holder account, " + hold.getFirstName() + " " + hold.getLastName());
-                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setFrom(login.getUserId());
-                    wrapper.setTo(authenticator);
-                    wrapper.setModel(holdList);
-                    res = queue.sendAuthorisationRequest(wrapper);
-                    logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
-                } catch (Exception ex) {
-                    logger.info("error create holder account. See error log");
-                    logger.error("error create holder account - ", ex);
-                    res.setRetn(99);
-                    res.setDesc("General error. Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+        if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
+            resDes = "\nError: Holder first name should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+            resDes += "\nError: Holder middle name should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+            resDes += "\nError: Holder last name should not be empty";
+        } else {
+            flag = true;
+        }
+//        if ("".equals(holder.getChn()) || holder.getChn() == null) {
+//            resDes += "\nError: Holder CHN should not be empty";
+//        } else {
+//            flag = true;
+//        }
+        if ("".equals(holder.getGender()) || holder.getGender() == null) {
+            resDes += "\nError: Holder gender should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getDob()) || holder.getDob() == null) {
+            resDes += "\nError: Holder date of birth should not be empty";
+        } else {
+            flag = true;
+        }
+        if (!holder.getAddresses().isEmpty()) {
+            for (Address addr : holder.getAddresses()) {
+                if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
+                    resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getState()) || addr.getState() == null) {
+                    resDes += "\nState should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
+                    resDes += "\nCountry should not be empty. Delete entire address if you must";
                 }
             }
+        } else if (!holder.getHolderEmailAddresses().isEmpty()) {
+            for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                    resDes += "\nEmail address should not be empty. Delete email entry if you must";
+                }
+            }
+        } else if (!holder.getHolderPhoneNumbers().isEmpty()) {
+            for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                    resDes += "\nPhone number should not be empty. Delete phone number entry if you must";
+                }
+            }
+        } else {
+            flag = true;
+        }
+        if (flag) {
+            try {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponent.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                List<Holder> holdList = new ArrayList<>();
+                holdList.add(holder);
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate holder account, " + holder.getFirstName() + " " + holder.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holdList);
+                res = queue.sendAuthorisationRequest(wrapper);
+                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+            } catch (Exception ex) {
+                logger.info("Error creating holder account. See error log");
+                logger.error("Error creating holder account - ", ex);
+                res.setRetn(99);
+                res.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+            }
+        } else {
+            res.setRetn(200);
+            res.setDesc("Error: " + resDes);
+            logger.info("Error filing holder details: ", resDes);
         }
         return res;
     }
 
     /**
-     * Processes request authorisation to create holder details that has been saved
+     * Processes request authorisation to create holder details
      *
      * @param login user's login details
      * @param notificationCode the notification code
@@ -120,8 +171,7 @@ public class HolderComponent {
     public Response createHolder_Authorise(Login login, String notificationCode) {
         logger.info("request for authorisation to persist holder details. Invoked by Login [{}]", login.getUserId());
         Response res = new Response();
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-
+        
         try {
             logger.info("Holder creation authorised - [{}]", notificationCode);
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -141,11 +191,13 @@ public class HolderComponent {
 
             if (created) {
                 res.setRetn(0);
-                res.setDesc("Successful Persistence");
+                res.setDesc("Holder details saved: Successful");
                 return res;
             } else {
-                res.setRetn(200);
-                res.setDesc("An error occured persisting the data residential and postal addresses are empty");
+                logger.info("error persist holder account.");
+                logger.error("error persist holder account.");
+                res.setRetn(99);
+                res.setDesc("General error. Unable to persist holder account. Contact system administrator.");
                 return res;
             }
         } catch (JAXBException ex) {
@@ -210,7 +262,7 @@ public class HolderComponent {
                 logger.info("Error in saving image. See error log");
                 logger.error("Error in saving image - ", ioex);
                 res.setRetn(99);
-                res.setDesc("General error. Unable to create bondholder account. Contact system administrator." + "\nMessage: " + ioex.getMessage());
+                res.setDesc("General error. Unable to upload holder signature. Contact system administrator." + "\nMessage: " + ioex.getMessage());
             }
         } else {
             res.setRetn(99);
@@ -241,7 +293,7 @@ public class HolderComponent {
             org.greenpole.hibernate.entity.HolderSignature holderSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
             holderSignEntity.setHolderSignaturePrimary(false);
             // hcq.createOrUpdateHolderSingature(holderSignEntity);
-            // org.greenpole.hibernate.entity.HolderSignature holderSignEntity = hcq.getHolderSignature(holderSignModel.getHolderId());
+            // org.greenpole.hibernate.entity.HolderSignature holderSignEntityUpdate = hcq.getHolderSignature(holderSignModel.getHolderId());
             org.greenpole.hibernate.entity.HolderSignature holderSignEntityUpdate = new org.greenpole.hibernate.entity.HolderSignature();
             holderSignEntityUpdate.setHolderSignaturePrimary(true);
             holderSignEntityUpdate.setTitle(holderSignModel.getTitle());
@@ -257,10 +309,10 @@ public class HolderComponent {
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
         } catch (Exception ex) {
+            logger.info("Error in saving uploaded image. See error log");
+            logger.error("Error in saving uploaded image - ", ex);
             res.setRetn(99);
-            res.setDesc("error. See error log");
-            logger.info("error. See error log");
-            logger.error("error - ", ex);
+            res.setDesc("General error. Unable to save uploaded holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
         return res;
     }
@@ -285,7 +337,7 @@ public class HolderComponent {
         boolean holderIdExist;
 
         if (holderSign.getHolderId() <= 0) {
-            // holderIdExist = hcq.chkHolder(holderSign.getHolderId());
+            // holderIdExist = hcq.chkHolderSignature(holderSign.getHolderId());
             holderIdExist = true;
             if (holderIdExist) {
                 try {
@@ -314,8 +366,10 @@ public class HolderComponent {
                 logger.info("Error: No signature exists for holder");
             }
         } else {
+            logger.info("Error: Holder Id is either invalid or empty");
+            logger.error("Error: Holder Id is either invalid or empty");
             res.setRetn(99);
-            res.setDesc("Error: Holder Id should not be empty");
+            res.setDesc("General Error: Holder Id is either invalid or empty. Contact system administrator.");
         }
         return res;
     }
@@ -351,6 +405,11 @@ public class HolderComponent {
             res.setDesc("Error retrieving holder signature details");
             logger.info("Error retrieving holder signature details");
             logger.error("Error retrieving holder signature details");
+        } catch (Exception ex) {
+            logger.info("Error retrieving holder signature details");
+            logger.error("Error retrieving holder signature details");
+            res.setRetn(99);
+            res.setDesc("General Error: retrieving holder signature details. Contact system administrator.");
         }
         return res;
     }
@@ -387,48 +446,93 @@ public class HolderComponent {
      * @param login user's login details
      * @param authenticator the authenticator user meant to receive the
      * notification
-     * @param hold the holder details object
+     * @param holder the holder details object
      * @return response object for the request
      */
-    public Response createBondHolderAccount_Request(Login login, String authenticator, Holder hold) {
-        logger.info("request to create bond holder [{}] [{}]. Invoked by [{}]", hold.getFirstName(), hold.getLastName(), login.getUserId());
-
+    public Response createBondHolderAccount_Request(Login login, String authenticator, Holder holder) {
+        logger.info("request to create bond holder account. Invoked by [{}]", login.getUserId());
         Response res = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
+        String resDes = null;
+        boolean flag = false;
 
-        try {
-            if (!hold.getFirstName().isEmpty() || hold.getFirstName() != null) {
-                if (hold.getType().isEmpty() || hold.getType() == null) {
-                    res.setRetn(200);
-                    res.setDesc("holder account first name is empty");
-                    logger.info("holder account is empty");
-                } else {
-                    wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponent.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-
-                    logger.info("holder does not exits - [{}] [{}]", hold.getFirstName(), hold.getLastName());
-
-                    List<Holder> holdList = new ArrayList<>();
-                    holdList.add(hold);
-
-                    wrapper.setCode(Notification.createCode(login));
-                    wrapper.setDescription("Authenticate creation of holder account, " + hold.getFirstName() + " " + hold.getLastName());
-                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setFrom(login.getUserId());
-                    wrapper.setTo(authenticator);
-                    wrapper.setModel(holdList);
-                    res = queue.sendAuthorisationRequest(wrapper);
-                    logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+        if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
+            resDes = "\nError: Holder first name should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+            resDes += "\nError: Holder middle name should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+            resDes += "\nError: Holder last name should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getGender()) || holder.getGender() == null) {
+            resDes += "\nError: Holder gender should not be empty";
+        } else {
+            flag = true;
+        }
+        if ("".equals(holder.getDob()) || holder.getDob() == null) {
+            resDes += "\nError: Holder date of birth should not be empty";
+        } else {
+            flag = true;
+        }
+        if (!holder.getAddresses().isEmpty()) {
+            for (Address addr : holder.getAddresses()) {
+                if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
+                    resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getState()) || addr.getState() == null) {
+                    resDes += "\nState should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
+                    resDes += "\nCountry should not be empty. Delete entire address if you must";
                 }
             }
-        } catch (Exception ex) {
-            logger.info("error create bondholder account. See error log");
-            logger.error("error create bondholder account - ", ex);
-            res.setRetn(99);
-            res.setDesc("General error. Unable to create bondholder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+        } else if (!holder.getHolderEmailAddresses().isEmpty()) {
+            for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                    resDes += "\nEmail address should not be empty. Delete email entry if you must";
+                }
+            }
+        } else if (!holder.getHolderPhoneNumbers().isEmpty()) {
+            for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                    resDes += "\nPhone number should not be empty. Delete phone number entry if you must";
+                }
+            }
+        } else {
+            flag = true;
+        }
+        if (flag) {
+            try {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponent.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                List<Holder> holdList = new ArrayList<>();
+                holdList.add(holder);
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate holder account, " + holder.getFirstName() + " " + holder.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holdList);
+                res = queue.sendAuthorisationRequest(wrapper);
+                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+            } catch (Exception ex) {
+                logger.info("Error creating bond holder account. See error log");
+                logger.error("Error creating bond holder account - ", ex);
+                res.setRetn(99);
+                res.setDesc("General Error: Unable to create bond holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+            }
+        } else {
+            res.setRetn(200);
+            res.setDesc("Error: " + resDes);
+            logger.info("Error filing bond holder details: ", resDes);
         }
         return res;
     }
@@ -498,7 +602,6 @@ public class HolderComponent {
         logger.info("request to transpose holder signature: Invoked by [{}]", login.getUserId());
         Response res = new Response();
         NotificationWrapper wrapper;
-        SignatureProperties signProp;
         QueueSender queue;
         NotifierProperties prop;
 
@@ -596,7 +699,6 @@ public class HolderComponent {
         }
         Response res = new Response();
         NotificationWrapper wrapper;
-        SignatureProperties signProp;
         QueueSender queue;
         NotifierProperties prop;
         String resDes = null;
@@ -694,6 +796,7 @@ public class HolderComponent {
 
     /**
      * Processes request authorisation to edit holder details
+     *
      * @param login user's login details
      * @param notificationCode the notification code
      * @return response object for the authorized edit holder details request
@@ -742,7 +845,9 @@ public class HolderComponent {
     }
 
     /**
-     * Unwraps the changes made to details of a holder into the holder changes entity
+     * Unwraps the changes made to details of a holder into the holder changes
+     * entity
+     *
      * @param holderModel object of the holder
      * @param hd object of holder details edited
      * @return boolean value indicating status
@@ -771,8 +876,9 @@ public class HolderComponent {
     }
 
     /**
-     * An adapter of retrieveHolderPostalAddress that 
-     * unwraps the edited holder details from the holderEdit model into a holder model
+     * An adapter of retrieveHolderPostalAddress that unwraps the edited holder
+     * details from the holderEdit model into a holder model
+     *
      * @param holderEdit the edited holder details
      * @param newEntry boolean value to indicate new data entry
      * @return List of HolderPostalAddress entity object
@@ -799,7 +905,9 @@ public class HolderComponent {
     }
 
     /**
-     * Unwraps the holder postal address details from the HolderModel into HolderPostalAddress hibernate entity
+     * Unwraps the holder postal address details from the HolderModel into
+     * HolderPostalAddress hibernate entity
+     *
      * @param holdModel the holderModel of holder details
      * @param newEntry boolean value indicating new entry
      * @return List object of HolderPostalAddress hibernate entity
@@ -829,8 +937,9 @@ public class HolderComponent {
     }
 
     /**
-     * An adapter of the retieveHolderPhoneNumber method that 
-     * unwraps holder edited holder details from HolderEdit object in holder model
+     * An adapter of the retieveHolderPhoneNumber method that unwraps holder
+     * edited holder details from HolderEdit object in holder model
+     *
      * @param holderEdit object holding edited holder details
      * @param newEntry boolean value indicating new entry
      * @return List of HolderPhoneNumber objects
@@ -857,10 +966,12 @@ public class HolderComponent {
     }
 
     /**
-     * Unwraps holder phone number details from the holder model passed as parameter
-     * into HolderPhoneNumber hibernate entity
+     * Unwraps holder phone number details from the holder model passed as
+     * parameter into HolderPhoneNumber hibernate entity
+     *
      * @param holdModel object of holder details
-     * @param newEntry boolean variable indicating whether or not the entry is new
+     * @param newEntry boolean variable indicating whether or not the entry is
+     * new
      * @return List of HolderPhoneNumber objects
      */
     private List<HolderPhoneNumber> retrieveHolderPhoneNumber(Holder holdModel, boolean newEntry) {
@@ -882,10 +993,12 @@ public class HolderComponent {
     }
 
     /**
-     * An adapter method of the retrieveHolderResidentialAddress that 
-     * unwraps Holder residential address from the holderEdit object
+     * An adapter method of the retrieveHolderResidentialAddress that unwraps
+     * Holder residential address from the holderEdit object
+     *
      * @param holderEdit object of edited holder details
-     * @param newEntry boolean variable indicating whether or not the entry is new
+     * @param newEntry boolean variable indicating whether or not the entry is
+     * new
      * @return List of HolderResidentialAddress objects
      */
     private List<HolderResidentialAddress> retrieveHolderResidentialAddress(HolderEdit holderEdit, boolean newEntry) {
@@ -910,8 +1023,9 @@ public class HolderComponent {
     }
 
     /**
-     * Unwraps Holder residential address from the holder model into HolderResidentialAddress
-     * hibernate entity object
+     * Unwraps Holder residential address from the holder model into
+     * HolderResidentialAddress hibernate entity object
+     *
      * @param holdModel object of holder model
      * @param newEntry boolean variable indicating whether or not entry is new
      * @return List of HolderResidentialAddress hibernate entity objects
@@ -944,6 +1058,7 @@ public class HolderComponent {
 
     /**
      * Unwraps holder company account details from the holder model
+     *
      * @param holdModel object of the holder model
      * @param newEntry boolean variable indicating whether or not entry is new
      * @return object of HolderCompanyAccount
@@ -971,6 +1086,7 @@ public class HolderComponent {
 
     /**
      * Generates unique file name from a combination of date and a random number
+     *
      * @return
      */
     private String createSignatureFileName() {
@@ -983,6 +1099,7 @@ public class HolderComponent {
 
     /**
      * Unwraps Holder bond account details from holder model
+     *
      * @param holdModel object of holder model
      * @param newEntry boolean variable indicating whether or not entry is new
      * @return HolderBondAccount object
