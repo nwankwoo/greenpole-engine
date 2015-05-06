@@ -72,14 +72,19 @@ public interface HibernatDummyQuerInterface {
     public void changeBondholderNubanAccount(HolderBondAccount bondholderAccount);
 
     //public org.greenpole.hibernate.entity.HolderChanges getHolderEditedDetails(int holderId);
-
     //public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryOne(String changeType, String changeDate, int holderId);
-
    // public org.greenpole.hibernate.entity.HolderChanges retrieveHolderChangesQueryTwo(String changeType, String changeDate1, String changeDate2, int holderId);
-
     public org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(int holderId, int clientCompanyId);
+
     public org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondCompAccount(int holderId, int bondId);
+
     public List<CompanyAccountConsolidation> queryAccountConsolidation(String descriptor, CompanyAccountConsolidation compAccCon, String start_date, String end_date);
+
     public List<Login> getUserList(List<Login> login);
+
     public List<AccountConsolidation> queryAccCon(int holderId);
+
+    public boolean updatePowerOfAttorneyStatus(int holderId);
+
+    public org.greenpole.hibernate.entity.PowerOfAttorney retrieveCurrentPowerOfAttorney(int holderId);
 }

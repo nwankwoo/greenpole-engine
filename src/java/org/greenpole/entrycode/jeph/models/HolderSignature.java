@@ -14,6 +14,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  * @author Jephthah Sadare
+ * @version 1.0 Used by the middle-tier to capture holder signature
  */
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.NONE)
@@ -31,21 +32,28 @@ public class HolderSignature {
     private String signaturePath;
     @XmlElement
     private boolean holderSignaturePrimary;
-    
+    @XmlElement
+    private byte[] signImg;
+
+    public HolderSignature() {
+    }
+
     /**
      * 
      * @param id
-     * @param holderId
-     * @param title
-     * @param signaturePath
-     * @param holderSignaturePrimary 
+     * @param holderId holder id
+     * @param title signature title
+     * @param signaturePath path of uploaded signature image
+     * @param holderSignaturePrimary indicates primary signature
+     * @param signImg signature image in bytes
      */
-    public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary) {
+    public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary, byte[] signImg) {
         this.id = id;
         this.holderId = holderId;
         this.title = title;
         this.signaturePath = signaturePath;
         this.holderSignaturePrimary = holderSignaturePrimary;
+        this.signImg = signImg;
     }
 
     public int getId() {
@@ -86,6 +94,14 @@ public class HolderSignature {
 
     public void setHolderSignaturePrimary(boolean holderSignaturePrimary) {
         this.holderSignaturePrimary = holderSignaturePrimary;
+    }
+
+    public byte[] getSignImg() {
+        return signImg;
+    }
+
+    public void setSignImg(byte[] signImg) {
+        this.signImg = signImg;
     }
 
 }

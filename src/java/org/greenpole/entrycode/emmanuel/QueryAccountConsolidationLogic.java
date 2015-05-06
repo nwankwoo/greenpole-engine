@@ -8,20 +8,24 @@ package org.greenpole.entrycode.emmanuel;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import org.greenpole.entity.model.holder.Holder;
-//import org.greenpole.entity.notification.NotificationMessageTag;
-import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
-import org.greenpole.entrycode.emmanuel.model.QueryConsolidationOfShareholderAccount;
-import org.greenpole.hibernate.entity.AccountConsolidation;
+import org.greenpole.entrycode.emmanuel.model.*;
 import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
+import org.greenpole.hibernate.entity.AccountConsolidation;
+import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
+import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
+import org.greenpole.notifier.sender.QueueSender;
+import org.greenpole.util.Notification;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.greenpole.entity.notification.NotificationMessageTag;
+import org.greenpole.entity.notification.NotificationWrapper;
+import org.greenpole.entity.response.Response;
 
 /**
  *
@@ -30,34 +34,34 @@ import org.slf4j.LoggerFactory;
 public class QueryAccountConsolidationLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(MergerShareholdersAccountLogic.class);
-    private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();
+    private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
 
     /**
      * Request to view report on consolidation of Shareholder Accounts
      *
      * @param login the user Id of the user performing the view request
+     * @param authenticator
      * @param queryParams the query parameters
      * @return
      */
-    public Response viewAccountConsolidation_request(Login login, QueryConsolidationOfShareholderAccount queryParams) {
+    public Response viewAccountConsolidation_Request(Login login, String authenticator, QueryConsolidationOfShareholderAccount queryParams) {
         logger.info("request to query company account consolidation by user [{}] ", login.getUserId());
+
         Response resp = new Response();
-        NotificationWrapper wrapper;
-        QueueSender qSender;
-        NotifierProperties prop;
+        // NotificationWrapper wrapper;
+        // QueueSender queue;
+        // NotifierProperties prop;
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-        CompanyAccountConsolidation compAccCon = new CompanyAccountConsolidation();
-        List<CompanyAccountConsolidation> compAccCon_list = new ArrayList();
-        List<AccountConsolidation> AccCon_list = new ArrayList();
-        AccountConsolidation AccCon = new AccountConsolidation();
+        Date startDate = null;
+        Date endDate = null;
+
         Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
-        //org.greenpole.hibernate.entity.Holder holder = hd.retrieveHolderObject(queryParams.getAccountConsolidation().getHolder().getId());
-        //Holder holder_model = new Holder();
+
         if (descriptors.size() == 1) {
             String descriptor = queryParams.getDescriptor();
             if (descriptors.get("date").equalsIgnoreCase("none")) {
                 try {
-                    formatter.parse(queryParams.getStart_date());
+                    startDate = formatter.parse(queryParams.getStartDate());
                 } catch (ParseException ex) {
                     logger.info("An error occured while checking start date");
                     resp.setRetn(210);
@@ -67,7 +71,8 @@ public class QueryAccountConsolidationLogic {
             }
             if (descriptors.get("date").equalsIgnoreCase("between")) {
                 try {
-                    formatter.parse(queryParams.getEnd_date());
+                    startDate = formatter.parse(queryParams.getStartDate());
+                    endDate = formatter.parse(queryParams.getEndDate());
                 } catch (ParseException ex) {
                     logger.info("An error occured while checking end date");
                     resp.setRetn(210);
@@ -75,58 +80,70 @@ public class QueryAccountConsolidationLogic {
                     return resp;
                 }
             }
-            List<org.greenpole.hibernate.entity.CompanyAccountConsolidation> compAccCon_result_list = hd.queryAccountConsolidation(descriptor, compAccCon, queryParams.getStart_date(), queryParams.getEnd_date());
-            /**
-             * if(!compAccCon_result_list.isEmpty()){ /** Iterator iterator =
-             * compAccCon_result_list.iterator(); while(iterator.hasNext()){
-             * wrapper = new NotificationWrapper(); prop = new
-             * NotifierProperties(QueryAccountConsolidationLogic.class); qSender
-             * = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-             * prop.getAuthoriserNotifierQueueName());
-             * wrapper.setCode(Notification.createCode(login));
-             * wrapper.setDescription("You have been tagged to view report on
-             * consolidation of share holder account " + " by user" +
-             * login.getUserId());
-             * wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-             * wrapper.setFrom(login.getUserId()); wrapper.setTo(tagUsers);
-             * wrapper.setModel(tagUsers); resp =
-             * qSender.sendNotificationRequest(wrapper); }
-             *
-             * }
-             * else{ resp.setRetn(210); resp.setDesc("Account consolidation list
-             * is empty"); return resp; }
-             */
-
-            for (CompanyAccountConsolidation can : compAccCon_result_list) {
-                compAccCon.setId(can.getId());
-                compAccCon.setInitialChn(can.getInitialChn());
-                compAccCon.setCurrentChn(can.getCurrentChn());
-                compAccCon.setMergeDate(can.getMergeDate());
-                compAccCon.setReceiverStartUnit(can.getReceiverStartUnit());
-                compAccCon.setReceiverUnitState(can.getReceiverUnitState());
-                compAccCon.setTiedToCurrentHolderId(can.getTiedToCurrentHolderId());
-                compAccCon.setTiedToInitialHolderId(can.getTiedToInitialHolderId());
-                compAccCon.setUnitAfterTransfer(can.getUnitAfterTransfer());
-                compAccCon.setForCompanyId(can.getForCompanyId());
-                compAccCon_list.add(compAccCon);
-
-                List<org.greenpole.hibernate.entity.AccountConsolidation> accCon_list = hd.queryAccCon(queryParams.getAccountConsolidation().getHolder().getId());
-                for (AccountConsolidation ac : accCon_list) {
-                    AccCon.setAdditionalChanges(ac.getAdditionalChanges());
-                    AccCon.setDemerge(ac.isDemerge());
-                    AccCon.setDemergeDate(ac.getDemergeDate());
-                    AccCon.setHolder(ac.getHolder());
-                    AccCon.setHolderName(ac.getHolderName());
-                    AccCon.setId(ac.getId());
-                    AccCon.setMergeDate(ac.getMergeDate());
-                    AccCon.setMergedToHolderId(ac.getMergedToHolderId());
-                    AccCon.setMergedToHolderName(ac.getMergedToHolderName());
+            if (descriptors.get("date").equalsIgnoreCase("on")) {
+                try {
+                    startDate = formatter.parse(queryParams.getStartDate());
+                } catch (ParseException ex) {
+                    logger.info("An error occured while checking start date");
+                    resp.setRetn(210);
+                    resp.setDesc("Incorrect dat format for start date");
+                    return resp;
                 }
-
             }
+            if (descriptors.get("date").equalsIgnoreCase("before")) {
+                try {
+                    startDate = formatter.parse(queryParams.getStartDate());
+                } catch (ParseException ex) {
+                    logger.info("An error occured while checking start date");
+                    resp.setRetn(210);
+                    resp.setDesc("Incorrect dat format for start date");
+                    return resp;
+                }
+            }
+            // List<CompanyAccountConsolidation> acctConsolList = hd.queryCompanyAccountConsolidation(descriptor, queryCompAcctConsolModel.getStart_date(), queryCompAcctConsolModel.getEnd_date());
+            List<CompanyAccountConsolidation> compAcctConsolList = new ArrayList<>();
+            // List<AccountConsolidation> acctConsolList;
+            List<AccountConsolidation> acctConsolList;
+
+            org.greenpole.entrycode.emmanuel.model.AccountConsolidation acctConsolModel = new org.greenpole.entrycode.emmanuel.model.AccountConsolidation();
+            org.greenpole.entrycode.emmanuel.model.CompanyAccountConsolidation compAcctConsolModel = new org.greenpole.entrycode.emmanuel.model.CompanyAccountConsolidation();
+            List<QueryConsolidationOfShareholderAccount> qcsaList = new ArrayList<>();
+
+            for (CompanyAccountConsolidation cac : compAcctConsolList) {
+                compAcctConsolModel.setForCompanyId(cac.getForCompanyId());
+                compAcctConsolModel.setTiedToInitialHolderId(cac.getTiedToCurrentHolderId());
+                compAcctConsolModel.setTiedToCurrentHolderId(cac.getTiedToCurrentHolderId());
+                compAcctConsolModel.setInitialChn(cac.getInitialChn());
+                compAcctConsolModel.setCurrentChn(cac.getCurrentChn());
+                compAcctConsolModel.setBondShareUnit(cac.getBondShareUnit());
+                compAcctConsolModel.setTransfer(cac.isTransfer());
+                compAcctConsolModel.setReceiverUnitState(cac.getReceiverUnitState());
+                compAcctConsolModel.setReceiverStartUnit(cac.getReceiverStartUnit());
+                compAcctConsolModel.setUnitAfterTransfer(cac.getUnitAfterTransfer());
+                compAcctConsolModel.setMergeDate(cac.getMergeDate().toString());
+                compAcctConsolModel.setAccountConsolidationId(cac.getAccountConsolidation().getId());
+                // acctConsolList = hd.queryAccountConsolidation(descriptor, cac.getAccountConsolidation().getId(), queryCompAcctConsolModel.getStart_date(), queryCompAcctConsolModel.getEnd_date());
+                acctConsolList = new ArrayList<>();
+
+                for (AccountConsolidation ac : acctConsolList) {
+                    acctConsolModel.setId(ac.getId());
+                    acctConsolModel.setHolderId(ac.getHolder().getId());
+                    acctConsolModel.setHolderName(ac.getHolderName());
+                    acctConsolModel.setMergedToHolderId(ac.getMergedToHolderId());
+                    acctConsolModel.setMergedToHolderName(ac.getMergedToHolderName());
+                    acctConsolModel.setMergeDate(ac.getMergeDate().toString());
+                    acctConsolModel.setDemerge(ac.isDemerge());
+                    acctConsolModel.setAdditionalChanges(ac.getAdditionalChanges());
+                    acctConsolModel.setDemergeDate(ac.getDemergeDate().toString());
+                }
+                compAcctConsolModel.setAccountConsolidation(acctConsolModel);
+                queryParams.getCompanyAccountConsolidation().add(compAcctConsolModel);
+                queryParams.getAccountConsolidation().add(acctConsolModel);
+            }
+            qcsaList.add(queryParams);
+            resp.setBody(qcsaList);
+            resp.setDesc("Query result with search parameter");
             resp.setRetn(0);
-            resp.setDesc("Successful");
-            resp.setBody(compAccCon_result_list);
         }
         return resp;
     }

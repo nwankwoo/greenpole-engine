@@ -126,6 +126,27 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     public List<AccountConsolidation> queryAccCon(int holderId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+/**
+ * finds power of attorney with the specified holder ID and updates the isPrimaryPowerOfAttorney
+ * to false 
+ * @param holderId the holder Id whose power of attorney is to be updated.
+ * @return boolean object
+ */
+    @Override
+    public boolean updatePowerOfAttorneyStatus(int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+/**
+ * retrieves the power of attorney for the specified holder
+ * @param holderId the Id of the holder's power of attorney to be retrieved
+ * @return the hibernate entity object.
+ */
+    @Override
+    public org.greenpole.hibernate.entity.PowerOfAttorney retrieveCurrentPowerOfAttorney(int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+   
 
     
     
