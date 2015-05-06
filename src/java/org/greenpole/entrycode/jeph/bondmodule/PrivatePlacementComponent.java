@@ -145,7 +145,7 @@ public class PrivatePlacementComponent {
                 res.setRetn(0);
                 res.setDesc("Successful Persistence");
             } else {
-                logger.info("Error: Client complany for private placement does not exist");
+                logger.info("Error: Client company for private placement does not exist");
                 res.setRetn(202);
                 res.setDesc("Error: Client company for private placement does not exist.");
             }

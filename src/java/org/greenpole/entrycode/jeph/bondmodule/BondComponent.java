@@ -61,13 +61,25 @@ public class BondComponent {
             // Check if bond title has a value
             if (bond.getTitle().isEmpty() || bond.getTitle() == null) {
                 resDesc += "\nBond title should not be empty";
-            } else if (bond.getBondType() == null || "".equals(bond.getBondType())) {
+            } else {
+                flag = true;
+            }
+            if (bond.getBondType() == null || "".equals(bond.getBondType())) {
                 resDesc += "\nBond type should not be empty";
-            } else if (bond.getBondUnitPrice() <= 0) {
+            } else {
+                flag = true;
+            }
+            if (bond.getBondUnitPrice() <= 0) {
                 resDesc += "\nBond unit price should be greater than zero";
-            } else if (bond.getInterestRate() <= 0) {
+            } else {
+                flag = true;
+            }
+            if (bond.getInterestRate() <= 0) {
                 resDesc += "\nBond interest rate should be greater than zero";
-            } else if (bond.getPaymentPlan() == null || "".equals(bond.getPaymentPlan())) {
+            } else {
+                flag = true;
+            }
+            if (bond.getPaymentPlan() == null || "".equals(bond.getPaymentPlan())) {
                 resDesc += "\nBond payment plan should be specified";
             } else {
                 flag = true;
