@@ -36,9 +36,9 @@ public class PrivatePlacement implements Serializable {
     @XmlElement
     private int offerSize;
     @XmlElement
-    private Date openingDate;
+    private String openingDate;
     @XmlElement
-    private Date closingDate;
+    private String closingDate;
 
     /**
      * Initializes PrivatePlacement member variables
@@ -54,7 +54,7 @@ public class PrivatePlacement implements Serializable {
      * @param closingDate
      */
     public PrivatePlacement(int clientCompanyId, int totalSharesOnOffer, int methodOnOffer,
-            int startingMinSubscrptn, int continuingMinSubscrptn, Double offerPrice, int offerSize, Date openingDate, Date closingDate) {
+            int startingMinSubscrptn, int continuingMinSubscrptn, Double offerPrice, int offerSize, String openingDate, String closingDate) {
         this.clientCompanyId = clientCompanyId;
         this.totalSharesOnOffer = totalSharesOnOffer;
         this.methodOnOffer = methodOnOffer;
@@ -95,11 +95,11 @@ public class PrivatePlacement implements Serializable {
         return offerSize;
     }
 
-    public Date getOpeningDate() {
+    public String getOpeningDate() {
         return openingDate;
     }
 
-    public Date getClosingDate() {
+    public String getClosingDate() {
         return closingDate;
     }
 
@@ -131,11 +131,11 @@ public class PrivatePlacement implements Serializable {
         this.offerSize = offerSize;
     }
 
-    public void setOpeningDate(Date openingDate) {
+    public void setOpeningDate(String openingDate) {
         this.openingDate = openingDate;
     }
 
-    public void setClosingDate(Date closingDate) {
+    public void setClosingDate(String closingDate) {
         this.closingDate = closingDate;
     }
 }

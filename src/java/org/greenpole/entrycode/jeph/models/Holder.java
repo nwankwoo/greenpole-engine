@@ -5,7 +5,6 @@
  */
 package org.greenpole.entrycode.jeph.models;
 
-import java.util.Date;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -39,7 +38,7 @@ public class Holder {
     @XmlElement
     private String gender;
     @XmlElement
-    private Date dob;
+    private String dob;
     @XmlElement
     private boolean taxExempted;
     @XmlElement
@@ -47,7 +46,7 @@ public class Holder {
     @XmlElement
     private boolean pryHolder;
 
-    public Holder(int id, Holder holder, int holderAcctNumber, String firstName, String middleName, String lastName, String type, String gender, Date dob, boolean taxExempted, boolean merged, boolean pryHolder) {
+    public Holder(int id, Holder holder, int holderAcctNumber, String firstName, String middleName, String lastName, String type, String gender, String dob, boolean taxExempted, boolean merged, boolean pryHolder) {
         this.id = id;
         this.holder = holder;
         this.holderAcctNumber = holderAcctNumber;
@@ -126,11 +125,11 @@ public class Holder {
         this.gender = gender;
     }
 
-    public Date getDob() {
+    public String getDob() {
         return dob;
     }
 
-    public void setDob(Date dob) {
+    public void setDob(String dob) {
         this.dob = dob;
     }
 
