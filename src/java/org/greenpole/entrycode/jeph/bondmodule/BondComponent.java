@@ -92,7 +92,7 @@ public class BondComponent {
             return resp;
         } catch (Exception ex) {
             logger.info("error processing bond setup request. See error log");
-            logger.error("error processing bond setup request, invoked by [{}]: [{}]", login.getUserId(), ex);
+            logger.error("error processing bond setup request - ", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process bond setup request. Contact system administrator."
@@ -109,7 +109,7 @@ public class BondComponent {
      * @return response object back to sender indicating authorization request
      * status
      */
-    public Response setupBondOffer_Authorise(Login login, String notificationCode) throws ParseException {
+    public Response setupBondOffer_Authorise(String notificationCode) throws ParseException {
         Response resp = new Response();
         logger.info("bond setup creation authorised - [{}]", notificationCode);
         try {
@@ -127,7 +127,7 @@ public class BondComponent {
         } catch (ParseException pex) {
             resp.setRetn(100);
             resp.setDesc("error converting string to date type. See error log");
-            logger.info("error converting string to date type. See error log, invoked by [{}]", login.getUserId());
+            logger.info("error converting string to date type. See error log");
             logger.error("error converting string to date type - ", pex);
             return resp;
         } catch (JAXBException ex) {
@@ -135,11 +135,11 @@ public class BondComponent {
             resp.setRetn(100);
             resp.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object, invoked by [{}]: [{}]", login.getUserId(), ex);
+            logger.error("error loading notification xml file to object - ", ex);
             return resp;
         } catch (Exception ex) {
             logger.info("error creating bond. See error log");
-            logger.error("error creating bond, invoked by [{}]: [{}]", login.getUserId(), ex);
+            logger.error("error creating bond - ", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to create bond. Contact system administrator."
