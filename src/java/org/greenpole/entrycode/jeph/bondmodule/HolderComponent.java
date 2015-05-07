@@ -130,7 +130,7 @@ public class HolderComponent {
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
             } catch (Exception ex) {
-                logger.info("Error creating holder account. See error log, invoked by [{}]", login.getUserId());
+                logger.info("Error creating holder account. See error log. Initiated by [{}]", login.getUserId());
                 logger.error("Error creating holder account -, invoked by [{}]", login.getUserId(), ex);
                 resp.setRetn(99);
                 resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
@@ -138,7 +138,7 @@ public class HolderComponent {
         } else {
             resp.setRetn(300);
             resp.setDesc("Error: " + resDes);
-            logger.info("Error filing holder details: ", resDes);
+            logger.info("Error filing holder details: [{}] - initiated by [{}]", resDes, login.getUserId());
         }
         return resp;
     }
@@ -186,10 +186,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - [{}] ", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("error persist holder account. See error log");
-            logger.error("error persist holder account, invoked by [{}] - ", login.getUserId(), ex);
+            logger.error("error persist holder account, invoked by [{}] - [{}]", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to persist holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
@@ -232,7 +232,7 @@ public class HolderComponent {
                 List<org.greenpole.entrycode.jeph.models.HolderSignature> holderListSignature = new ArrayList<>();
                 holderListSignature.add(holderSign);
                 wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Authenticate creation of holder singature");
+                wrapper.setDescription("Authenticate creation of holder singature with holder signarue " + holderSign.getId());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
@@ -242,7 +242,7 @@ public class HolderComponent {
 
             } catch (IOException ioex) {
                 logger.info("Error in saving image. See error log");
-                logger.error("Error in saving image, invoked by [{}] - ", login.getUserId(), ioex);
+                logger.error("Error in saving image, invoked by [{}] - [{}]", login.getUserId(), ioex);
                 res.setRetn(99);
                 res.setDesc("General error. Unable to upload holder signature. Contact system administrator." + "\nMessage: " + ioex.getMessage());
             }
@@ -289,10 +289,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - [{}]", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("Error in saving uploaded image. See error log");
-            logger.error("Error in saving uploaded image, invoked by [{}] - ", login.getUserId(), ex);
+            logger.error("Error in saving uploaded image, invoked by [{}] - [{}]", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to save uploaded holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
@@ -512,7 +512,7 @@ public class HolderComponent {
      * @return response object for the request
      */
     public Response createBondHolderAccount_Authorise(Login login, String notificationCode) {
-        logger.info("Authorization request to persist bond holder details: Invoked by - [{}]", login.getUserId());
+        logger.info("Authorization request to persist bond holder details, invoked by [{}]", login.getUserId());
         Response res = new Response();
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
 
@@ -643,7 +643,7 @@ public class HolderComponent {
             logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("error saving transposed holder name. See error log");
-            logger.error("error saving transposed holder name, invoked by [{}] - ", login.getUserId(), ex);
+            logger.error("error saving transposed holder name, invoked by [{}] - [{}]", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to save transposed holder name. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
@@ -726,7 +726,7 @@ public class HolderComponent {
                     logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
                 } catch (Exception ex) {
                     logger.info("error editing holder account. See error log");
-                    logger.error("error editing holder account, invoked by [{}] - ", login.getUserId(), ex);
+                    logger.error("error editing holder account, invoked by [{}] - [{}]", login.getUserId(), ex);
                     res.setRetn(99);
                     res.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 }
@@ -738,7 +738,7 @@ public class HolderComponent {
         } else {
             res.setRetn(300);
             res.setDesc("Error: Changes to holder details were not captured");
-            logger.info("Error: Changes to holder details were not captured, invoked by [{}] - ", login.getUserId());
+            logger.info("Error: Changes to holder details were not captured, invoked by [{}]", login.getUserId());
         }
         return res;
     }
@@ -1024,8 +1024,8 @@ public class HolderComponent {
             }
             // hCompAcctId.setHolderId(compAcct.getHolderId());
             hCompAcctId.setClientCompanyId(compAcct.getClientCompanyId());
-            // companyAccountEntity.setBank(compAcct.getBankId());
-            companyAccountEntity.setChn(compAcct.getChn());
+            // removed from entity
+            // companyAccountEntity.setChn(compAcct.getChn());
             companyAccountEntity.setId(hCompAcctId);
             companyAccountEntity.setHolderCompAccPrimary(compAcct.isHolderCompAccPrimary());
             returnCompanyAccountList.add(companyAccountEntity);
@@ -1064,7 +1064,8 @@ public class HolderComponent {
                 holdBondAcctId.setHolderId(hBondAcct.getHolderId());
             }
             bondAccountEntity.setId(holdBondAcctId);
-            bondAccountEntity.setChn(hBondAcct.getChn());
+            // removed from entity
+            // bondAccountEntity.setChn(hBondAcct.getChn());
             bondAccountEntity.setHolderBondAccPrimary(hBondAcct.isHolderBondAccPrimary());
             // NOTE: Bond Units is reperesented as interger in the entity and database
             // but represented as double from the model
