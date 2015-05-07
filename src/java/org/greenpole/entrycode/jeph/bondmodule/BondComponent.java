@@ -78,6 +78,7 @@ public class BondComponent {
                 prop = new NotifierProperties(BondComponent.class);
                 queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                 List<Bond> bc = new ArrayList<>();
+                bc.add(bond);
                 wrapper.setCode(Notification.createCode(login));
                 wrapper.setDescription("Creates Bond " + bond.getTitle());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
