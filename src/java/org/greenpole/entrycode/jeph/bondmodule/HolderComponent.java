@@ -131,7 +131,7 @@ public class HolderComponent {
                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
             } catch (Exception ex) {
                 logger.info("Error creating holder account. See error log, invoked by [{}]", login.getUserId());
-                logger.error("Error creating holder account -, invoked by [{}]", login.getUserId(), ex);
+                logger.error("Error creating holder account, invoked by [{}]", login.getUserId(), ex);
                 resp.setRetn(99);
                 resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
             }
@@ -177,7 +177,7 @@ public class HolderComponent {
                 return res;
             } else {
                 logger.info("error persist holder account.");
-                logger.error("error persist holder account., invoked by [{}]", login.getUserId());
+                logger.error("error persist holder account, invoked by [{}]", login.getUserId());
                 res.setRetn(99);
                 res.setDesc("General error. Unable to persist holder account. Contact system administrator.");
                 return res;
