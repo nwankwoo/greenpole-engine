@@ -52,10 +52,10 @@ public class QueryAccountConsolidationLogic {
                 try {
                     formatter.parse(queryParams.getStartDate());
                 } catch (ParseException ex) {
-                    logger.info("an error was thrown while checking the start date. See error log");
+                    logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
                     resp.setRetn(300);
                     resp.setDesc("Incorrect date format for start date");
-                    logger.error("Incorrect date format for start date", ex);
+                    logger.error("Incorrect date format for start date invoked by [{}]: [{}]", login.getUserId(), ex);
 
                     return resp;
                 }
@@ -66,10 +66,10 @@ public class QueryAccountConsolidationLogic {
                 try {
                     formatter.parse(queryParams.getStartDate());
                 } catch (ParseException ex) {
-                    logger.info("an error was thrown while checking the start date. See error log");
+                    logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
                     resp.setRetn(300);
                     resp.setDesc("Incorrect date format for start date");
-                    logger.error("Incorrect date format for start date", ex);
+                    logger.error("Incorrect date format for start date invoked by [{}]: [{}]", login.getUserId(), ex);
 
                     return resp;
                 }
@@ -77,17 +77,18 @@ public class QueryAccountConsolidationLogic {
                 try {
                     formatter.parse(queryParams.getEndDate());
                 } catch (ParseException ex) {
-                    logger.info("an error was thrown while checking the end date. See error log");
+                    logger.info("an error was thrown while checking the end date. See error log invoked by [{}]", login.getUserId());
                     resp.setRetn(300);
                     resp.setDesc("Incorrect date format for end date");
-                    logger.error("Incorrect date format for end date", ex);
+                    logger.error("Incorrect date format for end date invoked by [{}]: [{}]", login.getUserId(), ex);
 
                     return resp;
                 }
             }
 
             List<AccountConsolidation> acctConsolList = hq.getAllHolderAccountConsolidation(queryParams.getDescriptor(), queryParams.getStartDate(), queryParams.getEndDate());
-
+            List<org.greenpole.entity.model.holder.merge.AccountConsolidation> acctConsolModelList = new ArrayList<>();
+            
             org.greenpole.entity.model.holder.merge.AccountConsolidation acctConsolModel = new org.greenpole.entity.model.holder.merge.AccountConsolidation();
             org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation compAcctConsolModel = new org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation();
             TagUser tag = new TagUser();
@@ -121,12 +122,19 @@ public class QueryAccountConsolidationLogic {
                     cacList.add(compAcctConsolModel);
                 }
                 acctConsolModel.setCompanyAccountConsolidation(cacList);
-            }           
+                acctConsolModelList.add(acctConsolModel);
+            }
+            
+            List<TagUser> tagList = new ArrayList<>();
+            tagList.add(tag);
+            
             tag.setQueryParam(queryParams);
-            tag.setResult((List<?>) acctConsolModel);
-            resp.setBody((List<?>) tag);
+            tag.setResult(acctConsolModelList);
+            
+            resp.setBody(tagList);
             resp.setDesc("Query result with search parameter");
-            resp.setRetn(0);
+            resp.setRetn(0);            
+            logger.info("Query successful, invoked by [{}]", login.getUserId());
         }
         return resp;
     }
