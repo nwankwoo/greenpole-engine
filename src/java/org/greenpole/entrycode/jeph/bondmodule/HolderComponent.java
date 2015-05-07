@@ -70,39 +70,26 @@ public class HolderComponent {
      * @return response object for the request
      */
     public Response createHolder_Request(Login login, String authenticator, Holder holder) {
-        Response res = new Response();
+        Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
         String resDes = null;
         boolean flag = false;
+        
+        logger.info("request to create holder details, invoked by [{}]", login.getUserId());
 
         if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
             resDes = "\nError: Holder first name should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+        } else if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
             resDes += "\nError: Holder middle name should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+        } else if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
             resDes += "\nError: Holder last name should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getGender()) || holder.getGender() == null) {
+        } else if ("".equals(holder.getGender()) || holder.getGender() == null) {
             resDes += "\nError: Holder gender should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getDob()) || holder.getDob() == null) {
+        } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
             resDes += "\nError: Holder date of birth should not be empty";
-        } else {
-            flag = true;
-        }
-        if (!holder.getAddresses().isEmpty()) {
+        } else if (!holder.getAddresses().isEmpty()) {
             for (Address addr : holder.getAddresses()) {
                 if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
                     resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -140,20 +127,20 @@ public class HolderComponent {
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holdList);
-                res = queue.sendAuthorisationRequest(wrapper);
+                resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
             } catch (Exception ex) {
-                logger.info("Error creating holder account. See error log");
-                logger.error("Error creating holder account - ", ex);
-                res.setRetn(99);
-                res.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+                logger.info("Error creating holder account. See error log, invoked by [{}]", login.getUserId());
+                logger.error("Error creating holder account -, invoked by [{}]", login.getUserId(), ex);
+                resp.setRetn(99);
+                resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
             }
         } else {
-            res.setRetn(300);
-            res.setDesc("Error: " + resDes);
+            resp.setRetn(300);
+            resp.setDesc("Error: " + resDes);
             logger.info("Error filing holder details: ", resDes);
         }
-        return res;
+        return resp;
     }
 
     /**
@@ -164,11 +151,11 @@ public class HolderComponent {
      * @return response object for the authorization request
      */
     public Response createHolder_Authorise(Login login, String notificationCode) {
-        logger.info("request for authorisation to persist holder details. Invoked by Login [{}]", login.getUserId());
+        logger.info("request for authorisation to persist holder details, invoked by [{}]", login.getUserId());
         Response res = new Response();
         
         try {
-            logger.info("Holder creation authorised - [{}]", notificationCode);
+            logger.info("Holder creation authorised - [{}], invoked by [{}]", notificationCode, login.getUserId());
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holdModel = holdList.get(0);
@@ -190,7 +177,7 @@ public class HolderComponent {
                 return res;
             } else {
                 logger.info("error persist holder account.");
-                logger.error("error persist holder account.");
+                logger.error("error persist holder account., invoked by [{}]", login.getUserId());
                 res.setRetn(99);
                 res.setDesc("General error. Unable to persist holder account. Contact system administrator.");
                 return res;
@@ -199,10 +186,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("error persist holder account. See error log");
-            logger.error("error persist holder account - ", ex);
+            logger.error("error persist holder account, invoked by [{}] - ", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to persist holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
@@ -220,7 +207,7 @@ public class HolderComponent {
      */
     public Response uploadHolderSignature_Request(Login login, String authenticator,
             org.greenpole.entrycode.jeph.models.HolderSignature holderSign, byte[] holderSignImage) {
-        logger.info("request to upload holder signature. invoked by [{}]", login.getUserId());
+        logger.info("request to upload holder signature, invoked by [{}]", login.getUserId());
 
         Response res = new Response();
         NotificationWrapper wrapper;
@@ -255,7 +242,7 @@ public class HolderComponent {
 
             } catch (IOException ioex) {
                 logger.info("Error in saving image. See error log");
-                logger.error("Error in saving image - ", ioex);
+                logger.error("Error in saving image, invoked by [{}] - ", login.getUserId(), ioex);
                 res.setRetn(99);
                 res.setDesc("General error. Unable to upload holder signature. Contact system administrator." + "\nMessage: " + ioex.getMessage());
             }
@@ -263,7 +250,7 @@ public class HolderComponent {
             res.setRetn(99);
             res.setDesc("Error in uploading image - image size should be less than 2 megabytes");
             logger.info("Error in uploading image -  See error log");
-            logger.error("Error in uploading image -image size should be less than 2 megabytes");
+            logger.error("Error in uploading image -image size should be less than 2 megabytes, invoked by [{}]", login.getUserId());
         }
         return res;
     }
@@ -302,10 +289,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("Error in saving uploaded image. See error log");
-            logger.error("Error in saving uploaded image - ", ex);
+            logger.error("Error in saving uploaded image, invoked by [{}] - ", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to save uploaded holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
@@ -351,18 +338,18 @@ public class HolderComponent {
                     logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
                 } catch (Exception ex) {
                     logger.info("error querying holder signature. See error log");
-                    logger.error("error querying holder signature - ", ex);
+                    logger.error("error querying holder signature, invoked by [{}] - ", login.getUserId(), ex);
                     res.setRetn(99);
                     res.setDesc("General error. Unable to query holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 }
             } else {
                 res.setRetn(301);
                 res.setDesc("Error: No signature exists for holder");
-                logger.info("Error: No signature exists for holder");
+                logger.info("Error: No signature exists for holder, invoked by [{}]", login.getUserId());
             }
         } else {
             logger.info("Error: Holder Id is either invalid or empty");
-            logger.error("Error: Holder Id is either invalid or empty");
+            logger.error("Error: Holder Id is either invalid or empty, invoked by [{}]", login.getUserId());
             res.setRetn(99);
             res.setDesc("General Error: Holder Id is either invalid or empty. Contact system administrator.");
         }
@@ -399,10 +386,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("Error retrieving holder signature details");
             logger.info("Error retrieving holder signature details");
-            logger.error("Error retrieving holder signature details");
+            logger.error("Error retrieving holder signature details, invoked by [{}]", login.getUserId());
         } catch (Exception ex) {
             logger.info("Error retrieving holder signature details");
-            logger.error("Error retrieving holder signature details");
+            logger.error("Error retrieving holder signature details, invoked by [{}]", login.getUserId());
             res.setRetn(99);
             res.setDesc("General Error: retrieving holder signature details. Contact system administrator.");
         }
@@ -455,30 +442,15 @@ public class HolderComponent {
 
         if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
             resDes = "\nError: Holder first name should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+        } else if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
             resDes += "\nError: Holder middle name should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+        } else if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
             resDes += "\nError: Holder last name should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getGender()) || holder.getGender() == null) {
+        } else if ("".equals(holder.getGender()) || holder.getGender() == null) {
             resDes += "\nError: Holder gender should not be empty";
-        } else {
-            flag = true;
-        }
-        if ("".equals(holder.getDob()) || holder.getDob() == null) {
+        } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
             resDes += "\nError: Holder date of birth should not be empty";
-        } else {
-            flag = true;
-        }
-        if (!holder.getAddresses().isEmpty()) {
+        } else if (!holder.getAddresses().isEmpty()) {
             for (Address addr : holder.getAddresses()) {
                 if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
                     resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -520,14 +492,14 @@ public class HolderComponent {
                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
             } catch (Exception ex) {
                 logger.info("Error creating bond holder account. See error log");
-                logger.error("Error creating bond holder account - ", ex);
+                logger.error("Error creating bond holder account, invoked by [{}] - ", login.getUserId(), ex);
                 res.setRetn(99);
                 res.setDesc("General Error: Unable to create bond holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
             }
         } else {
             res.setRetn(300);
-            res.setDesc("Error: " + resDes);
-            logger.info("Error filing bond holder details: ", resDes);
+            res.setDesc("Error filing bond holder details: " + resDes);
+            logger.info("Error filing bond holder details: [{}], invoked by [{}]", resDes, login.getUserId());
         }
         return res;
     }
@@ -575,12 +547,12 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
         } catch (Exception ex) {
             res.setRetn(99);
             res.setDesc("error creating bondholder account - See error log");
             logger.info("error creating bondholder account - See error log");
-            logger.error("error creating bondholder account - ", ex);
+            logger.error("error creating bondholder account, invoked by [{}] - ", login.getUserId(), ex);
         }
         return res;
     }
@@ -605,7 +577,7 @@ public class HolderComponent {
                 if (hold.getType() == null || "".equals(hold.getType())) {
                     res.setRetn(300);
                     res.setDesc("Error: holder account type should not be empty");
-                    logger.info("Error: holder account type should not be empty");
+                    logger.info("Error: holder account type should not be empty, invoked by [{}] - ", login.getUserId());
                 } else {
                     try {
                         wrapper = new NotificationWrapper();
@@ -624,7 +596,7 @@ public class HolderComponent {
                         logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
                     } catch (Exception ex) {
                         logger.info("error transposing holder names. See error log");
-                        logger.error("error transposing holder names - ", ex);
+                        logger.error("error transposing holder names, invoked by [{}] - ", login.getUserId(), ex);
                         res.setRetn(99);
                         res.setDesc("General error. Unable to transposing holder names. Contact system administrator." + "\nMessage: " + ex.getMessage());
                     }
@@ -632,12 +604,12 @@ public class HolderComponent {
             } else {
                 res.setRetn(300);
                 res.setDesc("Error: holder last name should not be empty");
-                logger.info("Error: holder last name should not be empty");
+                logger.info("Error: holder last name should not be empty, invoked by [{}] - ", login.getUserId());
             }
         } else {
             res.setRetn(300);
             res.setDesc("Error: holder first name should not be empty");
-            logger.info("Error: holder first name should not be empty");
+            logger.info("Error: holder first name should not be empty, invoked by [{}] - ", login.getUserId());
         }
         return res;
     }
@@ -668,10 +640,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("error saving transposed holder name. See error log");
-            logger.error("error saving transposed holder name - ", ex);
+            logger.error("error saving transposed holder name, invoked by [{}] - ", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to save transposed holder name. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
@@ -690,7 +662,7 @@ public class HolderComponent {
         if (!"".equals(holder.getChangeType()) || holder.getChangeType() == null) {
             logger.info("request [{}] on holder details: Login - [{}]", holder.getChangeType(), login.getUserId());
         } else {
-            logger.info("Change type for holder details was not specified");
+            logger.info("Change type for holder details was not specified, invoked by [{}] - ", login.getUserId());
         }
         Response res = new Response();
         NotificationWrapper wrapper;
@@ -702,35 +674,17 @@ public class HolderComponent {
         if (!holder.getHolderChanges().isEmpty()) {
             if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
                 resDes = "\nError: Holder first name should not be empty";
-            } else {
-                flag = true;
-            }
-            if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
+            } else if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
                 resDes += "\nError: Holder middle name should not be empty";
-            } else {
-                flag = true;
-            }
-            if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
+            } else if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
                 resDes += "\nError: Holder last name should not be empty";
-            } else {
-                flag = true;
-            }
-            if ("".equals(holder.getChn()) || holder.getChn() == null) {
+            } else if ("".equals(holder.getChn()) || holder.getChn() == null) {
                 resDes += "\nError: Holder CHN should not be empty";
-            } else {
-                flag = true;
-            }
-            if ("".equals(holder.getGender()) || holder.getGender() == null) {
+            } else if ("".equals(holder.getGender()) || holder.getGender() == null) {
                 resDes += "\nError: Holder gender should not be empty";
-            } else {
-                flag = true;
-            }
-            if ("".equals(holder.getDob()) || holder.getDob() == null) {
+            } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
                 resDes += "\nError: Holder date of birth should not be empty";
-            } else {
-                flag = true;
-            }
-            if (!holder.getAddresses().isEmpty()) {
+            } else if (!holder.getAddresses().isEmpty()) {
                 for (Address addr : holder.getAddresses()) {
                     if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
                         resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -772,19 +726,19 @@ public class HolderComponent {
                     logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
                 } catch (Exception ex) {
                     logger.info("error editing holder account. See error log");
-                    logger.error("error editing holder account - ", ex);
+                    logger.error("error editing holder account, invoked by [{}] - ", login.getUserId(), ex);
                     res.setRetn(99);
                     res.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 }
             } else {
                 res.setRetn(300);
                 res.setDesc("Error: " + resDes);
-                logger.info("Error filing holder details: ", resDes);
+                logger.info("Error filing holder details:, invoked by [{}] - ", resDes, login.getUserId());
             }
         } else {
             res.setRetn(300);
             res.setDesc("Error: Changes to holder details were not captured");
-            logger.info("Error: Changes to holder details were not captured");
+            logger.info("Error: Changes to holder details were not captured, invoked by [{}] - ", login.getUserId());
         }
         return res;
     }
@@ -829,10 +783,10 @@ public class HolderComponent {
             res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [{}] - ", login.getUserId(), ex);
         } catch (Exception ex) {
             logger.info("error persist edited holder details. See error log");
-            logger.error("error persist edited holder details - ", ex);
+            logger.error("error persist edited holder details, invoked by [{}] - ", login.getUserId(), ex);
             res.setRetn(99);
             res.setDesc("General error. Unable to persist edited holder details. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
