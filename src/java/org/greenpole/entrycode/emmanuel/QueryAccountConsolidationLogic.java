@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import org.greenpole.entity.model.taguser.TagUser;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entrycode.emmanuel.model.*;
 import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
+import org.greenpole.hibernate.query.HolderComponentQuery;
 
 /**
  *
@@ -34,7 +36,7 @@ import org.greenpole.entity.response.Response;
 public class QueryAccountConsolidationLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(MergerShareholdersAccountLogic.class);
-    private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
+    private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
 
     /**
      * Request to view report on consolidation of Shareholder Accounts
@@ -45,71 +47,59 @@ public class QueryAccountConsolidationLogic {
      * @return
      */
     public Response viewAccountConsolidation_Request(Login login, String authenticator, QueryConsolidationOfShareholderAccount queryParams) {
-        logger.info("request to query company account consolidation by user [{}] ", login.getUserId());
-
+        logger.info("request to query company account consolidation, invoked by [{}] ", login.getUserId());
         Response resp = new Response();
-        // NotificationWrapper wrapper;
-        // QueueSender queue;
-        // NotifierProperties prop;
+        
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-        Date startDate = null;
-        Date endDate = null;
-
         Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
 
         if (descriptors.size() == 1) {
-            String descriptor = queryParams.getDescriptor();
+            //check start date is properly formatted
             if (descriptors.get("date").equalsIgnoreCase("none")) {
                 try {
-                    startDate = formatter.parse(queryParams.getStartDate());
+                    formatter.parse(queryParams.getStartDate());
                 } catch (ParseException ex) {
-                    logger.info("An error occured while checking start date");
-                    resp.setRetn(210);
-                    resp.setDesc("Incorrect dat format for start date");
+                    logger.info("an error was thrown while checking the start date. See error log");
+                    resp.setRetn(300);
+                    resp.setDesc("Incorrect date format for start date");
+                    logger.error("Incorrect date format for start date", ex);
+
                     return resp;
                 }
             }
+            
+            //check end date is properly formatted
             if (descriptors.get("date").equalsIgnoreCase("between")) {
                 try {
-                    startDate = formatter.parse(queryParams.getStartDate());
-                    endDate = formatter.parse(queryParams.getEndDate());
+                    formatter.parse(queryParams.getStartDate());
                 } catch (ParseException ex) {
-                    logger.info("An error occured while checking end date");
-                    resp.setRetn(210);
+                    logger.info("an error was thrown while checking the start date. See error log");
+                    resp.setRetn(300);
+                    resp.setDesc("Incorrect date format for start date");
+                    logger.error("Incorrect date format for start date", ex);
+
+                    return resp;
+                }
+                
+                try {
+                    formatter.parse(queryParams.getEndDate());
+                } catch (ParseException ex) {
+                    logger.info("an error was thrown while checking the end date. See error log");
+                    resp.setRetn(300);
                     resp.setDesc("Incorrect date format for end date");
-                    return resp;
-                }
-            }
-            if (descriptors.get("date").equalsIgnoreCase("on")) {
-                try {
-                    startDate = formatter.parse(queryParams.getStartDate());
-                } catch (ParseException ex) {
-                    logger.info("An error occured while checking start date");
-                    resp.setRetn(210);
-                    resp.setDesc("Incorrect dat format for start date");
-                    return resp;
-                }
-            }
-            if (descriptors.get("date").equalsIgnoreCase("before")) {
-                try {
-                    startDate = formatter.parse(queryParams.getStartDate());
-                } catch (ParseException ex) {
-                    logger.info("An error occured while checking start date");
-                    resp.setRetn(210);
-                    resp.setDesc("Incorrect dat format for start date");
-                    return resp;
-                }
-            }
-            // List<CompanyAccountConsolidation> acctConsolList = hd.queryCompanyAccountConsolidation(descriptor, queryCompAcctConsolModel.getStart_date(), queryCompAcctConsolModel.getEnd_date());
-            List<CompanyAccountConsolidation> compAcctConsolList = new ArrayList<>();
-            // List<AccountConsolidation> acctConsolList;
-            List<AccountConsolidation> acctConsolList;
+                    logger.error("Incorrect date format for end date", ex);
 
-            org.greenpole.entrycode.emmanuel.model.AccountConsolidation acctConsolModel = new org.greenpole.entrycode.emmanuel.model.AccountConsolidation();
-            org.greenpole.entrycode.emmanuel.model.CompanyAccountConsolidation compAcctConsolModel = new org.greenpole.entrycode.emmanuel.model.CompanyAccountConsolidation();
-            List<QueryConsolidationOfShareholderAccount> qcsaList = new ArrayList<>();
+                    return resp;
+                }
+            }
+            
+            List<AccountConsolidation> acctConsolList = hq.getAllHolderAccountConsolidation(queryParams.getDescriptor(), queryParams.getStartDate(), queryParams.getEndDate());
 
-            for (CompanyAccountConsolidation cac : compAcctConsolList) {
+            org.greenpole.entity.model.holder.merge.AccountConsolidation acctConsolModel = new org.greenpole.entity.model.holder.merge.AccountConsolidation();
+            org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation compAcctConsolModel = new org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation();
+            TagUser tag = new TagUser();
+
+            for (CompanyAccountConsolidation cac : acctConsolList) {
                 compAcctConsolModel.setForCompanyId(cac.getForCompanyId());
                 compAcctConsolModel.setTiedToInitialHolderId(cac.getTiedToCurrentHolderId());
                 compAcctConsolModel.setTiedToCurrentHolderId(cac.getTiedToCurrentHolderId());
@@ -120,8 +110,7 @@ public class QueryAccountConsolidationLogic {
                 compAcctConsolModel.setReceiverUnitState(cac.getReceiverUnitState());
                 compAcctConsolModel.setReceiverStartUnit(cac.getReceiverStartUnit());
                 compAcctConsolModel.setUnitAfterTransfer(cac.getUnitAfterTransfer());
-                compAcctConsolModel.setMergeDate(cac.getMergeDate().toString());
-                compAcctConsolModel.setAccountConsolidationId(cac.getAccountConsolidation().getId());
+                compAcctConsolModel.setMergeDate(formatter.format(cac.getMergeDate()));
                 // acctConsolList = hd.queryAccountConsolidation(descriptor, cac.getAccountConsolidation().getId(), queryCompAcctConsolModel.getStart_date(), queryCompAcctConsolModel.getEnd_date());
                 acctConsolList = new ArrayList<>();
 
