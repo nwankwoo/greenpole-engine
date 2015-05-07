@@ -37,8 +37,7 @@ public class BondComponent {
     SimpleDateFormat formatter = new SimpleDateFormat();
 
     /**
-     * process request to create a type of bond as a bond offer
-     *
+     * processes request to create a bond offer
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the
      * notification
@@ -48,15 +47,13 @@ public class BondComponent {
     public Response createBondOffer_Request(Login login, String authenticator, Bond bond) {
         logger.info("user [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
 
-        Response res = new Response();
+        Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
-        String resDesc = null;
+        String resDesc = "";
         boolean flag = false;
 
-        // ClientCompany cc = cq.getClientCompany(bond.getClientCompanyId());
-        // checks if the bond was entered correctly
         try {
             // Check if bond title has a value
             if ("".equals(bond.getTitle()) || bond.getTitle() == null) {
@@ -80,25 +77,28 @@ public class BondComponent {
                 List<Bond> bc = new ArrayList<>();
                 bc.add(bond);
                 wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Creates Bond " + bond.getTitle());
+                wrapper.setDescription("Authenticate Bond Setup - " + bond.getTitle());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(bc);
-                res = queue.sendAuthorisationRequest(wrapper);
+                resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
             } else {
-                res.setRetn(200);
-                res.setDesc(resDesc);
+                resp.setRetn(200);
+                resp.setDesc(resDesc);
                 logger.info(resDesc);
             }
-            return res;
-        } catch (Exception npx) {
-            res.setRetn(99);
-            res.setDesc("Error creating bond offer");
-            logger.info("Error creating bond offer");
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error processing bond setup request. See error log");
+            logger.error("error processing bond setup request, invoked by [{}]: [{}]", login.getUserId(), ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process bond setup request. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
         }
-        return res;
     }
 
     /**
@@ -109,8 +109,8 @@ public class BondComponent {
      * @return response object back to sender indicating authorization request
      * status
      */
-    public Response setupBondOffer_Authorise(String notificationCode) throws ParseException {
-        Response res = new Response();
+    public Response setupBondOffer_Authorise(Login login, String notificationCode) throws ParseException {
+        Response resp = new Response();
         logger.info("bond setup creation authorised - [{}]", notificationCode);
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -120,23 +120,32 @@ public class BondComponent {
             BondOffer bondOffer = bondCreationMain(bondModel);
             cq.createBondOffer(bondOffer);
             logger.info("bond offer created - [{}]", bondModel.getTitle());
-            res.setRetn(0);
-            res.setDesc("Successful persistence");
+            resp.setRetn(0);
+            resp.setDesc("Successful");
 
-            return res;
+            return resp;
         } catch (ParseException pex) {
-            res.setRetn(97);
-            res.setDesc("error converting string to date type. See error log");
-            logger.info("error converting string to date type. See error log");
+            resp.setRetn(100);
+            resp.setDesc("error converting string to date type. See error log");
+            logger.info("error converting string to date type. See error log, invoked by [{}]", login.getUserId());
             logger.error("error converting string to date type - ", pex);
+            return resp;
         } catch (JAXBException ex) {
             // TODO: catch other types of exception
-            res.setRetn(98);
-            res.setDesc("error loading notification xml file. See error log");
+            resp.setRetn(100);
+            resp.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [{}]: [{}]", login.getUserId(), ex);
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error creating bond. See error log");
+            logger.error("error creating bond, invoked by [{}]: [{}]", login.getUserId(), ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to create bond. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
         }
-        return res;
     }
 
     /**
