@@ -87,7 +87,8 @@ public class QueryAccountConsolidationLogic {
             }
 
             List<AccountConsolidation> acctConsolList = hq.getAllHolderAccountConsolidation(queryParams.getDescriptor(), queryParams.getStartDate(), queryParams.getEndDate());
-
+            List<org.greenpole.entity.model.holder.merge.AccountConsolidation> acctConsolModelList = new ArrayList<>();
+            
             org.greenpole.entity.model.holder.merge.AccountConsolidation acctConsolModel = new org.greenpole.entity.model.holder.merge.AccountConsolidation();
             org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation compAcctConsolModel = new org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation();
             TagUser tag = new TagUser();
@@ -121,12 +122,20 @@ public class QueryAccountConsolidationLogic {
                     cacList.add(compAcctConsolModel);
                 }
                 acctConsolModel.setCompanyAccountConsolidation(cacList);
-            }           
+                acctConsolModelList.add(acctConsolModel);
+            }
+            
+            List<TagUser> tagList = new ArrayList<>();
+            tagList.add(tag);
+            
             tag.setQueryParam(queryParams);
-            tag.setResult((List<?>) acctConsolModel);
-            resp.setBody((List<?>) tag);
+            tag.setResult(acctConsolModelList);
+            
+            resp.setBody(tagList);
             resp.setDesc("Query result with search parameter");
             resp.setRetn(0);
+            
+            logger.info("Query successful, invoked by [{}]", login.getUserId());
         }
         return resp;
     }
