@@ -59,27 +59,15 @@ public class BondComponent {
         // checks if the bond was entered correctly
         try {
             // Check if bond title has a value
-            if (bond.getTitle().isEmpty() || bond.getTitle() == null) {
+            if ("".equals(bond.getTitle()) || bond.getTitle() == null) {
                 resDesc += "\nBond title should not be empty";
-            } else {
-                flag = true;
-            }
-            if (bond.getBondType() == null || "".equals(bond.getBondType())) {
+            } else if (bond.getBondType() == null || "".equals(bond.getBondType())) {
                 resDesc += "\nBond type should not be empty";
-            } else {
-                flag = true;
-            }
-            if (bond.getBondUnitPrice() <= 0) {
+            } else if (bond.getBondUnitPrice() <= 0) {
                 resDesc += "\nBond unit price should be greater than zero";
-            } else {
-                flag = true;
-            }
-            if (bond.getInterestRate() <= 0) {
+            } else if (bond.getInterestRate() <= 0) {
                 resDesc += "\nBond interest rate should be greater than zero";
-            } else {
-                flag = true;
-            }
-            if (bond.getPaymentPlan() == null || "".equals(bond.getPaymentPlan())) {
+            } else if (bond.getPaymentPlan() == null || "".equals(bond.getPaymentPlan())) {
                 resDesc += "\nBond payment plan should be specified";
             } else {
                 flag = true;
@@ -105,9 +93,7 @@ public class BondComponent {
             }
             return res;
         } catch (Exception npx) {
-            // TODO: change from Exception class to specific user-defined exceptions later
-            // TODO: catch other types of exception
-            res.setRetn(200);
+            res.setRetn(99);
             res.setDesc("Error creating bond offer");
             logger.info("Error creating bond offer");
         }
@@ -138,13 +124,13 @@ public class BondComponent {
 
             return res;
         } catch (ParseException pex) {
-            res.setRetn(100);
+            res.setRetn(97);
             res.setDesc("error converting string to date type. See error log");
             logger.info("error converting string to date type. See error log");
             logger.error("error converting string to date type - ", pex);
         } catch (JAXBException ex) {
             // TODO: catch other types of exception
-            res.setRetn(100);
+            res.setRetn(98);
             res.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log");
             logger.error("error loading notification xml file to object - ", ex);
