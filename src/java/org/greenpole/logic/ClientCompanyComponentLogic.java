@@ -57,7 +57,7 @@ public class ClientCompanyComponentLogic {
      * @return response to the client company creation request 
      */
     public Response createClientCompany_Request(Login login, String authenticator, ClientCompany cc) {
-        logger.info("request to create the client company [{}] from [{}]", cc.getName(), login.getUserId());
+        logger.info("request to create the client company [{}], invoked by", cc.getName(), login.getUserId());
         Response resp = new Response();
         
         try {
@@ -105,13 +105,14 @@ public class ClientCompanyComponentLogic {
     /**
      * Processes request to create a client company that has already been saved 
      * as a notification file, according to the specified notification code.
+     * @param login the user's login details
      * @param notificationCode the notification code
      * @return response to the client company creation request
      */
-    public Response createClientCompany_Authorise(String notificationCode) {
+    public Response createClientCompany_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         boolean freshCreation = true;
-        logger.info("client company creation authorised - [{}]", notificationCode);
+        logger.info("authorise client company creation, invoked by [{}] - [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -158,7 +159,7 @@ public class ClientCompanyComponentLogic {
      * @return response to the client company creation request
      */
     public Response editClientCompany_Request(Login login, String authenticator, ClientCompany cc) {
-        logger.info("request to edit the client company [{}] from [{}]", cc.getName(), login.getUserId());
+        logger.info("request to edit the client company [{}], invoked by [{}]", cc.getName(), login.getUserId());
         Response resp = new Response();
        
         try {
@@ -514,7 +515,7 @@ public class ClientCompanyComponentLogic {
      * @return response to the share quotation upload request
      */
     public Response uploadShareUnitQuotations_Request(Login login, String authenticator, List<ShareQuotation> shareQuotation) {
-        logger.info("request to upload share unit quotations from [{}]", login.getUserId());
+        logger.info("request to upload share unit quotations, invoked by [{}]", login.getUserId());
         Response resp = new Response();
 
         try {
