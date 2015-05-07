@@ -43,7 +43,7 @@ public class PrivatePlacementComponent {
      * @return response object back to sender indicating creation request status
      */
     public Response createPrivatePlacement_Request(Login login, String authenticator, PrivatePlacement privatePlacement) {
-        logger.info("user request to create private placement");
+        logger.info("user request to create private placement. Invoked by [{}]", login.getUserId());
 
         Response res = new Response();
         NotificationWrapper wrapper;
@@ -51,79 +51,59 @@ public class PrivatePlacementComponent {
         NotifierProperties props;
         Date date = new Date();
         SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
-        // SimpleDateFormat formatter = new SimpleDateFormat("dd/MMM/yyyy");
-        // SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
-        
-        
-        // nested if statements is used for response object flexibility
+
         try {
             boolean exits = cq.checkClientCompany(privatePlacement.getClientCompanyId());
-            // checks if company exist
             if (exits) {
                 ClientCompany cc = cq.getClientCompany(privatePlacement.getClientCompanyId());
-                // checks if the company is valid
                 if (cc.isValid()) {
-                    // checks if system current date (today) is before private placement closing date
                     if (date.before(formatter.parse(privatePlacement.getClosingDate()))) {
-                        // checks if the client company has shareholders
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
-                            // checks if there is no private placement opened
                             if (true) {
                                 wrapper = new NotificationWrapper();
-                                props = new NotifierProperties(PrivatePlacement.class);
+                                props = new NotifierProperties(PrivatePlacementComponent.class);
                                 queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
-                                
-                                List<PrivatePlacementComponent> ppc = new ArrayList<>();
+                                List<PrivatePlacement> ppc = new ArrayList<>();
                                 wrapper.setCode(Notification.createCode(login));
                                 wrapper.setDescription("Create Private Placement for " + cc.getName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
                                 wrapper.setFrom(login.getUserId());
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(ppc);
-
                                 res = queue.sendAuthorisationRequest(wrapper);
                                 logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
-
                                 return res;
                             } else {
                                 res.setRetn(205);
                                 res.setDesc("A private placement is currently opened");
                                 logger.info("A private placement is currently opened");
-
                                 return res;
                             }
                         } else {
                             res.setRetn(204);
                             res.setDesc("No shareholders in client company for private placement");
                             logger.info("No shareholders in client company for priate placement");
-
                             return res;
                         }
                     } else {
                         res.setRetn(203);
                         res.setDesc("Private placement can not be closed before current date");
                         logger.info("Private placement can not be closed before current date");
-
                         return res;
                     }
                 } else {
                     res.setRetn(202);
                     res.setDesc("No valid client company for private placement");
                     logger.info("No valid client company for priate placement");
-
                     return res;
                 }
             } else {
                 res.setRetn(201);
                 res.setDesc("No client company for private placement does not exist");
                 logger.info("No client company for priate placement does not exist");
-
                 return res;
             }
-
         } catch (Exception ex) {
-            // TODO: change from Exception class to specific user-defined exceptions later
-            // TODO: catch other types of exception
             res.setRetn(200);
             res.setDesc("Error in verifing Client Company for private placement ");
             logger.info("Error in verifing Client Company for private placement : [{}]", res.getRetn());
@@ -148,21 +128,27 @@ public class PrivatePlacementComponent {
             List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
             PrivatePlacement ppModel = pplist.get(0);
             org.greenpole.hibernate.entity.PrivatePlacement ppEntity = new org.greenpole.hibernate.entity.PrivatePlacement();
-            ppEntity.setId(ppModel.getClientCompanyId());
-            ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer());
-            ppEntity.setMethodOnOffer(Integer.parseInt(ppModel.getMethodOfOffer()));
-            ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinimumSubscription());
-            ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());
-            ppEntity.setOfferPrice(ppModel.getOfferPrice());
-            //ppEntity.setOfferSize(ppModel.getOfferSize());
-            ppEntity.setOpeningDate(formatter.parse(ppModel.getOpeningDate()));
-            ppEntity.setClosingDate(formatter.parse(ppModel.getClosingDate()));
-            cq.createPrivatePlacement(ppEntity);
-
-            logger.info("Private Placement create for Client Company ID: [{}]", ppModel.getClientCompanyId());
-            res.setRetn(0);
-            res.setDesc("Successful Persistence");
-
+            boolean clientCompExist = cq.checkClientCompany(ppModel.getClientCompanyId());
+            if (clientCompExist) {
+                org.greenpole.hibernate.entity.ClientCompany clComp = cq.getClientCompany(ppModel.getClientCompanyId());
+                ppEntity.setClientCompany(clComp);
+                ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer());
+                ppEntity.setMethodOnOffer(Integer.parseInt(ppModel.getMethodOfOffer()));
+                ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinimumSubscription());
+                ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());
+                ppEntity.setOfferPrice(ppModel.getOfferPrice());
+                ppEntity.setOfferSize(ppModel.getOfferSize().doubleValue());
+                ppEntity.setOpeningDate(formatter.parse(ppModel.getOpeningDate()));
+                ppEntity.setClosingDate(formatter.parse(ppModel.getClosingDate()));
+                cq.createPrivatePlacement(ppEntity);
+                logger.info("Private Placement create for Client Company ID: [{}]", ppModel.getClientCompanyId());
+                res.setRetn(0);
+                res.setDesc("Successful Persistence");
+            } else {
+                logger.info("Error: Client company for private placement does not exist");
+                res.setRetn(202);
+                res.setDesc("Error: Client company for private placement does not exist.");
+            }
             return res;
         } catch (JAXBException ex) {
             // TODO: catch other types of exception
@@ -172,11 +158,10 @@ public class PrivatePlacementComponent {
             logger.error("error loading notification xml file to object - ", ex);
         } catch (java.text.ParseException pe) {
             res.setRetn(100);
-            res.setDesc("error loading notification xml file. See error log");
-            logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", pe);
+            res.setDesc("Error converting from string to date type");
+            logger.info("Error converting from string to date type");
+            logger.error("Error converting from string to date type - ", pe);
         }
         return res;
     }
-
 }

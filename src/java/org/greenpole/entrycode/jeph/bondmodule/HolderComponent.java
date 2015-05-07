@@ -92,11 +92,6 @@ public class HolderComponent {
         } else {
             flag = true;
         }
-//        if ("".equals(holder.getChn()) || holder.getChn() == null) {
-//            resDes += "\nError: Holder CHN should not be empty";
-//        } else {
-//            flag = true;
-//        }
         if ("".equals(holder.getGender()) || holder.getGender() == null) {
             resDes += "\nError: Holder gender should not be empty";
         } else {
@@ -154,7 +149,7 @@ public class HolderComponent {
                 res.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
             }
         } else {
-            res.setRetn(200);
+            res.setRetn(300);
             res.setDesc("Error: " + resDes);
             logger.info("Error filing holder details: ", resDes);
         }
@@ -361,7 +356,7 @@ public class HolderComponent {
                     res.setDesc("General error. Unable to query holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 }
             } else {
-                res.setRetn(201);
+                res.setRetn(301);
                 res.setDesc("Error: No signature exists for holder");
                 logger.info("Error: No signature exists for holder");
             }
@@ -530,7 +525,7 @@ public class HolderComponent {
                 res.setDesc("General Error: Unable to create bond holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
             }
         } else {
-            res.setRetn(200);
+            res.setRetn(300);
             res.setDesc("Error: " + resDes);
             logger.info("Error filing bond holder details: ", resDes);
         }
@@ -571,7 +566,7 @@ public class HolderComponent {
                 res.setDesc("Successful Persistence");
                 return res;
             } else {
-                res.setRetn(200);
+                res.setRetn(300);
                 res.setDesc("An error occured persisting the data residential and postal addresses are empty");
                 return res;
             }
@@ -608,7 +603,7 @@ public class HolderComponent {
         if (hold.getFirstName() != null || !"".equals(hold.getFirstName())) {
             if (hold.getLastName() != null || !"".equals(hold.getLastName())) {
                 if (hold.getType() == null || "".equals(hold.getType())) {
-                    res.setRetn(200);
+                    res.setRetn(300);
                     res.setDesc("Error: holder account type should not be empty");
                     logger.info("Error: holder account type should not be empty");
                 } else {
@@ -635,12 +630,12 @@ public class HolderComponent {
                     }
                 }
             } else {
-                res.setRetn(200);
+                res.setRetn(300);
                 res.setDesc("Error: holder last name should not be empty");
                 logger.info("Error: holder last name should not be empty");
             }
         } else {
-            res.setRetn(200);
+            res.setRetn(300);
             res.setDesc("Error: holder first name should not be empty");
             logger.info("Error: holder first name should not be empty");
         }
@@ -782,12 +777,12 @@ public class HolderComponent {
                     res.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 }
             } else {
-                res.setRetn(200);
+                res.setRetn(300);
                 res.setDesc("Error: " + resDes);
                 logger.info("Error filing holder details: ", resDes);
             }
         } else {
-            res.setRetn(200);
+            res.setRetn(300);
             res.setDesc("Error: Changes to holder details were not captured");
             logger.info("Error: Changes to holder details were not captured");
         }
@@ -826,7 +821,7 @@ public class HolderComponent {
                 res.setDesc("Holder details saved");
                 return res;
             } else {
-                res.setRetn(200);
+                res.setRetn(300);
                 res.setDesc("An error occured saving hodler details");
                 return res;
             }

@@ -21,13 +21,13 @@ public class Bond implements Serializable {
     @XmlElement
     private String title;
     @XmlElement
-    private Double bondUnitPrice;
+    private double bondUnitPrice;
     @XmlElement
-    private Date bondMaturity;
+    private String bondMaturity;
     @XmlElement
     private String bondType;
     @XmlElement
-    private Double interestRate;
+    private double interestRate;
     @XmlElement
     private String paymentPlan;
 
@@ -43,7 +43,7 @@ public class Bond implements Serializable {
      * @param paymentPlan period for which each coupon is received which can
      * annually, bi-annually, quarterly e.t.c
      */
-    public Bond(int clientCompanyId, String title, Double bondUnitPrice, Date bondMaturity, String bondType, Double interestRate, String paymentPlan) {
+    public Bond(int clientCompanyId, String title, double bondUnitPrice, String bondMaturity, String bondType, double interestRate, String paymentPlan) {
         this.clientCompanyId = clientCompanyId;
         this.title = title;
         this.bondUnitPrice = bondUnitPrice;
@@ -69,19 +69,19 @@ public class Bond implements Serializable {
         this.title = title;
     }
 
-    public Double getBondUnitPrice() {
+    public double getBondUnitPrice() {
         return bondUnitPrice;
     }
 
-    public void setBondUnitPrice(Double bondUnitPrice) {
+    public void setBondUnitPrice(double bondUnitPrice) {
         this.bondUnitPrice = bondUnitPrice;
     }
 
-    public Date getBondMaturity() {
+    public String getBondMaturity() {
         return bondMaturity;
     }
 
-    public void setBondMaturity(Date bondMaturity) {
+    public void setBondMaturity(String bondMaturity) {
         this.bondMaturity = bondMaturity;
     }
 
@@ -93,11 +93,11 @@ public class Bond implements Serializable {
         this.bondType = bondType;
     }
 
-    public Double getInterestRate() {
+    public double getInterestRate() {
         return interestRate;
     }
 
-    public void setInterestRate(Double interestRate) {
+    public void setInterestRate(double interestRate) {
         this.interestRate = interestRate;
     }
 
