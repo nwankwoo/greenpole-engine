@@ -72,45 +72,44 @@ public class PrivatePlacementComponent {
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(ppc);
                                 resp = queue.sendAuthorisationRequest(wrapper);
-                                logger.info("notification forwarded to queue - notification code: [{}]", wrapper.getCode());
+                                logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
                                 return resp;
                             } else {
                                 resp.setRetn(205);
                                 resp.setDesc("A private placement is currently opened");
-                                logger.info("A private placement is currently opened - [{}]", login.getUserId());
+                                logger.info("A private placement is currently opened [{}] - [{}]", resp.getRetn(), login.getUserId());
                                 return resp;
                             }
                         } else {
                             resp.setRetn(204);
                             resp.setDesc("No shareholders in client company for private placement");
-                            logger.info("No shareholders in client company for priate placement - [{}]", login.getUserId());
+                            logger.info("No shareholders in client company for priate placement [{}] - [{}]", resp.getRetn(), login.getUserId());
                             return resp;
                         }
                     } else {
                         resp.setRetn(203);
                         resp.setDesc("Private placement cannot be closed before current date");
-                        logger.info("Private placement cannot be closed before current date - [{}]", login.getUserId());
+                        logger.info("Private placement cannot be closed before current date [{}] - [{}]", resp.getRetn(), login.getUserId());
                         return resp;
                     }
                 } else {
                     resp.setRetn(202);
                     resp.setDesc("Client company for private placement is not valid");
-                    logger.info("Client company for priate placement is not valid - [{}]", login.getUserId());
+                    logger.info("Client company for priate placement is not valid [{}] - [{}]", resp.getRetn(), login.getUserId());
                     return resp;
                 }
             } else {
                 resp.setRetn(201);
                 resp.setDesc("Client company for private placement does not exist");
-                logger.info("Client company for priate placement does not exist - [{}]", login.getUserId());
+                logger.info("Client company for priate placement does not exist [{}] - [{}]", resp.getRetn(), login.getUserId());
                 return resp;
             }
-        } catch (Exception ex) {
-            logger.info("error processing private placement creation. See error log - [{}]", login.getUserId());
-            logger.error("error processing private placement creation - [{}]", login.getUserId(), ex);
-            
+        } catch (Exception ex) {            
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process private placement creation. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
+            logger.info("error processing private placement creation. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("error processing private placement creation - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -125,8 +124,8 @@ public class PrivatePlacementComponent {
     public Response setupPrivatePlacement_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-        logger.info("Private Placement creation authorised, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
-        try {
+        logger.info("Private Placement creation authorised - notification code: [{}], invoked by [{}]", notificationCode, login.getUserId());
+        try { 
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
             PrivatePlacement ppModel = pplist.get(0);
@@ -145,32 +144,33 @@ public class PrivatePlacementComponent {
                 ppEntity.setClosingDate(formatter.parse(ppModel.getClosingDate()));
                 ppEntity.setPlacementClosed(false);
                 cq.createPrivatePlacement(ppEntity);
-                logger.info("Private Placement create for Client Company ID: [{}] - [{}]", ppModel.getClientCompanyId(), login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
+                logger.info("Private Placement create for Client Company ID: [{}] - [{}]", ppModel.getClientCompanyId(), login.getUserId());
             } else {
-                logger.info("Error: Client company for private placement does not exist - [{}]", login.getUserId());
                 resp.setRetn(202);
                 resp.setDesc("Error: Client company for private placement does not exist.");
+                logger.info("Error: Client company for private placement does not exist [{}] - [{}]", resp.getRetn(), login.getUserId());
             }
             return resp;
         } catch (JAXBException ex) {
             resp.setRetn(100);
-            resp.setDesc("error loading notification xml file. See error log");
-            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
-            logger.error("error loading notification xml file to object - [{}]", login.getUserId(), ex);
+            resp.setDesc("General Error: Unable to load notification xml file. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
         } catch (ParseException ex) {
             resp.setRetn(100);
-            resp.setDesc("Error converting from string to date type");
-            logger.info("Error converting from string to date type - [{}]", login.getUserId());
-            logger.error("Error converting from string to date type - [{}]", login.getUserId(), ex);
-        } catch (Exception ex) {
-            logger.info("error creating private placement. See error log - [{}]", login.getUserId());
-            logger.error("error creating private placement - [{}]", login.getUserId(), ex);
-            
+            resp.setDesc("General Error: Unable to convert from string to date type. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error converting from string to date type [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error converting from string to date type - [" + login.getUserId() + "]", ex);
+        } catch (Exception ex) {            
             resp.setRetn(99);
             resp.setDesc("General error. Unable to create private placement. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
+            logger.info("error creating private placement. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("error creating private placement - [{}]", login.getUserId(), ex);
             return resp;
         }
         return resp;

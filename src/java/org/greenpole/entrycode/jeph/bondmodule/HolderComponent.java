@@ -336,8 +336,7 @@ public class HolderComponent {
                     wrapper.setModel(holderSignList);
                     resp = queue.sendAuthorisationRequest(wrapper);
                     logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                } catch (Exception ex) {
-                    
+                } catch (Exception ex) {                    
                     resp.setRetn(99);
                     resp.setDesc("General error. Unable to query holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
                     logger.info("error querying holder signature. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
