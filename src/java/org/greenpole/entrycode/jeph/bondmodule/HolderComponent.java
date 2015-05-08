@@ -232,7 +232,7 @@ public class HolderComponent {
                 List<org.greenpole.entrycode.jeph.models.HolderSignature> holderListSignature = new ArrayList<>();
                 holderListSignature.add(holderSign);
                 wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Authenticate creation of holder singature");
+                wrapper.setDescription("Authenticate creation of holder singature with holder signarue " + holderSign.getId());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
