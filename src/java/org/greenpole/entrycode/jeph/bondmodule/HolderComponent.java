@@ -172,7 +172,7 @@ public class HolderComponent {
             holdEntity.setGender(holdModel.getGender());
             holdEntity.setDob(formatter.parse(holdModel.getDob()));
             holdEntity.setChn(holdModel.getChn());
-
+            // some Holder Company Account details are NOT filled . . .
             boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, holderExist), retrieveHolderResidentialAddress(holdModel, holderExist), retrieveHolderPostalAddress(holdModel, holderExist), retrieveHolderPhoneNumber(holdModel, holderExist));
 
             if (created) {
@@ -653,7 +653,7 @@ public class HolderComponent {
         } else {
             resp.setRetn(300);
             resp.setDesc("Error: Changes to holder details were not captured");
-            logger.info("Error: Changes to holder details were not captured, invoked by [{}] - ", login.getUserId());
+            logger.info("Error: Changes to holder details were not captured, invoked by [{}] - [{}]", resp.getRetn(), login.getUserId());
         }
         return resp;
     }
@@ -674,32 +674,36 @@ public class HolderComponent {
             Holder holder = holderEditList.get(0);
             
             boolean holderExist = hcq.checkHolderAccount(holder.getHolderId());
-            org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
-
+            org.greenpole.hibernate.entity.Holder holdEntity = hcq.getHolder(holder.getHolderId());
+            
             holdEntity.setFirstName(holder.getFirstName());
             holdEntity.setLastName(holder.getLastName());
             holdEntity.setMiddleName(holder.getMiddleName());
             holdEntity.setType(holder.getType());
             holdEntity.setGender(holder.getGender());
             holdEntity.setDob(formatter.parse(holder.getDob()));
+            // if (chn has NOT been involved in any transactioin) {
             holdEntity.setChn(holder.getChn());
-
+            // } else { reject edit }
             boolean updated = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holder, holderExist), retrieveHolderResidentialAddress(holder, holderExist), retrieveHolderPostalAddress(holder, holderExist), retrieveHolderPhoneNumber(holder, holderExist));
             boolean created = this.updateHolderChanges(holderEditList.get(0).getHolderEdits());
             if (!updated) {
                 resp.setRetn(300);
                 resp.setDesc("An error occured updating holder changed details");
                 logger.info("An error occured updating holder changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
+                // Send SMS/Email notification to shareholder IF USER PERMITS
                 return resp;
             } else if (!created) {
                 resp.setRetn(300);
                 resp.setDesc("An error occured logging hodler changed details");
                 logger.info("An error occured logging hodler changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
+                // Send SMS/Email notification to shareholder IF USER PERMITS
                 return resp;
             } else {
                 resp.setRetn(0);
                 resp.setDesc("Holder details saved");
                 logger.info("Holder account update successful [{}] - [{}]", resp.getRetn(), login.getUserId());
+                // Send SMS/Email notification to shareholder
                 return resp;
             }
         } catch (JAXBException ex) {
@@ -844,6 +848,7 @@ public class HolderComponent {
      * @return object of HolderCompanyAccount
      */
     private HolderCompanyAccount retrieveHolderCompanyAccount(Holder holdModel, boolean newEntry) {
+        // some Holder Company Account details missing . . .
         org.greenpole.hibernate.entity.HolderCompanyAccount companyAccountEntity = new org.greenpole.hibernate.entity.HolderCompanyAccount();
         List<org.greenpole.entity.model.holder.HolderCompanyAccount> companyAccountList = holdModel.getHolderCompanyAccounts();
         List<org.greenpole.hibernate.entity.HolderCompanyAccount> returnCompanyAccountList = new ArrayList();
@@ -853,7 +858,6 @@ public class HolderComponent {
             if (newEntry) {
                 hCompAcctId.setHolderId(holdModel.getHolderId());
             }
-            // hCompAcctId.setHolderId(compAcct.getHolderId());
             hCompAcctId.setClientCompanyId(compAcct.getClientCompanyId());
             // companyAccountEntity.setBank(compAcct.getBankId());
             // removed from the model
