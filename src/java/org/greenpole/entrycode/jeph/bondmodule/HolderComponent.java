@@ -28,7 +28,7 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entrycode.jeph.mocks.SignatureProperties;
-import org.greenpole.entrycode.jeph.models.HolderEdit;
+import org.greenpole.entity.model.jeph.models.HolderEdit;
 import org.greenpole.hibernate.entity.*;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderPhoneNumber;
@@ -622,25 +622,26 @@ public class HolderComponent {
      * @param holderEdit
      * @return response object for the edit holder details request
      */
-    public Response editHolderDetails_Request(Login login, String authenticator, Holder holder, List<HolderEdit> holderEdit) {
+    public Response editHolderDetails_Request(Login login, String authenticator, Holder holder) {
         
         Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
 
-        if (!holderEdit.isEmpty()) {
+        if (!holder.getHolderEdits().isEmpty()) {
             try {
-                this.createHolder_Request(login, authenticator, holder);
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(HolderComponent.class);
                 queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                List<Holder> holdList = new ArrayList<>();
+                holdList.add(holder);
                 wrapper.setCode(Notification.createCode(login));
                 wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
-                wrapper.setModel(holderEdit);
+                wrapper.setModel(holdList);
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
             } catch (Exception ex) {
@@ -669,18 +670,36 @@ public class HolderComponent {
         Response resp = new Response();
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-            List<HolderEdit> holderEditList = (List<HolderEdit>) wrapper.getModel();
+            List<Holder> holderEditList = (List<Holder>) wrapper.getModel();
+            Holder holder = holderEditList.get(0);
             
-            boolean created = this.updateHolderChanges(holderEditList);
-            if (created) {
+            boolean holderExist = hcq.checkHolderAccount(holder.getHolderId());
+            org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
+
+            holdEntity.setFirstName(holder.getFirstName());
+            holdEntity.setLastName(holder.getLastName());
+            holdEntity.setMiddleName(holder.getMiddleName());
+            holdEntity.setType(holder.getType());
+            holdEntity.setGender(holder.getGender());
+            holdEntity.setDob(formatter.parse(holder.getDob()));
+            holdEntity.setChn(holder.getChn());
+
+            boolean updated = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holder, holderExist), retrieveHolderResidentialAddress(holder, holderExist), retrieveHolderPostalAddress(holder, holderExist), retrieveHolderPhoneNumber(holder, holderExist));
+            boolean created = this.updateHolderChanges(holderEditList.get(0).getHolderEdits());
+            if (!updated) {
+                resp.setRetn(300);
+                resp.setDesc("An error occured updating holder changed details");
+                logger.info("An error occured updating holder changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
+                return resp;
+            } else if (!created) {
+                resp.setRetn(300);
+                resp.setDesc("An error occured logging hodler changed details");
+                logger.info("An error occured logging hodler changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
+                return resp;
+            } else {
                 resp.setRetn(0);
                 resp.setDesc("Holder details saved");
                 logger.info("Holder account update successful [{}] - [{}]", resp.getRetn(), login.getUserId());
-                return resp;
-            } else {
-                resp.setRetn(300);
-                resp.setDesc("An error occured saving hodler changed details");
-                logger.info("An error occured saving hodler changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
                 return resp;
             }
         } catch (JAXBException ex) {
@@ -706,10 +725,11 @@ public class HolderComponent {
      * @return boolean value indicating status
      * @throws ParseException for parsing String to Date type
      */
-    private boolean updateHolderChanges(List<org.greenpole.entrycode.jeph.models.HolderEdit> holderEdit) throws ParseException {
+    private boolean updateHolderChanges(List<org.greenpole.entity.model.jeph.models.HolderEdit> holderEdit) throws ParseException {
+        boolean status = false;
         HolderChanges hChgs = new HolderChanges();
         
-        for (org.greenpole.entrycode.jeph.models.HolderEdit hd : holderEdit) {
+        for (org.greenpole.entity.model.jeph.models.HolderEdit hd : holderEdit) {
             org.greenpole.hibernate.entity.Holder holder = hcq.getHolder(hd.getHolderId());
             // HolderChangeType hChgType = hcq.getHolderChangeType(hd.getHolderChangeTypeId());
             HolderChangeType hChgType = new HolderChangeType();
@@ -717,11 +737,10 @@ public class HolderComponent {
             hChgs.setHolderChangeType(hChgType);
             hChgs.setInitialForm(hd.getInitialForm());
             hChgs.setCurrentForm(hd.getCurrentForm());
-            hChgs.setChangeDate(formatter.parse(hd.getChangeDate()));
-            
-            // hcq.createHolderChange(hChgs);
+            hChgs.setChangeDate(formatter.parse(hd.getChangeDate()));            
+            //status = hcq.createHolderChange(hChgs);
         }        
-        return true;
+        return status;
     }
 
     /**
