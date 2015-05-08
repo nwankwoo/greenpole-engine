@@ -64,36 +64,52 @@ public class ClientCompanyComponentLogic {
             NotificationWrapper wrapper;
             QueueSender qSender;
             NotifierProperties prop;
+            String desc = "";
+            boolean flag = false;
 
             //check if client company exists
             if (!cq.checkClientCompany(cc.getName())) {
-                wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                        prop.getAuthoriserNotifierQueueName());
+                if (cc.getName() == null || "".equals(cc.getName())) {
+                    desc += "\nClient company name should not be empty";
+                } else if (cc.getCode() == null || "".equals(cc.getCode())) {
+                    desc += "\nClient company code should not be empty";
+                } else {
+                    flag = true;
+                }
+                
+                if (flag) {
+                    wrapper = new NotificationWrapper();
+                    prop = new NotifierProperties(ClientCompanyComponentLogic.class);
+                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                            prop.getAuthoriserNotifierQueueName());
 
-                logger.info("client company does not exist - [{}]", cc.getName());
-                List<ClientCompany> cclist = new ArrayList<>();
-                cclist.add(cc);
-                //wrap client company object in notification object, along with other information
-                wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Authenticate creation of the client company, " + cc.getName());
-                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                wrapper.setFrom(login.getUserId());
-                wrapper.setTo(authenticator);
-                wrapper.setModel(cclist);
+                    logger.info("client company does not exist - [{}]: [{}]", login.getUserId(), cc.getName());
+                    List<ClientCompany> cclist = new ArrayList<>();
+                    cclist.add(cc);
+                    //wrap client company object in notification object, along with other information
+                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setDescription("Authenticate creation of the client company, " + cc.getName());
+                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setFrom(login.getUserId());
+                    wrapper.setTo(authenticator);
+                    wrapper.setModel(cclist);
 
-                resp = qSender.sendAuthorisationRequest(wrapper);
-                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                    resp = qSender.sendAuthorisationRequest(wrapper);
+                    logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(200);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in client company creation process - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
             resp.setDesc("Client company already exists and so cannot be created.");
-            logger.info("client company exists so cannot be created - [{}]: [{}]", cc.getName(), resp.getRetn());
+            logger.info("client company exists so cannot be created - [{}]: [{}]", login.getUserId(), resp.getRetn());
             return resp;
         } catch (Exception ex) {
-            logger.info("error processing client company creation. See error log");
-            logger.error("error processing client company creation - ", ex);
+            logger.info("error processing client company creation. See error log - [{}]", login.getUserId());
+            logger.error("error processing client company creation - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process client company creation. Contact system administrator."
@@ -123,7 +139,7 @@ public class ClientCompanyComponentLogic {
                     retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
             
             if (created) {
-                logger.info("client company created - [{}]", ccModel.getName());
+                logger.info("client company created - [{}]: [{}]", login.getUserId(), ccModel.getName());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
                 return resp;
@@ -131,18 +147,19 @@ public class ClientCompanyComponentLogic {
             
             resp.setRetn(201);
             resp.setDesc("Unable to create client company from authorisation. Contact System Administrator");
+            logger.info("unable to create client company from authorisation - [{}]", login.getUserId());
             return resp;
         } catch (JAXBException ex) {
-            logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
             
-            resp.setRetn(201);
+            resp.setRetn(98);
             resp.setDesc("Unable to create client company from authorisation. Contact System Administrator");
             
             return resp;
         } catch (Exception ex) {
-            logger.info("error creating client company. See error log");
-            logger.error("error creating client company - ", ex);
+            logger.info("error creating client company. See error log - [{}]", login.getUserId());
+            logger.error("error creating client company - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to create client company. Contact system administrator."
@@ -169,35 +186,35 @@ public class ClientCompanyComponentLogic {
             
             //client company must exist to be edited
             if (cq.checkClientCompany(cc.getName())) {
-                logger.info("client company exists - [{}]", cc.getName());
+                logger.info("client company exists - [{}]: [{}]", login.getUserId(), cc.getName());
                 //if client company exists, it must be a primary client company
                 if (cq.getClientCompanyByName(cc.getName()).isClientCompanyPrimary()) {
 
-                    String resDesc = "";
+                    String desc = "";
                     boolean flag = false;
 
                     if ("".equals(cc.getCode()) || cc.getCode() == null) {
-                        resDesc += "\nCode should not be empty";
+                        desc += "\nCode should not be empty";
                     } else if (!cc.getAddresses().isEmpty()) {
                         for (Address addy : cc.getAddresses()) {
                             if ("".equals(addy.getAddressLine1()) || addy.getAddressLine1() == null) {
-                                resDesc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                             } else if ("".equals(addy.getState()) || addy.getState() == null) {
-                                resDesc += "\nState should not be empty. Delete entire address if you must";
+                                desc += "\nState should not be empty. Delete entire address if you must";
                             } else if ("".equals(addy.getCountry()) || addy.getCountry() == null) {
-                                resDesc += "\nCountry should not be empty. Delete entire address if you must";
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
                             }
                         }
                     } else if (!cc.getEmailAddresses().isEmpty()) {
                         for (EmailAddress email : cc.getEmailAddresses()) {
                             if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
-                                resDesc += "\nEmail address should not be empty. Delete email entry if you must";
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
                             }
                         }
                     } else if (!cc.getPhoneNumbers().isEmpty()) {
                         for (PhoneNumber phone : cc.getPhoneNumbers()) {
                             if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
-                                resDesc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                             }
                         }
                     } else {
@@ -210,7 +227,7 @@ public class ClientCompanyComponentLogic {
                         qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
 
-                        logger.info("client company is valid and primary - [{}]", cc.getName());
+                        logger.info("client company is valid and primary - [{}]: [{}]", login.getUserId(), cc.getName());
                         List<ClientCompany> cclist = new ArrayList<>();
                         cclist.add(cc);
                         //wrap client company object in notification object, along with other information
@@ -222,26 +239,26 @@ public class ClientCompanyComponentLogic {
                         wrapper.setModel(cclist);
 
                         resp = qSender.sendAuthorisationRequest(wrapper);
-                        logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
                         return resp;
                     } else {
                         resp.setRetn(202);
-                        resp.setDesc("Error:\n" + resDesc);
-                        logger.info("Error filing client company details:\n [{}]", resDesc);
+                        resp.setDesc("Error: " + desc);
+                        logger.info("Error filing client company details - [{}]", login.getUserId());
                     }
                 }
                 resp.setRetn(202);
                 resp.setDesc("Client company is not valid, so cannot be edited.");
-                logger.info("client company is not valid so cannot be edited - [{}]: [{}]", cc.getName(), resp.getRetn());
+                logger.info("client company is not valid so cannot be edited - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(202);
             resp.setDesc("Client company does not exist, so cannot be edited.");
-            logger.info("client company does not exist so cannot be edited - [{}]: [{}]", cc.getName(), resp.getRetn());
+            logger.info("client company does not exist so cannot be edited - [{}]: [{}]", login.getUserId(), resp.getRetn());
             return resp;
         } catch (Exception ex) {
-            logger.info("error processing client company edit. See error log");
-            logger.error("error processing client company edit - ", ex);
+            logger.info("error processing client company edit. See error log - [{}]", login.getUserId());
+            logger.error("error processing client company edit - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process client company edit. Contact system administrator."
@@ -272,26 +289,27 @@ public class ClientCompanyComponentLogic {
                     retrieveEmailAddressModelForDeletion(ccModel), retrievePhoneNumberModelForDeletion(ccModel));
             
             if (edited) {
-                logger.info("client company edited - [{}]", ccModel.getName());
+                logger.info("client company edited - [{}]: [{}]", ccModel.getName(), login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
                 return resp;
             }
             
-            resp.setRetn(206);
+            resp.setRetn(203);
             resp.setDesc("Unable to change client company from authorisation. Contact System Administrator");
+            logger.info("unable to change client company from authorisation - [{}]", login.getUserId());
             return resp;
         } catch (JAXBException ex) {
-            logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(203);
             resp.setDesc("Unable to change client company from authorisation. Contact System Administrator");
             
             return resp;
         } catch (Exception ex) {
-            logger.info("error editing client company. See error log");
-            logger.error("error editing client company - ", ex);
+            logger.info("error editing client company. See error log - [{}]", login.getUserId());
+            logger.error("error editing client company - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to edit client company. Contact system administrator."
@@ -417,7 +435,8 @@ public class ClientCompanyComponentLogic {
                 }
 
                 List<org.greenpole.hibernate.entity.ClientCompany> cc_search_result = cq.queryClientCompany(descriptor, cc_hib_search, shareUnit_search, numberOfShareholders_search, numberOfBondholders_search);
-
+                logger.info("retrieved client company result from query. Preparing local model - [{}]", login.getUserId());
+                
                 //unwrap result and set in client company front-end model
                 List<ClientCompany> cc_model_out = new ArrayList<>();
 
@@ -483,7 +502,7 @@ public class ClientCompanyComponentLogic {
                     cc_model_out.add(c); //finally, add client company to list
                 }
 
-                logger.info("client company query successful");
+                logger.info("client company query successful - [{}]", login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
                 resp.setBody(cc_model_out);
@@ -491,14 +510,14 @@ public class ClientCompanyComponentLogic {
                 return resp;
             }
 
-            logger.info("client company query unsuccessful");
-            resp.setRetn(210);
+            logger.info("client company query unsuccessful - [{}]", login.getUserId());
+            resp.setRetn(204);
             resp.setDesc("Unsuccessful client company query, due to incomplete descriptor. Contact system administrator");
 
             return resp;
         } catch (Exception ex) {
-            logger.info("error querying client company. See error log");
-            logger.error("error querying client company - ", ex);
+            logger.info("error querying client company. See error log - [{}]", login.getUserId());
+            logger.error("error querying client company - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to querying client company. Contact system administrator."
@@ -540,27 +559,27 @@ public class ClientCompanyComponentLogic {
                 qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
                         prop.getAuthoriserNotifierQueueName());
 
-                logger.info("client company codes exist");
+                logger.info("client company codes exist - [{}]", login.getUserId());
                 //wrap client company object in notification object, along with other information
                 wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Upload of share-unit quotations, requested by " + login.getUserId());
+                wrapper.setDescription("Upload of share-unit quotations");
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(shareQuotation);
 
                 resp = qSender.sendAuthorisationRequest(wrapper);
-                logger.info("notification fowarded to queue, request by [{}] - notification code: [{}]", login.getUserId(), wrapper.getCode());
+                logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
                 return resp;
             }
-            resp.setRetn(204);
+            resp.setRetn(205);
             resp.setDesc("The client company code [" + shareQuotation.get(pos).getClientCompany().getCode() + "] does not exist.");
             logger.info("The client company code does not exist so cannot be edited - [{}]: [{}]",
-                    shareQuotation.get(pos).getClientCompany().getCode(), resp.getRetn());
+                    shareQuotation.get(pos).getClientCompany().getCode(), login.getUserId());
             return resp;
         } catch (Exception ex) {
-            logger.info("error processing upload share unit quotations request. See error log");
-            logger.error("error processing upload share unit quotations request - ", ex);
+            logger.info("error processing upload share unit quotations request. See error log - [{}]", login.getUserId());
+            logger.error("error processing upload share unit quotations request - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process upload share quotation records request. Contact system administrator."
@@ -585,26 +604,27 @@ public class ClientCompanyComponentLogic {
             boolean uploaded = cq.uploadShareQuotation(retrieveShareQuotation(quotationList));
             
             if (uploaded) {
-                logger.info("share unit quotation upload authorised");
+                logger.info("share unit quotation upload authorised - [{}]", login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
                 return resp;
             }
             
-            resp.setRetn(205);
+            resp.setRetn(206);
             resp.setDesc("Unable to load share unit quotation from authorisation. Contact System Administrator");
+            logger.info("unable to load share unit quotation from authorisation - [{}]", login.getUserId());
             return resp;
         } catch (JAXBException ex) {
-            logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
             
-            resp.setRetn(203);
+            resp.setRetn(206);
             resp.setDesc("Unable to load share unit quotation from authorisation. Contact System Administrator");
             
             return resp;
         } catch (Exception ex) {
-            logger.info("error uploading share unit quotations. See error log");
-            logger.error("error uploading share unit quotations - ", ex);
+            logger.info("error uploading share unit quotations. See error log - [{}]", login.getUserId());
+            logger.error("error uploading share unit quotations - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to upload share quotation records. Contact system administrator."
@@ -639,10 +659,11 @@ public class ClientCompanyComponentLogic {
             resp.setBody(shareQuotations);
             resp.setRetn(0);
             resp.setDesc("Successful");
+            logger.info("share unit quotations retreival successful - [{}]", login.getUserId());
             return resp;
         } catch (Exception ex) {
-            logger.info("error retrieving share unit quotations. See error log");
-            logger.error("error retrieving share unit quotations - ", ex);
+            logger.info("error retrieving share unit quotations. See error log - [{}]", login.getUserId());
+            logger.error("error retrieving share unit quotations - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to retrieve share quotation records. Contact system administrator."
