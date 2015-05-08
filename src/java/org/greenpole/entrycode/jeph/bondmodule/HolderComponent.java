@@ -76,7 +76,7 @@ public class HolderComponent {
         NotifierProperties prop;
         String resDes = null;
         boolean flag = false;
-        
+
         logger.info("request to create holder details, invoked by [{}]", login.getUserId());
 
         if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
@@ -133,7 +133,7 @@ public class HolderComponent {
                 resp.setRetn(99);
                 resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 logger.info("Error creating holder account. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
-                logger.error("Error creating holder account -, invoked by [" +  login.getUserId() + "]", ex);
+                logger.error("Error creating holder account -, invoked by [" + login.getUserId() + "]", ex);
             }
         } else {
             resp.setRetn(300);
@@ -153,12 +153,16 @@ public class HolderComponent {
     public Response createHolder_Authorise(Login login, String notificationCode) {
         logger.info("request for authorisation to persist holder details, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        
+
         try {
             logger.info("Holder creation authorised - [{}], invoked by [{}]", notificationCode, login.getUserId());
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holdModel = holdList.get(0);
+
+            boolean holderExist = false;
+            holderExist = hcq.checkHolderAccount(holdModel.getHolderId());
+
             org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
 
             holdEntity.setFirstName(holdModel.getFirstName());
@@ -169,14 +173,14 @@ public class HolderComponent {
             holdEntity.setDob(formatter.parse(holdModel.getDob()));
             holdEntity.setChn(holdModel.getChn());
 
-            boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, false), retrieveHolderResidentialAddress(holdModel, false), retrieveHolderPostalAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
+            boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, holderExist), retrieveHolderResidentialAddress(holdModel, holderExist), retrieveHolderPostalAddress(holdModel, holderExist), retrieveHolderPhoneNumber(holdModel, holderExist));
 
-            if (created) {                
+            if (created) {
                 resp.setRetn(0);
                 resp.setDesc("Holder details saved: Successful");
                 logger.info("holder account [{}] created [{}] - [{}]", holdModel.getHolderId(), resp.getRetn(), login.getUserId());
                 return resp;
-            } else {                
+            } else {
                 resp.setRetn(99);
                 resp.setDesc("General error. Unable to persist holder account. Contact system administrator.");
                 logger.info("error persist holder account, [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -239,11 +243,11 @@ public class HolderComponent {
                 wrapper.setModel(holderListSignature);
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-            } catch (IOException ioex) {                
+            } catch (IOException ioex) {
                 resp.setRetn(99);
                 resp.setDesc("General error. Unable to upload holder signature. Contact system administrator." + "\nMessage: " + ioex.getMessage());
                 logger.info("Error in saving image. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-                logger.error("Error in saving image, invoked by [" + login.getUserId() +"] - ", ioex);
+                logger.error("Error in saving image, invoked by [" + login.getUserId() + "] - ", ioex);
             }
         } else {
             resp.setRetn(99);
@@ -289,8 +293,8 @@ public class HolderComponent {
             resp.setRetn(98);
             resp.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() +"] - ", ex);
-        } catch (Exception ex) {            
+            logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
+        } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to save uploaded holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
             logger.info("Error in saving uploaded image. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -313,31 +317,27 @@ public class HolderComponent {
         logger.info("request to query holder signature for [{}]. Invoked by [{}]", holderSign.getHolderId(), login.getUserId());
 
         Response resp = new Response();
-        NotificationWrapper wrapper;
-        QueueSender queue;
-        NotifierProperties prop;
         boolean holderIdExist;
 
-        if (holderSign.getHolderId() <= 0) {
+        if (holderSign.getHolderId() >= 0) {
             // holderIdExist = hcq.chkHolderSignature(holderSign.getHolderId());
             holderIdExist = true;
             if (holderIdExist) {
                 try {
-                    wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponent.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-                    List<org.greenpole.entrycode.jeph.models.HolderSignature> holderSignList = new ArrayList<>();
-                    holderSignList.add(holderSign);
-                    wrapper.setCode(Notification.createCode(login));
-                    wrapper.setDescription("Authenticate query for signature - Holder id: " + holderSign.getHolderId());
-                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setFrom(login.getUserId());
-                    wrapper.setTo(authenticator);
-                    wrapper.setModel(holderSignList);
-                    resp = queue.sendAuthorisationRequest(wrapper);
-                    logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    List<org.greenpole.entrycode.jeph.models.HolderSignature> holdSignList = new ArrayList<>();
+                    // org.greenpole.hibernate.entity.HolderSignature holdSignEntity = hcq.getHolderSignature(holderSign.getHolderId());
+                    org.greenpole.hibernate.entity.HolderSignature holdSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
+                    org.greenpole.entrycode.jeph.models.HolderSignature holderSignSend = new org.greenpole.entrycode.jeph.models.HolderSignature();
+                    holderSignSend.setTitle(holdSignEntity.getTitle());
+                    byte[] signatureImage = readSignatureFile(holdSignEntity.getSignaturePath());
+                    holderSignSend.setSignImg(signatureImage);
+                    // holdSignList.clear();
+                    holdSignList.add(holderSignSend);
+                    resp.setRetn(0);
+                    resp.setDesc("Holder signature details");
+                    resp.setBody(holdSignList);
+                    logger.info("Holder signature query successful [{}] - [{}]", resp.getRetn(), login.getUserId());
                 } catch (Exception ex) {
-                    
                     resp.setRetn(99);
                     resp.setDesc("General error. Unable to query holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
                     logger.info("error querying holder signature. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -348,53 +348,10 @@ public class HolderComponent {
                 resp.setDesc("Error: No signature exists for holder");
                 logger.info("Error: No signature exists for holder. [{}] - [{}]", resp.getRetn(), login.getUserId());
             }
-        } else {            
+        } else {
             resp.setRetn(99);
             resp.setDesc("General Error: Holder Id is either invalid or empty. Contact system administrator.");
             logger.info("Error: Holder Id is either invalid or empty [{}] - [{}]", resp.getRetn(), login.getUserId());
-        }
-        return resp;
-    }
-
-    /**
-     * Processes the request authorisation to query holder signature taking,
-     *
-     * @param login user's login details,
-     * @param notificationCode the notification code,
-     * @return response object for the authorized request
-     */
-    public Response queryHolderSignature_Authorise(Login login, String notificationCode) {
-        logger.info("request authorisation to query holder signature. Invoked by [{}]", login.getUserId());
-        Response resp = new Response();
-
-        try {
-            logger.info("Holder signature query authorised - [{}]", notificationCode);
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-            List<org.greenpole.entrycode.jeph.models.HolderSignature> holdSignList = (List<org.greenpole.entrycode.jeph.models.HolderSignature>) wrapper.getModel();
-            // org.greenpole.hibernate.entity.HolderSignature holdSignEntity = hcq.getHolderSignature(holdSignList.get(0).getHolderId());
-            org.greenpole.hibernate.entity.HolderSignature holdSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
-            org.greenpole.entrycode.jeph.models.HolderSignature holderSignSend = new org.greenpole.entrycode.jeph.models.HolderSignature();
-            holderSignSend.setTitle(holdSignEntity.getTitle());
-            byte[] signatureImage = readSignatureFile(holdSignEntity.getSignaturePath());
-            holderSignSend.setSignImg(signatureImage);
-            // holdSignList.clear();
-            holdSignList.add(holderSignSend);
-            resp.setRetn(0);
-            resp.setDesc("Holder signature details");
-            resp.setBody(holdSignList);
-            logger.info("Holder signature query successful [{}] - [{}]", resp.getRetn(), login.getUserId());
-        } catch (JAXBException ex) {
-            resp.setRetn(98);
-            resp.setDesc("General error. Unable to retrieving holder signature details. Contact system administrator."
-                    + "\nMessage: " + ex.getMessage());
-            logger.info("Error retrieving holder signature details. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("Error retrieving holder signature details. [" + login.getUserId() + "]", ex);
-        } catch (Exception ex) {            
-            resp.setRetn(99);
-            resp.setDesc("General Error: retrieving holder signature details. Contact system administrator."
-                    + "\nMessage: " + ex.getMessage());
-            logger.info("Error retrieving holder signature details [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("Error retrieving holder signature details. [" + login.getUserId() + "]", ex);
         }
         return resp;
     }
@@ -494,7 +451,7 @@ public class HolderComponent {
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
             } catch (Exception ex) {
-                
+
                 resp.setRetn(99);
                 resp.setDesc("General Error: Unable to create bond holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 logger.info("Error creating bond holder account. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -552,7 +509,7 @@ public class HolderComponent {
             resp.setRetn(98);
             resp.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("error loading notification xml file to object, invoked by [" +login.getUserId() + "] - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
         } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("error creating bondholder account - See error log");
@@ -599,7 +556,7 @@ public class HolderComponent {
                         wrapper.setModel(holdList);
                         resp = queue.sendAuthorisationRequest(wrapper);
                         logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                    } catch (Exception ex) {                        
+                    } catch (Exception ex) {
                         resp.setRetn(99);
                         resp.setDesc("General error. Unable to transposing holder names. Contact system administrator." + "\nMessage: " + ex.getMessage());
                         logger.info("error transposing holder names. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -647,7 +604,7 @@ public class HolderComponent {
             logger.info("error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
             logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
         } catch (Exception ex) {
-            
+
             resp.setRetn(99);
             resp.setDesc("General error. Unable to save transposed holder name. Contact system administrator." + "\nMessage: " + ex.getMessage());
             logger.info("error saving transposed holder name. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -662,84 +619,35 @@ public class HolderComponent {
      * @param login user's login details
      * @param authenticator the authenticator meant to receive the notification
      * @param holder the edited holder details
+     * @param holderEdit
      * @return response object for the edit holder details request
      */
-    public Response editHolderDetails_Request(Login login, String authenticator, HolderEdit holder) {
-        if (!"".equals(holder.getChangeType()) || holder.getChangeType() == null) {
-            logger.info("request [{}] on holder details: Login - [{}]", holder.getChangeType(), login.getUserId());
-        } else {
-            logger.info("Change type for holder details was not specified, invoked by [{}] - ", login.getUserId());
-        }
+    public Response editHolderDetails_Request(Login login, String authenticator, Holder holder, List<HolderEdit> holderEdit) {
+        
         Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
-        String resDes = null;
-        boolean flag = false;
 
-        if (!holder.getHolderChanges().isEmpty()) {
-            if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
-                resDes = "\nError: Holder first name should not be empty";
-            } else if ("".equals(holder.getMiddleName()) || holder.getMiddleName() == null) {
-                resDes += "\nError: Holder middle name should not be empty";
-            } else if ("".equals(holder.getLastName()) || holder.getLastName() == null) {
-                resDes += "\nError: Holder last name should not be empty";
-            } else if ("".equals(holder.getChn()) || holder.getChn() == null) {
-                resDes += "\nError: Holder CHN should not be empty";
-            } else if ("".equals(holder.getGender()) || holder.getGender() == null) {
-                resDes += "\nError: Holder gender should not be empty";
-            } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
-                resDes += "\nError: Holder date of birth should not be empty";
-            } else if (!holder.getAddresses().isEmpty()) {
-                for (Address addr : holder.getAddresses()) {
-                    if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
-                        resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
-                    } else if ("".equals(addr.getState()) || addr.getState() == null) {
-                        resDes += "\nState should not be empty. Delete entire address if you must";
-                    } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
-                        resDes += "\nCountry should not be empty. Delete entire address if you must";
-                    }
-                }
-            } else if (!holder.getHolderEmailAddresses().isEmpty()) {
-                for (EmailAddress email : holder.getHolderEmailAddresses()) {
-                    if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
-                        resDes += "\nEmail address should not be empty. Delete email entry if you must";
-                    }
-                }
-            } else if (!holder.getHolderPhoneNumbers().isEmpty()) {
-                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
-                    if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
-                        resDes += "\nPhone number should not be empty. Delete phone number entry if you must";
-                    }
-                }
-            } else {
-                flag = true;
-            }
-            if (flag) {
-                try {
-                    wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponent.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-                    List<HolderEdit> holdList = new ArrayList<>();
-                    holdList.add(holder);
-                    wrapper.setCode(Notification.createCode(login));
-                    wrapper.setDescription("Authenticate " + holder.getChangeType() + " of holder account, " + holder.getFirstName() + " " + holder.getLastName());
-                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setFrom(login.getUserId());
-                    wrapper.setTo(authenticator);
-                    wrapper.setModel(holdList);
-                    resp = queue.sendAuthorisationRequest(wrapper);
-                    logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                } catch (Exception ex) {
-                    logger.info("error editing holder account. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-                    logger.error("error editing holder account, invoked by [" + login.getUserId() + "] - ", ex);
-                    resp.setRetn(99);
-                    resp.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
-                }
-            } else {
-                resp.setRetn(300);
-                resp.setDesc("Error: " + resDes);
-                logger.info("Error filing holder details:, invoked by [{}] - ", resDes, login.getUserId());
+        if (!holderEdit.isEmpty()) {
+            try {
+                this.createHolder_Request(login, authenticator, holder);
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponent.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holderEdit);
+                resp = queue.sendAuthorisationRequest(wrapper);
+                logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            } catch (Exception ex) {
+                logger.info("error editing holder account. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+                logger.error("error editing holder account, invoked by [" + login.getUserId() + "] - ", ex);
+                resp.setRetn(99);
+                resp.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
             }
         } else {
             resp.setRetn(300);
@@ -762,29 +670,17 @@ public class HolderComponent {
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<HolderEdit> holderEditList = (List<HolderEdit>) wrapper.getModel();
-            HolderEdit holderEdit = holderEditList.get(0);
-
-            org.greenpole.hibernate.entity.Holder holdEntity = hcq.getHolder(holderEdit.getHolderId());
-            holdEntity.setFirstName(holderEdit.getFirstName());
-            holdEntity.setLastName(holderEdit.getLastName());
-            holdEntity.setMiddleName(holderEdit.getMiddleName());
-            holdEntity.setType(holderEdit.getType());
-            holdEntity.setGender(holderEdit.getGender());
-            holdEntity.setDob(formatter.parse(holderEdit.getDob()));
-            holdEntity.setChn(holderEdit.getChn());
-
-            boolean created = hcq.updateHolderAccount(holdEntity, retrieveHolderResidentialAddress(holderEdit, false), retrieveHolderPostalAddress(holderEdit, false), retrieveHolderPhoneNumber(holderEdit, false));
-            // boolean updated = hcq.updateHolderChanges(holder, holderEdit)
-            boolean updated = true;
-            if (created && updated) {                
+            
+            boolean created = this.updateHolderChanges(holderEditList);
+            if (created) {
                 resp.setRetn(0);
                 resp.setDesc("Holder details saved");
                 logger.info("Holder account update successful [{}] - [{}]", resp.getRetn(), login.getUserId());
                 return resp;
             } else {
                 resp.setRetn(300);
-                resp.setDesc("An error occured saving hodler details");
-                logger.info("An error occured saving hodler details [{}] - [{}]", resp.getRetn(), login.getUserId());
+                resp.setDesc("An error occured saving hodler changed details");
+                logger.info("An error occured saving hodler changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
                 return resp;
             }
         } catch (JAXBException ex) {
@@ -810,55 +706,22 @@ public class HolderComponent {
      * @return boolean value indicating status
      * @throws ParseException for parsing String to Date type
      */
-    private boolean updateHolderChanges(Holder holderModel, org.greenpole.entrycode.jeph.models.HolderEdit hd) throws ParseException {
-        HolderChanges holderChg = new HolderChanges();
-
-        HolderChangeType holderChgType = new HolderChangeType();
-        holderChgType.setChangeType(hd.getChangeType());
-        holderChgType.setDescription(hd.getDescription());
-
-        org.greenpole.hibernate.entity.Holder holder = new org.greenpole.hibernate.entity.Holder();
-        holder.setId(hd.getHolderId());
-
-        if (!hd.getHolderChanges().isEmpty() || hd.getHolderChanges() != null) {
-            for (org.greenpole.entrycode.jeph.models.HolderChanges hChg : hd.getHolderChanges()) {
-                holderChg.setInitialForm(hChg.getInitialForm());
-                holderChg.setCurrentForm(hChg.getCurrentForm());
-                holderChg.setHolderChangeType(holderChgType);
-                holderChg.setChangeDate(formatter.parse(hChg.getChangeDate()));
-                holderChg.setHolder(holder);
-            }
-        }
+    private boolean updateHolderChanges(List<org.greenpole.entrycode.jeph.models.HolderEdit> holderEdit) throws ParseException {
+        HolderChanges hChgs = new HolderChanges();
+        
+        for (org.greenpole.entrycode.jeph.models.HolderEdit hd : holderEdit) {
+            org.greenpole.hibernate.entity.Holder holder = hcq.getHolder(hd.getHolderId());
+            // HolderChangeType hChgType = hcq.getHolderChangeType(hd.getHolderChangeTypeId());
+            HolderChangeType hChgType = new HolderChangeType();
+            hChgs.setHolder(holder);
+            hChgs.setHolderChangeType(hChgType);
+            hChgs.setInitialForm(hd.getInitialForm());
+            hChgs.setCurrentForm(hd.getCurrentForm());
+            hChgs.setChangeDate(formatter.parse(hd.getChangeDate()));
+            
+            // hcq.createHolderChange(hChgs);
+        }        
         return true;
-    }
-
-    /**
-     * An adapter of retrieveHolderPostalAddress that unwraps the edited holder
-     * details from the holderEdit model into a holder model
-     *
-     * @param holderEdit the edited holder details
-     * @param newEntry boolean value to indicate new data entry
-     * @return List of HolderPostalAddress entity object
-     */
-    private List<HolderPostalAddress> retrieveHolderPostalAddress(HolderEdit holderEdit, boolean newEntry) {
-        org.greenpole.entity.model.holder.Holder holderModel = new org.greenpole.entity.model.holder.Holder();
-        holderModel.setHolderId(holderEdit.getHolderId());
-        holderModel.setFirstName(holderEdit.getFirstName());
-        holderModel.setLastName(holderEdit.getLastName());
-        holderModel.setMiddleName(holderEdit.getMiddleName());
-        holderModel.setAddresses(holderEdit.getAddresses());
-        holderModel.setChn(holderEdit.getChn());
-        holderModel.setDob(holderEdit.getDob());
-        holderModel.setGender(holderEdit.getGender());
-        holderModel.setHolderAcctNumber(holderEdit.getHolderAcctNumber());
-        holderModel.setHolderPhoneNumbers(holderEdit.getHolderPhoneNumbers());
-        holderModel.setHolderPostalAddresses(holderEdit.getHolderPostalAddresses());
-        holderModel.setHolderResidentialAddresses(holderEdit.getHolderResidentialAddresses());
-        holderModel.setPryAddress(holderEdit.getPryAddress());
-        holderModel.setPryHolder(holderEdit.isPryHolder());
-        holderModel.setTaxExempted(holderEdit.isTaxExempted());
-
-        return retrieveHolderPostalAddress(holderModel, newEntry);
     }
 
     /**
@@ -894,35 +757,6 @@ public class HolderComponent {
     }
 
     /**
-     * An adapter of the retieveHolderPhoneNumber method that unwraps holder
-     * edited holder details from HolderEdit object in holder model
-     *
-     * @param holderEdit object holding edited holder details
-     * @param newEntry boolean value indicating new entry
-     * @return List of HolderPhoneNumber objects
-     */
-    private List<HolderPhoneNumber> retrieveHolderPhoneNumber(HolderEdit holderEdit, boolean newEntry) {
-        org.greenpole.entity.model.holder.Holder holderModel = new org.greenpole.entity.model.holder.Holder();
-        holderModel.setHolderId(holderEdit.getHolderId());
-        holderModel.setFirstName(holderEdit.getFirstName());
-        holderModel.setLastName(holderEdit.getLastName());
-        holderModel.setMiddleName(holderEdit.getMiddleName());
-        holderModel.setAddresses(holderEdit.getAddresses());
-        holderModel.setChn(holderEdit.getChn());
-        holderModel.setDob(holderEdit.getDob());
-        holderModel.setGender(holderEdit.getGender());
-        holderModel.setHolderAcctNumber(holderEdit.getHolderAcctNumber());
-        holderModel.setHolderPhoneNumbers(holderEdit.getHolderPhoneNumbers());
-        holderModel.setHolderPostalAddresses(holderEdit.getHolderPostalAddresses());
-        holderModel.setHolderResidentialAddresses(holderEdit.getHolderResidentialAddresses());
-        holderModel.setPryAddress(holderEdit.getPryAddress());
-        holderModel.setPryHolder(holderEdit.isPryHolder());
-        holderModel.setTaxExempted(holderEdit.isTaxExempted());
-
-        return retrieveHolderPhoneNumber(holderModel, newEntry);
-    }
-
-    /**
      * Unwraps holder phone number details from the holder model passed as
      * parameter into HolderPhoneNumber hibernate entity
      *
@@ -947,36 +781,6 @@ public class HolderComponent {
             phoneNumberEntity.setId(phoneNoId);
         }
         return returnPhoneNumber;
-    }
-
-    /**
-     * An adapter method of the retrieveHolderResidentialAddress that unwraps
-     * Holder residential address from the holderEdit object
-     *
-     * @param holderEdit object of edited holder details
-     * @param newEntry boolean variable indicating whether or not the entry is
-     * new
-     * @return List of HolderResidentialAddress objects
-     */
-    private List<HolderResidentialAddress> retrieveHolderResidentialAddress(HolderEdit holderEdit, boolean newEntry) {
-        org.greenpole.entity.model.holder.Holder holderModel = new org.greenpole.entity.model.holder.Holder();
-        holderModel.setHolderId(holderEdit.getHolderId());
-        holderModel.setFirstName(holderEdit.getFirstName());
-        holderModel.setLastName(holderEdit.getLastName());
-        holderModel.setMiddleName(holderEdit.getMiddleName());
-        holderModel.setAddresses(holderEdit.getAddresses());
-        holderModel.setChn(holderEdit.getChn());
-        holderModel.setDob(holderEdit.getDob());
-        holderModel.setGender(holderEdit.getGender());
-        holderModel.setHolderAcctNumber(holderEdit.getHolderAcctNumber());
-        holderModel.setHolderPhoneNumbers(holderEdit.getHolderPhoneNumbers());
-        holderModel.setHolderPostalAddresses(holderEdit.getHolderPostalAddresses());
-        holderModel.setHolderResidentialAddresses(holderEdit.getHolderResidentialAddresses());
-        holderModel.setPryAddress(holderEdit.getPryAddress());
-        holderModel.setPryHolder(holderEdit.isPryHolder());
-        holderModel.setTaxExempted(holderEdit.isTaxExempted());
-
-        return retrieveHolderResidentialAddress(holderModel, newEntry);
     }
 
     /**
