@@ -76,7 +76,7 @@ public class HolderComponent {
         NotifierProperties prop;
         String resDes = null;
         boolean flag = false;
-        
+
         logger.info("request to create holder details, invoked by [{}]", login.getUserId());
 
         if ("".equals(holder.getFirstName()) || holder.getFirstName() == null) {
@@ -133,7 +133,7 @@ public class HolderComponent {
                 resp.setRetn(99);
                 resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 logger.info("Error creating holder account. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
-                logger.error("Error creating holder account -, invoked by [" +  login.getUserId() + "]", ex);
+                logger.error("Error creating holder account -, invoked by [" + login.getUserId() + "]", ex);
             }
         } else {
             resp.setRetn(300);
@@ -153,7 +153,7 @@ public class HolderComponent {
     public Response createHolder_Authorise(Login login, String notificationCode) {
         logger.info("request for authorisation to persist holder details, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        
+
         try {
             logger.info("Holder creation authorised - [{}], invoked by [{}]", notificationCode, login.getUserId());
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
@@ -171,12 +171,12 @@ public class HolderComponent {
 
             boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, false), retrieveHolderResidentialAddress(holdModel, false), retrieveHolderPostalAddress(holdModel, false), retrieveHolderPhoneNumber(holdModel, false));
 
-            if (created) {                
+            if (created) {
                 resp.setRetn(0);
                 resp.setDesc("Holder details saved: Successful");
                 logger.info("holder account [{}] created [{}] - [{}]", holdModel.getHolderId(), resp.getRetn(), login.getUserId());
                 return resp;
-            } else {                
+            } else {
                 resp.setRetn(99);
                 resp.setDesc("General error. Unable to persist holder account. Contact system administrator.");
                 logger.info("error persist holder account, [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -239,11 +239,11 @@ public class HolderComponent {
                 wrapper.setModel(holderListSignature);
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-            } catch (IOException ioex) {                
+            } catch (IOException ioex) {
                 resp.setRetn(99);
                 resp.setDesc("General error. Unable to upload holder signature. Contact system administrator." + "\nMessage: " + ioex.getMessage());
                 logger.info("Error in saving image. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-                logger.error("Error in saving image, invoked by [" + login.getUserId() +"] - ", ioex);
+                logger.error("Error in saving image, invoked by [" + login.getUserId() + "] - ", ioex);
             }
         } else {
             resp.setRetn(99);
@@ -289,8 +289,8 @@ public class HolderComponent {
             resp.setRetn(98);
             resp.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() +"] - ", ex);
-        } catch (Exception ex) {            
+            logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
+        } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to save uploaded holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
             logger.info("Error in saving uploaded image. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -313,30 +313,27 @@ public class HolderComponent {
         logger.info("request to query holder signature for [{}]. Invoked by [{}]", holderSign.getHolderId(), login.getUserId());
 
         Response resp = new Response();
-        NotificationWrapper wrapper;
-        QueueSender queue;
-        NotifierProperties prop;
         boolean holderIdExist;
 
-        if (holderSign.getHolderId() <= 0) {
+        if (holderSign.getHolderId() >= 0) {
             // holderIdExist = hcq.chkHolderSignature(holderSign.getHolderId());
             holderIdExist = true;
             if (holderIdExist) {
                 try {
-                    wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponent.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-                    List<org.greenpole.entrycode.jeph.models.HolderSignature> holderSignList = new ArrayList<>();
-                    holderSignList.add(holderSign);
-                    wrapper.setCode(Notification.createCode(login));
-                    wrapper.setDescription("Authenticate query for signature - Holder id: " + holderSign.getHolderId());
-                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setFrom(login.getUserId());
-                    wrapper.setTo(authenticator);
-                    wrapper.setModel(holderSignList);
-                    resp = queue.sendAuthorisationRequest(wrapper);
-                    logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                } catch (Exception ex) {                    
+                    List<org.greenpole.entrycode.jeph.models.HolderSignature> holdSignList = new ArrayList<>();
+                    // org.greenpole.hibernate.entity.HolderSignature holdSignEntity = hcq.getHolderSignature(holderSign.getHolderId());
+                    org.greenpole.hibernate.entity.HolderSignature holdSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
+                    org.greenpole.entrycode.jeph.models.HolderSignature holderSignSend = new org.greenpole.entrycode.jeph.models.HolderSignature();
+                    holderSignSend.setTitle(holdSignEntity.getTitle());
+                    byte[] signatureImage = readSignatureFile(holdSignEntity.getSignaturePath());
+                    holderSignSend.setSignImg(signatureImage);
+                    // holdSignList.clear();
+                    holdSignList.add(holderSignSend);
+                    resp.setRetn(0);
+                    resp.setDesc("Holder signature details");
+                    resp.setBody(holdSignList);
+                    logger.info("Holder signature query successful [{}] - [{}]", resp.getRetn(), login.getUserId());
+                } catch (Exception ex) {
                     resp.setRetn(99);
                     resp.setDesc("General error. Unable to query holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
                     logger.info("error querying holder signature. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -347,53 +344,10 @@ public class HolderComponent {
                 resp.setDesc("Error: No signature exists for holder");
                 logger.info("Error: No signature exists for holder. [{}] - [{}]", resp.getRetn(), login.getUserId());
             }
-        } else {            
+        } else {
             resp.setRetn(99);
             resp.setDesc("General Error: Holder Id is either invalid or empty. Contact system administrator.");
             logger.info("Error: Holder Id is either invalid or empty [{}] - [{}]", resp.getRetn(), login.getUserId());
-        }
-        return resp;
-    }
-
-    /**
-     * Processes the request authorisation to query holder signature taking,
-     *
-     * @param login user's login details,
-     * @param notificationCode the notification code,
-     * @return response object for the authorized request
-     */
-    public Response queryHolderSignature_Authorise(Login login, String notificationCode) {
-        logger.info("request authorisation to query holder signature. Invoked by [{}]", login.getUserId());
-        Response resp = new Response();
-
-        try {
-            logger.info("Holder signature query authorised - [{}]", notificationCode);
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
-            List<org.greenpole.entrycode.jeph.models.HolderSignature> holdSignList = (List<org.greenpole.entrycode.jeph.models.HolderSignature>) wrapper.getModel();
-            // org.greenpole.hibernate.entity.HolderSignature holdSignEntity = hcq.getHolderSignature(holdSignList.get(0).getHolderId());
-            org.greenpole.hibernate.entity.HolderSignature holdSignEntity = new org.greenpole.hibernate.entity.HolderSignature();
-            org.greenpole.entrycode.jeph.models.HolderSignature holderSignSend = new org.greenpole.entrycode.jeph.models.HolderSignature();
-            holderSignSend.setTitle(holdSignEntity.getTitle());
-            byte[] signatureImage = readSignatureFile(holdSignEntity.getSignaturePath());
-            holderSignSend.setSignImg(signatureImage);
-            // holdSignList.clear();
-            holdSignList.add(holderSignSend);
-            resp.setRetn(0);
-            resp.setDesc("Holder signature details");
-            resp.setBody(holdSignList);
-            logger.info("Holder signature query successful [{}] - [{}]", resp.getRetn(), login.getUserId());
-        } catch (JAXBException ex) {
-            resp.setRetn(98);
-            resp.setDesc("General error. Unable to retrieving holder signature details. Contact system administrator."
-                    + "\nMessage: " + ex.getMessage());
-            logger.info("Error retrieving holder signature details. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("Error retrieving holder signature details. [" + login.getUserId() + "]", ex);
-        } catch (Exception ex) {            
-            resp.setRetn(99);
-            resp.setDesc("General Error: retrieving holder signature details. Contact system administrator."
-                    + "\nMessage: " + ex.getMessage());
-            logger.info("Error retrieving holder signature details [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("Error retrieving holder signature details. [" + login.getUserId() + "]", ex);
         }
         return resp;
     }
@@ -493,7 +447,7 @@ public class HolderComponent {
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
             } catch (Exception ex) {
-                
+
                 resp.setRetn(99);
                 resp.setDesc("General Error: Unable to create bond holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
                 logger.info("Error creating bond holder account. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -551,7 +505,7 @@ public class HolderComponent {
             resp.setRetn(98);
             resp.setDesc("error loading notification xml file. See error log");
             logger.info("error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("error loading notification xml file to object, invoked by [" +login.getUserId() + "] - ", ex);
+            logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
         } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("error creating bondholder account - See error log");
@@ -598,7 +552,7 @@ public class HolderComponent {
                         wrapper.setModel(holdList);
                         resp = queue.sendAuthorisationRequest(wrapper);
                         logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                    } catch (Exception ex) {                        
+                    } catch (Exception ex) {
                         resp.setRetn(99);
                         resp.setDesc("General error. Unable to transposing holder names. Contact system administrator." + "\nMessage: " + ex.getMessage());
                         logger.info("error transposing holder names. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -646,7 +600,7 @@ public class HolderComponent {
             logger.info("error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
             logger.error("error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
         } catch (Exception ex) {
-            
+
             resp.setRetn(99);
             resp.setDesc("General error. Unable to save transposed holder name. Contact system administrator." + "\nMessage: " + ex.getMessage());
             logger.info("error saving transposed holder name. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
@@ -775,7 +729,7 @@ public class HolderComponent {
             boolean created = hcq.updateHolderAccount(holdEntity, retrieveHolderResidentialAddress(holderEdit, false), retrieveHolderPostalAddress(holderEdit, false), retrieveHolderPhoneNumber(holderEdit, false));
             // boolean updated = hcq.updateHolderChanges(holder, holderEdit)
             boolean updated = true;
-            if (created && updated) {                
+            if (created && updated) {
                 resp.setRetn(0);
                 resp.setDesc("Holder details saved");
                 logger.info("Holder account update successful [{}] - [{}]", resp.getRetn(), login.getUserId());
