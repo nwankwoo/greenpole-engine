@@ -1025,7 +1025,8 @@ public class HolderComponent {
             // hCompAcctId.setHolderId(compAcct.getHolderId());
             hCompAcctId.setClientCompanyId(compAcct.getClientCompanyId());
             // companyAccountEntity.setBank(compAcct.getBankId());
-            companyAccountEntity.setChn(compAcct.getChn());
+            // removed from the model
+            // companyAccountEntity.setChn(compAcct.getChn());
             companyAccountEntity.setId(hCompAcctId);
             companyAccountEntity.setHolderCompAccPrimary(compAcct.isHolderCompAccPrimary());
             returnCompanyAccountList.add(companyAccountEntity);
@@ -1064,7 +1065,8 @@ public class HolderComponent {
                 holdBondAcctId.setHolderId(hBondAcct.getHolderId());
             }
             bondAccountEntity.setId(holdBondAcctId);
-            bondAccountEntity.setChn(hBondAcct.getChn());
+            // removed from tne model
+            // bondAccountEntity.setChn(hBondAcct.getChn());
             bondAccountEntity.setHolderBondAccPrimary(hBondAcct.isHolderBondAccPrimary());
             // NOTE: Bond Units is reperesented as interger in the entity and database
             // but represented as double from the model
