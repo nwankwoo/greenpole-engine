@@ -1180,8 +1180,8 @@ public class HolderComponentLogic {
                 changes_hib.setHolderChangeType(change_type_hib);
 
                 List<org.greenpole.hibernate.entity.HolderChanges> changes_hib_result = hq.queryHolderChanges(queryParams.getDescriptor(), changes_hib, queryParams.getStart_date(), queryParams.getEnd_date());
-                List<HolderChanges> return_list = new ArrayList<>();
                 logger.info("retrieved holder changes result from query. Preparing local model - [{}]", login.getUserId());
+                List<Holder> return_list = new ArrayList<>();
 
                 //unwrap returned result list
                 for (org.greenpole.hibernate.entity.HolderChanges hc : changes_hib_result) {
@@ -1196,9 +1196,12 @@ public class HolderComponentLogic {
                     hc_model.setCurrentForm(hc.getCurrentForm());
                     hc_model.setInitialForm(hc.getInitialForm());
                     hc_model.setChangeTypeId(hc.getHolderChangeType().getId());
-                    hc_model.setHolder(holder_model); //holder object
-
-                    return_list.add(hc_model);
+                    List<HolderChanges> change_list = new ArrayList<>();
+                    change_list.add(hc_model);
+                    
+                    holder_model.setChanges(change_list);
+                    
+                    return_list.add(holder_model);
                 }
                 logger.info("holder changes query successful - [{}]", login.getUserId());
                 resp.setRetn(0);
