@@ -66,7 +66,7 @@ public class InitialPublicOfferLogic {
             List<InitialPublicOffer> ipoList = new ArrayList();
             ipoList.add(ipo);
             wrapper.setCode(Notification.createCode(login));
-            wrapper.setDescription("Authenticate setup of Initial Public Offer under the client company " + cc.getName());
+            wrapper.setDescription("Authenticate set up of an Initial Public Offer under the client company " + cc.getName());
             wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
             wrapper.setFrom(login.getUserId());
             wrapper.setTo(authenticator);
