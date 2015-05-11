@@ -135,19 +135,42 @@ public class ClientCompanyComponentLogic {
             List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
             ClientCompany ccModel = list.get(0);
             
-            boolean created = cq.createClientCompany(retrieveClientCompanyModel(ccModel, freshCreation), retrieveAddressModel(ccModel), 
-                    retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
-            
-            if (created) {
-                logger.info("client company created - [{}]: [{}]", login.getUserId(), ccModel.getName());
-                resp.setRetn(0);
-                resp.setDesc("Successful");
+            String desc = "";
+            boolean flag = false;
+
+            //check if client company exists
+            if (!cq.checkClientCompany(ccModel.getName())) {
+                if (ccModel.getName() == null || "".equals(ccModel.getName())) {
+                    desc += "\nClient company name should not be empty";
+                } else if (ccModel.getCode() == null || "".equals(ccModel.getCode())) {
+                    desc += "\nClient company code should not be empty";
+                } else {
+                    flag = true;
+                }
+                
+                if (flag) {
+                    boolean created = cq.createClientCompany(retrieveClientCompanyModel(ccModel, freshCreation), retrieveAddressModel(ccModel),
+                            retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
+                    
+                    if (created) {
+                        logger.info("client company created - [{}]: [{}]", login.getUserId(), ccModel.getName());
+                        resp.setRetn(0);
+                        resp.setDesc("Successful");
+                        return resp;
+                    }
+                    resp.setRetn(201);
+                    resp.setDesc("Unable to create client company from authorisation. Contact System Administrator");
+                    logger.info("unable to create client company from authorisation - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(201);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in client company creation process - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
-            
             resp.setRetn(201);
-            resp.setDesc("Unable to create client company from authorisation. Contact System Administrator");
-            logger.info("unable to create client company from authorisation - [{}]", login.getUserId());
+            resp.setDesc("Client company already exists and so cannot be created.");
+            logger.info("client company exists so cannot be created - [{}]: [{}]", login.getUserId(), resp.getRetn());
             return resp;
         } catch (JAXBException ex) {
             logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
