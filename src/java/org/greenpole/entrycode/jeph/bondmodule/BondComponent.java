@@ -15,7 +15,6 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.BondOffer;
-import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.query.*;
 import org.greenpole.hibernate.query.factory.*;
 import org.greenpole.logic.ClientCompanyComponentLogic;
@@ -38,14 +37,15 @@ public class BondComponent {
 
     /**
      * processes request to create a bond offer
-     * @param login the user's login details
-     * @param authenticator the authenticator user meant to receive the
+     *
+     * @param login The user's login details
+     * @param authenticator The authenticator user meant to receive the
      * notification
-     * @param bond the bond details to be processed
-     * @return response object back to sender indicating creation request status
+     * @param bond The bond details to be processed
+     * @return Response object back to sender indicating creation request status
      */
     public Response createBondOffer_Request(Login login, String authenticator, Bond bond) {
-        logger.info("user [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
+        logger.info("User [{}] requests to create a bond offer [{}] at [{}] unit price", login.getUserId(), bond.getTitle(), bond.getBondUnitPrice());
 
         Response resp = new Response();
         NotificationWrapper wrapper;
@@ -83,20 +83,19 @@ public class BondComponent {
                 wrapper.setTo(authenticator);
                 wrapper.setModel(bc);
                 resp = queue.sendAuthorisationRequest(wrapper);
-                logger.info("notification fowarded to queue - notification code: [{}]", wrapper.getCode());
+                logger.info("Notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
             } else {
                 resp.setRetn(200);
                 resp.setDesc(resDesc);
-                logger.info(resDesc);
+                logger.info(resDesc + " [{}] - [{}]", resp.getRetn(), login.getUserId());
             }
             return resp;
         } catch (Exception ex) {
-            logger.info("error processing bond setup request. See error log");
-            logger.error("error processing bond setup request - ", ex);
-            
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process bond setup request. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
+            logger.info("Error processing bond setup request. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error processing bond setup request invoked by [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -105,13 +104,15 @@ public class BondComponent {
      * Processes request to persist a bond that had already been saved as a
      * notification file, according to the specified notification code.
      *
-     * @param notificationCode the notification code
-     * @return response object back to sender indicating authorization request
+     * @param login The user's login details
+     * @param notificationCode The notification code
+     * @return Response object back to sender indicating authorization request
      * status
+     * @throws java.text.ParseException
      */
-    public Response setupBondOffer_Authorise(String notificationCode) throws ParseException {
+    public Response setupBondOffer_Authorise(Login login, String notificationCode) throws ParseException {
         Response resp = new Response();
-        logger.info("bond setup creation authorised - [{}]", notificationCode);
+        logger.info("Bond setup creation authorised. [{}] - [{}]", notificationCode, login.getUserId());
         try {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<Bond> list = (List<Bond>) wrapper.getModel();
@@ -119,31 +120,29 @@ public class BondComponent {
             // get BondOffer entity initialised with Bond Model
             BondOffer bondOffer = bondCreationMain(bondModel);
             cq.createBondOffer(bondOffer);
-            logger.info("bond offer created - [{}]", bondModel.getTitle());
             resp.setRetn(0);
-            resp.setDesc("Successful");
-
+            resp.setDesc("Bond offer created successfully");
+            logger.info("Bond offer created successfully. [{}] - [{}]", resp.getRetn(), login.getUserId());
             return resp;
         } catch (ParseException pex) {
             resp.setRetn(100);
-            resp.setDesc("error converting string to date type. See error log");
-            logger.info("error converting string to date type. See error log");
-            logger.error("error converting string to date type - ", pex);
+            resp.setDesc("Error converting string to date type. See error log");
+            logger.info("Error converting string to date type. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error converting string to date type, invoked by [" + login.getUserId() + "]", pex);
             return resp;
         } catch (JAXBException ex) {
             // TODO: catch other types of exception
             resp.setRetn(100);
-            resp.setDesc("error loading notification xml file. See error log");
-            logger.info("error loading notification xml file. See error log");
-            logger.error("error loading notification xml file to object - ", ex);
+            resp.setDesc("Error loading notification xml file. See error log");
+            logger.info("Error loading notification xml file. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error loading notification xml file to object, invoked by [" + login.getUserId() + "]", ex);
             return resp;
         } catch (Exception ex) {
-            logger.info("error creating bond. See error log");
-            logger.error("error creating bond - ", ex);
-            
             resp.setRetn(99);
             resp.setDesc("General error. Unable to create bond. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
+            logger.info("Error creating bond. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error creating bond, invoked by [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
