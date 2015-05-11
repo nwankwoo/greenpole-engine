@@ -10,8 +10,7 @@ package org.greenpole.entrycode.emmanuel;
  * @author user
  */
 public class HibernateDummyQueryFactory {
-
-    public static HibernatDummyQuerInterface getHibernateDummyQuery() {
-        return new HibernateDummyQuery();
-    }
+public static HibernatDummyQuerInterface getHibernateDummyQuery(){
+return new HibernateDummyQuery();
+}    
 }
