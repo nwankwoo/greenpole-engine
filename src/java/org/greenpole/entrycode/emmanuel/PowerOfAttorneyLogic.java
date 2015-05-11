@@ -16,15 +16,19 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import javax.imageio.ImageIO;
+import org.greenpole.entity.model.holder.PowerOfAttorney;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entrycode.emmanuel.model.Holder;
-import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
 import org.greenpole.entrycode.jeph.mocks.SignatureProperties;
+import org.greenpole.hibernate.query.HolderComponentQuery;
+import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
+import org.greenpole.util.BytesConverter;
 import org.greenpole.util.Notification;
+import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,65 +42,96 @@ import org.slf4j.LoggerFactory;
 public class PowerOfAttorneyLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(PowerOfAttorneyLogic.class);
-    private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();
+    private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
+    private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();//not needed
+    private final GreenpoleProperties greenProp = new GreenpoleProperties(null);//no need to set this here
 
-    public Response uploadPowerOfAttorney_request(Login login, String authenticator, PowerOfAttorney power, byte[] signatureOfAttorney) {
-        logger.info("request to upload power of attorney for holder [{}] by user [{}]", power.getHolder().getFirstName() + " " + power.getHolder().getLastName(), login.getUserId());
+    /**
+     * Request to upload power of attorney for a holder.
+     * @param login the user's login details
+     * @param authenticator the super user to accept the creation of this
+     * request
+     * @param poa the power of attorney to be uploaded
+     * @return response to the upload power of attorney request
+     */
+    public Response uploadPowerOfAttorney_Request(Login login, String authenticator, PowerOfAttorney poa) {
+        logger.info("request to upload power of attorney, invoked by [{}]", login.getUserId());
+        
         Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender qSender;
         NotifierProperties prop;
-        long sizeOfSignature = 10485760;
-        SignatureProperties signProp;
-        signProp = new SignatureProperties();
-        Date current_date = new Date();
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-        boolean isPrimaryPowerOfAttorney_status = hd.updatePowerOfAttorneyStatus(power.getHolder().getId());
-        org.greenpole.hibernate.entity.PowerOfAttorney currentPowerofAttorney = hd.retrieveCurrentPowerOfAttorney(power.getHolder().getId());
+        
+        boolean flag = false;
+        String desc = "";
+        
         try {
-            if (signatureOfAttorney.length <= sizeOfSignature) {
-                if (current_date.after(currentPowerofAttorney.getEndDate()) || power.getTitle().isEmpty()) {
-                    InputStream inputStream = new ByteArrayInputStream(signatureOfAttorney);
-                    BufferedImage byteImageConverted = ImageIO.read(inputStream);
-                    String signatureFileName = createSignatureFileName();
-                    String filePath = signProp.getSignaturePath() + " " + signatureFileName + ".jpg ";
-                    ImageIO.write(byteImageConverted, "jpg", new File(filePath));
-                    power.setFilePath(filePath);
-                    wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(PowerOfAttorneyLogic.class);
-                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                            prop.getAuthoriserNotifierQueueName());
-                    List<PowerOfAttorney> powerList = new ArrayList();
-                    powerList.add(power);
-                    wrapper.setCode(Notification.createCode(login));
-                    wrapper.setDescription("Authenticate power of attorney for " + " " + power.getHolder().getFirstName() + " " + power.getHolder().getLastName() + " " + " by user" + login.getUserId());
-                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setFrom(login.getUserId());
-                    wrapper.setTo(authenticator);
-                    wrapper.setModel(powerList);
-                    resp = qSender.sendAuthorisationRequest(wrapper);
-                    resp.setRetn(0);
-                    resp.setDesc("Successful");
-                    return resp;
+            long defaultSize = Long.valueOf(greenProp.getPowerOfAttorneySize());
+            Date current_date = new Date();
+            
+            if (hq.checkHolderAccount(poa.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(poa.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkCurrentPowerOfAttorney(poa.getHolderId())) {
+                    org.greenpole.hibernate.entity.PowerOfAttorney currentPoa = hq.getCurrentPowerOfAttorney(poa.getHolderId());
+                    logger.info("Holder has current power of attorney - [{}]", login.getUserId());
+                    
+                    if (current_date.before(currentPoa.getEndDate())) {
+                        desc += "\nThe current power of attorney is yet to expire";
+                    } else {
+                        flag = true;
+                    }
                 } else {
-                    resp.setRetn(210);
-                    resp.setDesc("Failed to upload power of attorney because the expiration period of the previous one has not ended");
-                    logger.info("Power of attorney not uploaded, see error logg for details ");
+                    flag = true;
+                }
+
+                if (flag) {
+                    long fileSize = BytesConverter.decodeToBytes(poa.getFileContents()).length;
+
+                    if (fileSize <= defaultSize) {
+                        wrapper = new NotificationWrapper();
+                        prop = new NotifierProperties(PowerOfAttorneyLogic.class);
+                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop.getAuthoriserNotifierQueueName());
+                        List<PowerOfAttorney> powerList = new ArrayList();
+                        powerList.add(poa);
+                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setDescription("Authenticate power of attorney for " + holder.getFirstName() + " " + holder.getLastName());
+                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setFrom(login.getUserId());
+                        wrapper.setTo(authenticator);
+                        wrapper.setModel(powerList);
+                        resp = qSender.sendAuthorisationRequest(wrapper);
+                        
+                        resp.setRetn(0);
+                        resp.setDesc("Successful");
+                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(300);
+                    resp.setDesc("The size of the power of attorney cannot exceed 10MB.");
+                    logger.info("The size of the power of attorney cannot exceed 10MB - [{}]", login.getUserId());
                     return resp;
                 }
-            } else {
-                resp.setRetn(200);
-                resp.setDesc("Unable to complete transaction because signaturesize is bigger than 10MB");
-                logger.info("image cannot be saved because the size is bigger than 10MB");
+                resp.setRetn(300);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in upload power of attorney process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
             }
-
-        } catch (Exception e) {
-            resp.setRetn(200);
-            resp.setDesc("Image size should not be bigger than 10MB. ");
-            logger.info("see error log");
-            logger.error("error: " + e);
+            resp.setRetn(300);//change code
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder administrator creation. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder administrator creation - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder administrator creation. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
         }
-        return resp;
     }
 
     public Response uploadPowerOfAttorney_authorise(Login login, String notificationCode) {
