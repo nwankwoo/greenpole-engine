@@ -721,7 +721,7 @@ public class HolderComponentLogic {
                                     boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
                                     boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
 
-                                    if (receiverHolderCompAcctExists) {//check if receiver has company account
+                                    if (receiverHolderCompAcctExists) {//check if receiver has company account and chn
                                         logger.info("receiver holder has company account - [{}]", login.getUserId());
                                         org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
                                         //begin transfer
