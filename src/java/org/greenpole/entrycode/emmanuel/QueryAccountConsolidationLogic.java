@@ -108,8 +108,8 @@ public class QueryAccountConsolidationLogic {
                     AccCon.setMergedToHolderName(ac.getMergedToHolderName());
                     AccCon_list.add(AccCon);
                 }
-                compAccCon_model.setAccountConsolidation(AccCon);
-                queryAccountConsolidation.setAccountConsolidation(AccCon_list);
+                //compAccCon_model.setAccountConsolidation(AccCon);
+                queryAccountConsolidation.setCompanyAccountConsolidation(compAccCon_list);
                 queryAccountConsolidation_list.add(queryAccountConsolidation);
             }
             resp.setRetn(0);
