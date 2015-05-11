@@ -89,8 +89,18 @@ public class HolderComponent {
             resDes += "\nError: Holder gender should not be empty";
         } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
             resDes += "\nError: Holder date of birth should not be empty";
-        } else if (!holder.getAddresses().isEmpty()) {
-            for (Address addr : holder.getAddresses()) {
+        } else if (!holder.getHolderResidentialAddresses().isEmpty()) {
+            for (Address addr : holder.getHolderResidentialAddresses()) {
+                if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
+                    resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getState()) || addr.getState() == null) {
+                    resDes += "\nState should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
+                    resDes += "\nCountry should not be empty. Delete entire address if you must";
+                }
+            }
+        } else if (!holder.getHolderPostalAddresses().isEmpty()) {
+            for (Address addr : holder.getHolderPostalAddresses()) {
                 if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
                     resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
                 } else if ("".equals(addr.getState()) || addr.getState() == null) {
@@ -410,8 +420,18 @@ public class HolderComponent {
             resDes += "\nError: Holder gender should not be empty";
         } else if ("".equals(holder.getDob()) || holder.getDob() == null) {
             resDes += "\nError: Holder date of birth should not be empty";
-        } else if (!holder.getAddresses().isEmpty()) {
-            for (Address addr : holder.getAddresses()) {
+        } else if (!holder.getHolderResidentialAddresses().isEmpty()) {
+            for (Address addr : holder.getHolderResidentialAddresses()) {
+                if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
+                    resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getState()) || addr.getState() == null) {
+                    resDes += "\nState should not be empty. Delete entire address if you must";
+                } else if ("".equals(addr.getCountry()) || addr.getCountry() == null) {
+                    resDes += "\nCountry should not be empty. Delete entire address if you must";
+                }
+            }
+        } else if (!holder.getHolderPostalAddresses().isEmpty()) {
+            for (Address addr : holder.getHolderPostalAddresses()) {
                 if ("".equals(addr.getAddressLine1()) || addr.getAddressLine1() == null) {
                     resDes += "\nAddress line 1 should not be empty. Delete entire address if you must";
                 } else if ("".equals(addr.getState()) || addr.getState() == null) {
@@ -623,37 +643,31 @@ public class HolderComponent {
      * @return response object for the edit holder details request
      */
     public Response editHolderDetails_Request(Login login, String authenticator, Holder holder) {
-        
+
         Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
 
-        if (!holder.getHolderEdits().isEmpty()) {
-            try {
-                wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(HolderComponent.class);
-                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-                List<Holder> holdList = new ArrayList<>();
-                holdList.add(holder);
-                wrapper.setCode(Notification.createCode(login));
-                wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
-                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                wrapper.setFrom(login.getUserId());
-                wrapper.setTo(authenticator);
-                wrapper.setModel(holdList);
-                resp = queue.sendAuthorisationRequest(wrapper);
-                logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-            } catch (Exception ex) {
-                logger.info("error editing holder account. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-                logger.error("error editing holder account, invoked by [" + login.getUserId() + "] - ", ex);
-                resp.setRetn(99);
-                resp.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
-            }
-        } else {
-            resp.setRetn(300);
-            resp.setDesc("Error: Changes to holder details were not captured");
-            logger.info("Error: Changes to holder details were not captured, invoked by [{}] - [{}]", resp.getRetn(), login.getUserId());
+        try {
+            wrapper = new NotificationWrapper();
+            prop = new NotifierProperties(HolderComponent.class);
+            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            List<Holder> holdList = new ArrayList<>();
+            holdList.add(holder);
+            wrapper.setCode(Notification.createCode(login));
+            wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(holdList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+        } catch (Exception ex) {
+            logger.info("error editing holder account. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("error editing holder account, invoked by [" + login.getUserId() + "] - ", ex);
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
         }
         return resp;
     }
@@ -672,10 +686,10 @@ public class HolderComponent {
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
             List<Holder> holderEditList = (List<Holder>) wrapper.getModel();
             Holder holder = holderEditList.get(0);
-            
+
             boolean holderExist = hcq.checkHolderAccount(holder.getHolderId());
             org.greenpole.hibernate.entity.Holder holdEntity = hcq.getHolder(holder.getHolderId());
-            
+
             holdEntity.setFirstName(holder.getFirstName());
             holdEntity.setLastName(holder.getLastName());
             holdEntity.setMiddleName(holder.getMiddleName());
@@ -685,18 +699,26 @@ public class HolderComponent {
             // if (chn has NOT been involved in any transactioin) {
             holdEntity.setChn(holder.getChn());
             // } else { reject edit }
-            boolean updated = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holder, holderExist), retrieveHolderResidentialAddress(holder, holderExist), retrieveHolderPostalAddress(holder, holderExist), retrieveHolderPhoneNumber(holder, holderExist));
-            boolean created = this.updateHolderChanges(holderEditList.get(0).getHolderEdits());
+
+            List<HolderChanges> holderChangesList = new ArrayList<>();
+            HolderChanges changes = new HolderChanges();
+
+            for (org.greenpole.entity.model.holder.HolderChanges hc : holder.getChanges()) {
+                changes.setHolder(holdEntity);
+                changes.setChangeDate(formatter.parse(hc.getChangeDate()));
+                changes.setCurrentForm(hc.getCurrentForm());
+                // HolderChangeType changeType = hcq.getHolderChangeType(hc.getChangeTypeId());
+                HolderChangeType changeType = new HolderChangeType();
+                changes.setHolderChangeType(changeType);
+                changes.setInitialForm(hc.getInitialForm());
+                holderChangesList.add(changes);
+            }
+            boolean updated = hcq.updateHolderAccount(holdEntity, retrieveHolderResidentialAddress(holder, holderExist), retrieveHolderPostalAddress(holder, holderExist), retrieveHolderPhoneNumber(holder, holderExist), holderChangesList);
+            
             if (!updated) {
                 resp.setRetn(300);
                 resp.setDesc("An error occured updating holder changed details");
                 logger.info("An error occured updating holder changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
-                // Send SMS/Email notification to shareholder IF USER PERMITS
-                return resp;
-            } else if (!created) {
-                resp.setRetn(300);
-                resp.setDesc("An error occured logging hodler changed details");
-                logger.info("An error occured logging hodler changed details [{}] - [{}]", resp.getRetn(), login.getUserId());
                 // Send SMS/Email notification to shareholder IF USER PERMITS
                 return resp;
             } else {
@@ -732,7 +754,7 @@ public class HolderComponent {
     private boolean updateHolderChanges(List<org.greenpole.entity.model.jeph.models.HolderEdit> holderEdit) throws ParseException {
         boolean status = false;
         HolderChanges hChgs = new HolderChanges();
-        
+
         for (org.greenpole.entity.model.jeph.models.HolderEdit hd : holderEdit) {
             org.greenpole.hibernate.entity.Holder holder = hcq.getHolder(hd.getHolderId());
             // HolderChangeType hChgType = hcq.getHolderChangeType(hd.getHolderChangeTypeId());
@@ -741,9 +763,9 @@ public class HolderComponent {
             hChgs.setHolderChangeType(hChgType);
             hChgs.setInitialForm(hd.getInitialForm());
             hChgs.setCurrentForm(hd.getCurrentForm());
-            hChgs.setChangeDate(formatter.parse(hd.getChangeDate()));            
+            hChgs.setChangeDate(formatter.parse(hd.getChangeDate()));
             //status = hcq.createHolderChange(hChgs);
-        }        
+        }
         return status;
     }
 
