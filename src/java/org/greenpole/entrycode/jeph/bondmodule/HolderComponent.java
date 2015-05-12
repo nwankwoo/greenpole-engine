@@ -189,7 +189,7 @@ public class HolderComponent {
             holdEntity.setDob(formatter.parse(holdModel.getDob()));
             holdEntity.setChn(holdModel.getChn());
             // some Holder Company Account details are NOT filled . . .
-            boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, holderExist), retrieveHolderResidentialAddress(holdModel, holderExist), retrieveHolderPostalAddress(holdModel, holderExist), retrieveHolderPhoneNumber(holdModel, holderExist));
+            boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holdModel, holderExist), retrieveHolderResidentialAddress(holdModel, holderExist), retrieveHolderPostalAddress(holdModel, holderExist), retrieveHolderEmailAddress(holdModel, holderExist), retrieveHolderPhoneNumber(holdModel, holderExist));
 
             if (created) {
                 resp.setRetn(0);
@@ -528,6 +528,7 @@ public class HolderComponent {
             boolean created = hcq.createHolderAccount(holdEntity, retrieveHolderBondAccount(holdModel, chkBondHolderExist),
                     retrieveHolderResidentialAddress(holdModel, chkBondHolderExist),
                     retrieveHolderPostalAddress(holdModel, chkBondHolderExist),
+                    retrieveHolderEmailAddress(holdModel, chkBondHolderExist),
                     retrieveHolderPhoneNumber(holdModel, chkBondHolderExist));
 
             if (created) {
@@ -733,7 +734,9 @@ public class HolderComponent {
                     changes.setInitialForm(hc.getInitialForm());
                     holderChangesList.add(changes);
                 }
-                boolean updated = hcq.updateHolderAccount(holdEntity, retrieveHolderResidentialAddress(holder, holderExist), retrieveHolderPostalAddress(holder, holderExist), retrieveHolderPhoneNumber(holder, holderExist), holderChangesList);
+                boolean updated = hcq.updateHolderAccount(holdEntity, retrieveHolderResidentialAddress(holder, holderExist), 
+                        retrieveHolderPostalAddress(holder, holderExist), retrieveHolderPhoneNumber(holder, holderExist), 
+                        retrieveHolderEmailAddress(holder, holderExist), holderChangesList);
 
                 if (!updated) {
                     resp.setRetn(300);
@@ -806,7 +809,7 @@ public class HolderComponent {
      * @param holdModel object of holder details
      * @param newEntry boolean variable indicating whether or not the entry is
      * new
-     * @return List of HolderPhoneNumber objects
+     * @return List of HolderPhoneNumber objects retrieveHolderEmailAddress
      */
     private List<HolderPhoneNumber> retrieveHolderPhoneNumber(Holder holdModel, boolean newEntry) {
 
@@ -824,6 +827,24 @@ public class HolderComponent {
             phoneNumberEntity.setId(phoneNoId);
         }
         return returnPhoneNumber;
+    }
+    
+    private List<HolderEmailAddress> retrieveHolderEmailAddress(Holder holdModel, boolean newEntry) {
+
+        org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
+        List<org.greenpole.entity.model.EmailAddress> emailAddressList = holdModel.getHolderEmailAddresses();
+        List<org.greenpole.hibernate.entity.HolderEmailAddress> returnEmailAddress = new ArrayList<>();
+
+        for (EmailAddress email : emailAddressList) {
+            HolderEmailAddressId emailId = new HolderEmailAddressId();
+            if (newEntry) {
+                emailId.setHolderId(holdModel.getHolderId());
+            }
+            emailId.setEmailAddress(email.getEmailAddress());
+            emailAddressEntity.setIsPrimary(email.isPrimaryEmail());
+            emailAddressEntity.setId(emailId);
+        }
+        return returnEmailAddress;
     }
 
     /**
