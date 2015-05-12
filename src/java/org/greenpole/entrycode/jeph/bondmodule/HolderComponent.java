@@ -140,6 +140,7 @@ public class HolderComponent {
                     wrapper.setModel(holdList);
                     resp = queue.sendAuthorisationRequest(wrapper);
                     logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    return resp;
                 } catch (Exception ex) {
                     resp.setRetn(99);
                     resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
@@ -330,6 +331,7 @@ public class HolderComponent {
                 wrapper.setModel(holderListSignature);
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                return resp;
             } catch (IOException ioex) {
                 resp.setRetn(99);
                 resp.setDesc("General Error. Unable to upload holder signature. Contact system administrator." + "\nMessage: " + ioex.getMessage());
@@ -425,6 +427,7 @@ public class HolderComponent {
                     resp.setDesc("Holder signature details");
                     resp.setBody(holdSignList);
                     logger.info("Holder signature query successful [{}] - [{}]", resp.getRetn(), login.getUserId());
+                    return resp;
                 } catch (Exception ex) {
                     resp.setRetn(99);
                     resp.setDesc("General Error. Unable to query holder signature. Contact system administrator." + "\nMessage: " + ex.getMessage());
@@ -551,6 +554,7 @@ public class HolderComponent {
                 wrapper.setModel(holdList);
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                return resp;
             } else {
                 resp.setRetn(300);
                 resp.setDesc("Error filing bond holder details: " + resDes);
@@ -729,6 +733,7 @@ public class HolderComponent {
                         wrapper.setModel(holdList);
                         resp = queue.sendAuthorisationRequest(wrapper);
                         logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        return resp;
                     }
                     return resp;
                 } else {
@@ -790,6 +795,7 @@ public class HolderComponent {
                         resp.setRetn(0);
                         resp.setDesc("Holder transpose details succssfull");
                         logger.info("Holder transpose details succssfull, invoked by [{}] - [{}]", resp.getRetn(), login.getUserId());
+                        return resp;
                     }
                     return resp;
                 } else {
@@ -865,6 +871,7 @@ public class HolderComponent {
                 wrapper.setModel(holdList);
                 resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                return resp;
             } else {
                 resp.setRetn(300);
                 resp.setDesc("Error filing holder details: " + resDes);
