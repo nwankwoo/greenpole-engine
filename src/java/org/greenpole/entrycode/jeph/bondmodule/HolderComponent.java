@@ -348,7 +348,6 @@ public class HolderComponent {
                     byte[] signatureImage = readSignatureFile(holdSignEntity.getSignaturePath());                    
                     String imageString = DatatypeConverter.printBase64Binary(signatureImage);
                     holderSignSend.setSignImg(imageString);
-                    // holdSignList.clear();
                     holdSignList.add(holderSignSend);
                     resp.setRetn(0);
                     resp.setDesc("Holder signature details");

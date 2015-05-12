@@ -147,7 +147,7 @@ public class PrivatePlacementComponent {
                 cq.createPrivatePlacement(ppEntity);
                 resp.setRetn(0);
                 resp.setDesc("Private placement created successfully");
-                logger.info("Private Placement create for Client Company ID: [{}] - [{}]", ppModel.getClientCompanyId(), login.getUserId());
+                logger.info("Private Placement created for Client Company ID: [{}] - [{}]", ppModel.getClientCompanyId(), login.getUserId());
             } else {
                 resp.setRetn(202);
                 resp.setDesc("Error: Client company for private placement does not exist.");

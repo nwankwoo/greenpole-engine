@@ -58,7 +58,7 @@ public class BondComponent {
             // Check if bond title has a value
             if ("".equals(bond.getTitle()) || bond.getTitle() == null) {
                 resDesc += "\nBond title should not be empty";
-            } else if (bond.getBondType() == null || "".equals(bond.getBondType())) {
+            } else if ("".equals(bond.getBondType()) || bond.getBondType() == null) {
                 resDesc += "\nBond type should not be empty";
             } else if (bond.getBondUnitPrice() <= 0) {
                 resDesc += "\nBond unit price should be greater than zero";
