@@ -6,6 +6,7 @@
 package org.greenpole.entrycode.emmanuel;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import org.greenpole.entity.model.holder.Holder;
 import org.greenpole.entity.model.holder.HolderCompanyAccount;
@@ -13,6 +14,8 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
+import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Notification;
