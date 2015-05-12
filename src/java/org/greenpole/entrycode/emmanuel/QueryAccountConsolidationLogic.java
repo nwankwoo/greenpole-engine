@@ -87,17 +87,6 @@ public class QueryAccountConsolidationLogic {
 
                     return resp;
                 }
-                try {
-                    formatter.parse(queryParams.getEndDate());
-                } catch (ParseException ex) {
-                    logger.info("an error was thrown while checking the end date. See error log - [{}]", login.getUserId());
-                    resp.setRetn(300);
-
-                    resp.setDesc("Incorrect date format for end date");
-                    logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
-
-                    return resp;
-                }
             }
             List<org.greenpole.hibernate.entity.AccountConsolidation> acctConsolList = hq.getAllHolderAccountConsolidation(queryParams.getDescriptor(), queryParams.getStartDate(), queryParams.getEndDate());
             List<org.greenpole.entity.model.holder.merge.AccountConsolidation> acctConsolModelList = new ArrayList<>();

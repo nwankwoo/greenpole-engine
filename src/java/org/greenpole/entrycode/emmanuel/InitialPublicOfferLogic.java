@@ -615,6 +615,7 @@ public class InitialPublicOfferLogic {
      * @param holder object of the holder entity model
      * @return the holder entity model of the updated firstName
      */
+    /*
     private void updateAdministratorHolderName(Administrator admin) {
         String replaceName = "Estate of";
         String name;
@@ -625,5 +626,6 @@ public class InitialPublicOfferLogic {
         holdReplaceName = replaceName+" "+name;
         holderAccount.setFirstName(holdReplaceName);
         hd.updateAdministrationHolderCompanyAccount(holderAccount);
-    }   
+    } 
+    */
 }
