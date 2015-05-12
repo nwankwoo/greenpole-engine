@@ -249,7 +249,7 @@ public class InitialPublicOfferLogic {
         hib_list = cq.retrieveShareUnitQuatationList();
         return hib_list;
     }
-
+/*
     public List<org.greenpole.hibernate.entity.Holder> retrieveAdministratorHolder(Administrator admin){
         org.greenpole.hibernate.entity.Holder holder_hib = new org.greenpole.hibernate.entity.Holder();
         List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList();
@@ -260,7 +260,7 @@ public class InitialPublicOfferLogic {
         }
    return holderList;
     }
-    
+    */
     /**
      * Request to create administrators for a holder.
      * @param login used to get the userId that is performing this transaction
