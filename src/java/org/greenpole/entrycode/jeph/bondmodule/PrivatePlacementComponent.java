@@ -72,7 +72,7 @@ public class PrivatePlacementComponent {
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(ppc);
                                 resp = queue.sendAuthorisationRequest(wrapper);
-                                logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
                                 return resp;
                             } else {
                                 resp.setRetn(205);
@@ -108,8 +108,8 @@ public class PrivatePlacementComponent {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process private placement creation. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
-            logger.info("error processing private placement creation. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("error processing private placement creation - [" + login.getUserId() + "]", ex);
+            logger.info("Error processing private placement creation. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error processing private placement creation - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -118,8 +118,9 @@ public class PrivatePlacementComponent {
      * Processes request to persist a privatePlacement object that has already
      * been saved as a notification file, according to the specified
      * notification code
-     * @param notificationCode the notification code
-     * @return response to the create private placement request
+     * @param login The user's login details
+     * @param notificationCode The notification code
+     * @return Response to the create private placement request
      */
     public Response setupPrivatePlacement_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
@@ -145,8 +146,8 @@ public class PrivatePlacementComponent {
                 ppEntity.setPlacementClosed(false);
                 cq.createPrivatePlacement(ppEntity);
                 resp.setRetn(0);
-                resp.setDesc("Successful");
-                logger.info("Private Placement create for Client Company ID: [{}] - [{}]", ppModel.getClientCompanyId(), login.getUserId());
+                resp.setDesc("Private placement created successfully");
+                logger.info("Private Placement created for Client Company ID: [{}] - [{}]", ppModel.getClientCompanyId(), login.getUserId());
             } else {
                 resp.setRetn(202);
                 resp.setDesc("Error: Client company for private placement does not exist.");
@@ -169,8 +170,8 @@ public class PrivatePlacementComponent {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to create private placement. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
-            logger.info("error creating private placement. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
-            logger.error("error creating private placement - [{}]", login.getUserId(), ex);
+            logger.info("Error creating private placement. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error creating private placement - [{}]", login.getUserId(), ex);
             return resp;
         }
         return resp;
