@@ -6,6 +6,9 @@
 package org.greenpole.logic;
 
 import com.sun.javafx.scene.control.skin.VirtualFlow;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -18,14 +21,17 @@ import java.util.Set;
 import java.util.logging.Level;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
+import org.greenpole.entity.model.AddressTag;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.UnitTransfer;
+import org.greenpole.entity.model.holder.Administrator;
 import org.greenpole.entity.model.holder.Holder;
 import org.greenpole.entity.model.holder.HolderBondAccount;
 import org.greenpole.entity.model.holder.HolderChanges;
 import org.greenpole.entity.model.holder.HolderCompanyAccount;
 import org.greenpole.entity.model.holder.HolderMerger;
+import org.greenpole.entity.model.holder.PowerOfAttorney;
 import org.greenpole.entity.model.holder.QueryHolder;
 import org.greenpole.entity.model.holder.QueryHolderChanges;
 import org.greenpole.entity.model.stockbroker.Stockbroker;
@@ -34,6 +40,12 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.AccountConsolidation;
+import org.greenpole.hibernate.entity.AdministratorEmailAddress;
+import org.greenpole.hibernate.entity.AdministratorEmailAddressId;
+import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
+import org.greenpole.hibernate.entity.AdministratorPhoneNumberId;
+import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
+import org.greenpole.hibernate.entity.AdministratorResidentialAddressId;
 import org.greenpole.hibernate.entity.Bank;
 import org.greenpole.hibernate.entity.BondOffer;
 import org.greenpole.hibernate.entity.ClientCompany;
@@ -53,7 +65,9 @@ import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
+import org.greenpole.util.BytesConverter;
 import org.greenpole.util.Descriptor;
+import org.greenpole.util.GreenpoleFile;
 import org.greenpole.util.Manipulator;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
@@ -573,62 +587,70 @@ public class HolderComponentLogic {
                                 if (senderHolderCompAcctExists) {//check if sender account has chn
                                     logger.info("sender holder has company account - [{}]", login.getUserId());
                                     
-                                    if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) {//check if sender has sufficient units to transact
-                                        logger.info("sender holder has appropriate units to send - [{}]", login.getUserId());
-                                        boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
-                                        boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
-
-                                        wrapper = new NotificationWrapper();
-                                        prop = new NotifierProperties(HolderComponentLogic.class);
-                                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                                                prop.getAuthoriserNotifierQueueName());
+                                    if (unitTransfer.getHolderIdFrom() == unitTransfer.getHolderIdTo()) {//cannot transfer between same accounts
                                         
-                                        logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
-                                                senderName, receiverName, login.getUserId());
+                                        if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) {//check if sender has sufficient units to transact
+                                            logger.info("sender holder has appropriate units to send - [{}]", login.getUserId());
+                                            boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
+                                            boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
 
-                                        List<UnitTransfer> transferList = new ArrayList<>();
-                                        transferList.add(unitTransfer);
+                                            wrapper = new NotificationWrapper();
+                                            prop = new NotifierProperties(HolderComponentLogic.class);
+                                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                    prop.getAuthoriserNotifierQueueName());
 
-                                        //wrap unit transfer object in notification object, along with other information
-                                        wrapper.setCode(Notification.createCode(login));
-                                        wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
-                                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                                        wrapper.setFrom(login.getUserId());
-                                        wrapper.setTo(authenticator);
-                                        wrapper.setModel(transferList);
-                                        
-                                        if(!receiverHolderCompAcctExists) {
-                                            if (receiverHolderChnExists) {
+                                            logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
+                                                    senderName, receiverName, login.getUserId());
+
+                                            List<UnitTransfer> transferList = new ArrayList<>();
+                                            transferList.add(unitTransfer);
+
+                                            //wrap unit transfer object in notification object, along with other information
+                                            wrapper.setCode(Notification.createCode(login));
+                                            wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
+                                            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                            wrapper.setFrom(login.getUserId());
+                                            wrapper.setTo(authenticator);
+                                            wrapper.setModel(transferList);
+
+                                            if (!receiverHolderCompAcctExists) {
+                                                if (receiverHolderChnExists) {
+                                                    resp = qSender.sendAuthorisationRequest(wrapper);
+                                                    logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
+                                                            wrapper.getCode(), login.getUserId());
+
+                                                    String originalMsg = resp.getDesc();
+                                                    resp.setDesc(originalMsg + "\nHolder - " + receiverName
+                                                            + " - has no active account with the company. One will be created for them upon authorisation.");
+                                                    logger.info("Holder - [{}] - has no active account with the company. "
+                                                            + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                                    return resp;
+                                                }
                                                 resp = qSender.sendAuthorisationRequest(wrapper);
-                                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
-                                                        wrapper.getCode(), login.getUserId());
+                                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
 
                                                 String originalMsg = resp.getDesc();
                                                 resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                        + " - has no active account with the company. One will be created for them upon authorisation.");
-                                                logger.info("Holder - [{}] - has no active account with the company. "
-                                                        + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                                        + " - has no active account with the company and no CHN. A certificate will be created for them upon authorisation.");
+                                                logger.info("Holder - [{}] - has no active account with the company. A certificate will be created for them upon authorisation - [{}]",
+                                                        receiverName, login.getUserId());
                                                 return resp;
                                             }
                                             resp = qSender.sendAuthorisationRequest(wrapper);
-                                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-
-                                            String originalMsg = resp.getDesc();
-                                            resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                    + " - has no active account with the company and no CHN. A certificate will be created for them upon authorisation.");
-                                            logger.info("Holder - [{}] - has no active account with the company. A certificate will be created for them upon authorisation - [{}]",
-                                                    receiverName, login.getUserId());
+                                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
+                                                    wrapper.getCode(), login.getUserId());
                                             return resp;
                                         }
-                                        resp = qSender.sendAuthorisationRequest(wrapper);
-                                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
-                                                wrapper.getCode(), login.getUserId());
+                                        resp.setRetn(304);
+                                        resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
+                                        logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
+                                                senderName, login.getUserId());
                                         return resp;
                                     }
                                     resp.setRetn(304);
-                                    resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
-                                    logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
-                                            senderName, login.getUserId());
+                                    resp.setDesc("Both holders are the same. Cannot transfer accounts between the same holders.");
+                                    logger.info("Both holders are the same. Cannot transfer accounts between the same holders - [{}]",
+                                            login.getUserId());
                                     return resp;
                                 }
                                 resp.setRetn(304);
@@ -859,47 +881,55 @@ public class HolderComponentLogic {
                                     org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
                                     boolean receiverHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                     
-                                    if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-                                        logger.info("sender holder has necessary units for transfer - [{}]", login.getUserId());
+                                    if (unitTransfer.getHolderIdFrom() == unitTransfer.getHolderIdTo()) {
                                         
-                                        wrapper = new NotificationWrapper();
-                                        prop = new NotifierProperties(HolderComponentLogic.class);
-                                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                                                prop.getAuthoriserNotifierQueueName());
-                                        
-                                        logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
-                                                senderName, receiverName, login.getUserId());
+                                        if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
+                                            logger.info("sender holder has necessary units for transfer - [{}]", login.getUserId());
 
-                                        List<UnitTransfer> transferList = new ArrayList<>();
-                                        transferList.add(unitTransfer);
+                                            wrapper = new NotificationWrapper();
+                                            prop = new NotifierProperties(HolderComponentLogic.class);
+                                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                    prop.getAuthoriserNotifierQueueName());
 
-                                        //wrap unit transfer object in notification object, along with other information
-                                        wrapper.setCode(Notification.createCode(login));
-                                        wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
-                                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                                        wrapper.setFrom(login.getUserId());
-                                        wrapper.setTo(authenticator);
-                                        wrapper.setModel(transferList);
-                                        
-                                        resp = qSender.sendAuthorisationRequest(wrapper);
-                                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
-                                                wrapper.getCode(), login.getUserId());
-                                        
-                                        //check if receiver holder has bond account, adjust message accordingly
-                                        if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
-                                            String originalMsg = resp.getDesc();
-                                            resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                    + " - has no active account with the company. One will be created for them upon authorisation.");
-                                            logger.info("Holder - [{}] - has no active account with the company. "
-                                                    + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                            logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
+                                                    senderName, receiverName, login.getUserId());
+
+                                            List<UnitTransfer> transferList = new ArrayList<>();
+                                            transferList.add(unitTransfer);
+
+                                            //wrap unit transfer object in notification object, along with other information
+                                            wrapper.setCode(Notification.createCode(login));
+                                            wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
+                                            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                            wrapper.setFrom(login.getUserId());
+                                            wrapper.setTo(authenticator);
+                                            wrapper.setModel(transferList);
+
+                                            resp = qSender.sendAuthorisationRequest(wrapper);
+                                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
+                                                    wrapper.getCode(), login.getUserId());
+
+                                            //check if receiver holder has bond account, adjust message accordingly
+                                            if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
+                                                String originalMsg = resp.getDesc();
+                                                resp.setDesc(originalMsg + "\nHolder - " + receiverName
+                                                        + " - has no active account with the company. One will be created for them upon authorisation.");
+                                                logger.info("Holder - [{}] - has no active account with the company. "
+                                                        + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                            }
+
+                                            return resp;
                                         }
-                                        
+                                        resp.setRetn(306);
+                                        resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
+                                        logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
+                                                senderName, login.getUserId());
                                         return resp;
                                     }
                                     resp.setRetn(306);
-                                    resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
-                                    logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
-                                            senderName, login.getUserId());
+                                    resp.setDesc("Both holders are the same. Cannnot transfer units between the same holder.");
+                                    logger.info("Both holders are the same. Cannnot transfer units between the same holder - [{}]",
+                                            login.getUserId());
                                     return resp;
                                 }
                                 resp.setRetn(306);
@@ -1540,5 +1570,1032 @@ public class HolderComponentLogic {
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }
+    }
+    
+    /**
+     * Request to create administrators for a holder.
+     * @param login used to get the userId that is performing this transaction
+     * @param authenticator the super user to accept the creation of this
+     * request
+     * @param holder the holder to create administrator(s) for
+     * @return response to the create administrator request
+     */
+    public Response createAdministrator_Request(Login login, String authenticator, Holder holder) {
+        logger.info("request to create administrator for holder [{}], invoked by [{}]", 
+                holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender qSender;
+        NotifierProperties prop;
+        
+        boolean flag = false;
+        String desc = "";
+        
+        try {
+            if (hq.checkHolderAccount(holder.getHolderId())) {
+
+                if (holder.getAdministrators() != null && !holder.getAdministrators().isEmpty()) {
+                    
+                    for (Administrator admin : holder.getAdministrators()) {
+                        if (admin.getResidentialAddress() != null) {
+                            Address res = admin.getResidentialAddress();
+                            if (res.getAddressLine1() == null || "".equals(res.getAddressLine1())) {
+                                desc += "\nResidential address line 1 should not be empty";
+                            } else if (res.getState() == null || "".equals(res.getState())) {
+                                desc += "\nResidential address state should not be empty";
+                            } else if (res.getCountry() == null || "".equals(res.getCountry())) {
+                                desc += "\nResidential address country should not be empty";
+                            }
+                        } else if (admin.getPostalAddress() != null) {
+                            Address pos = admin.getPostalAddress();
+                            if (pos.getAddressLine1() == null || "".equals(pos.getAddressLine1())) {
+                                desc += "\nPostal address line 1 should not be empty";
+                            } else if (pos.getState() == null || "".equals(pos.getState())) {
+                                desc += "\nPostal address state should not be empty";
+                            } else if (pos.getCountry() == null || "".equals(pos.getCountry())) {
+                                desc += "\nPostal address line 1 should not be empty";
+                            }
+                        } else if (admin.getEmailAddress() != null && !admin.getEmailAddress().isEmpty()) {
+                            for (EmailAddress email : admin.getEmailAddress()) {
+                                if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                                    desc += "\nEmail address should not be empty";
+                                }
+                            }
+                        } else if (admin.getPhoneNumbers() != null && !admin.getPhoneNumbers().isEmpty()) {
+                            for (PhoneNumber phone : admin.getPhoneNumbers()) {
+                                if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                                    desc += "\nPhone number should not be empty";
+                                }
+                            }
+                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                                admin.getResidentialAddress() == null) {
+                            desc += "\nResidential address cannot be empty, as it is the primary address";
+                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                                admin.getPostalAddress() == null) {
+                            desc += "\nPostal address cannot be empty, as it is the primary address";
+                        } else {
+                            flag = true;
+                        }
+                    }
+                    
+                    if (flag) {
+                        wrapper = new NotificationWrapper();
+                        prop = new NotifierProperties(HolderComponentLogic.class);
+                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop.getAuthoriserNotifierQueueName());
+
+                        List<Holder> holderList = new ArrayList();
+                        holderList.add(holder);
+
+                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setDescription("Authenticate creation of administrator(s) for holder " + holder.getFirstName() + " " + holder.getLastName());
+                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setFrom(login.getUserId());
+                        wrapper.setTo(authenticator);
+                        wrapper.setModel(holderList);
+
+                        resp = qSender.sendAuthorisationRequest(wrapper);
+                        resp.setRetn(0);
+                        resp.setDesc("Successful");
+                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(309);
+                    resp.setDesc("Error: " + desc);
+                    logger.info("error detected in administrator creation process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }
+                resp.setRetn(309);
+                resp.setDesc("No administrator was sent to be added for the holder.");
+                logger.info("No administrator was sent to be added for the holder - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(309);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder administrator creation. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder administrator creation - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder administrator creation. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes a saved request to create administrators for a holder.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the create administrator request
+     */
+    public Response createAdministrator_Authorise(Login login, String notificationCode) {
+        logger.info("authorise bond unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
+        Response resp = new Response();
+        
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Holder> holderList = (List<Holder>) wrapper.getModel();
+            Holder holderModel = holderList.get(0);
+            
+            boolean flag = false;
+            String desc = "";
+            
+            if (hq.checkHolderAccount(holderModel.getHolderId())) {
+
+                if (holderModel.getAdministrators() != null && !holderModel.getAdministrators().isEmpty()) {
+                    
+                    for (Administrator admin : holderModel.getAdministrators()) {
+                        if (admin.getResidentialAddress() != null) {
+                            Address res = admin.getResidentialAddress();
+                            if (res.getAddressLine1() == null || "".equals(res.getAddressLine1())) {
+                                desc += "\nResidential address line 1 should not be empty";
+                            } else if (res.getState() == null || "".equals(res.getState())) {
+                                desc += "\nResidential address state should not be empty";
+                            } else if (res.getCountry() == null || "".equals(res.getCountry())) {
+                                desc += "\nResidential address country should not be empty";
+                            }
+                        } else if (admin.getPostalAddress() != null) {
+                            Address pos = admin.getPostalAddress();
+                            if (pos.getAddressLine1() == null || "".equals(pos.getAddressLine1())) {
+                                desc += "\nPostal address line 1 should not be empty";
+                            } else if (pos.getState() == null || "".equals(pos.getState())) {
+                                desc += "\nPostal address state should not be empty";
+                            } else if (pos.getCountry() == null || "".equals(pos.getCountry())) {
+                                desc += "\nPostal address line 1 should not be empty";
+                            }
+                        } else if (admin.getEmailAddress() != null && !admin.getEmailAddress().isEmpty()) {
+                            for (EmailAddress email : admin.getEmailAddress()) {
+                                if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                                    desc += "\nEmail address should not be empty";
+                                }
+                            }
+                        } else if (admin.getPhoneNumbers() != null && !admin.getPhoneNumbers().isEmpty()) {
+                            for (PhoneNumber phone : admin.getPhoneNumbers()) {
+                                if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                                    desc += "\nPhone number should not be empty";
+                                }
+                            }
+                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                                admin.getResidentialAddress() == null) {
+                            desc += "\nResidential address cannot be empty, as it is the primary address";
+                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                                admin.getPostalAddress() == null) {
+                            desc += "\nPostal address cannot be empty, as it is the primary address";
+                        } else {
+                            flag = true;
+                        }
+                    }
+             
+                    if (flag) {
+                        hq.createAdministratorForHolder(createAdministrator(holderModel));
+
+                        resp.setRetn(0);
+                        resp.setDesc("Success");
+                        logger.info("Administrators were created successfully - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(310);
+                    resp.setDesc("Error: " + desc);
+                    logger.info("error detected in administrator creation process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }
+                resp.setRetn(310);
+                resp.setDesc("No administrator was sent to be added for the holder.");
+                logger.info("No administrator was sent to be added for the holder - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(310);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error creating administrators. See error log - [{}]", login.getUserId());
+            logger.error("error creating administrators - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to create administrators. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to upload power of attorney for a holder.
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the notification
+     * @param poa the power of attorney to be uploaded
+     * @return response to the upload power of attorney request
+     */
+    public Response uploadPowerOfAttorney_Request(Login login, String authenticator, PowerOfAttorney poa) {
+        logger.info("request to upload power of attorney, invoked by [{}]", login.getUserId());
+        
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender qSender;
+        NotifierProperties prop;
+        
+        boolean flag = false;
+        String desc = "";
+        
+        try {
+            long defaultSize = Long.valueOf(greenProp.getPowerOfAttorneySize());
+            Date current_date = new Date();
+            
+            if (hq.checkHolderAccount(poa.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(poa.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkCurrentPowerOfAttorney(poa.getHolderId())) {
+                    org.greenpole.hibernate.entity.PowerOfAttorney currentPoa = hq.getCurrentPowerOfAttorney(poa.getHolderId());
+                    logger.info("Holder has current power of attorney - [{}]", login.getUserId());
+                    
+                    if (current_date.before(currentPoa.getEndDate())) {
+                        desc += "\nThe current power of attorney is yet to expire";
+                    } else {
+                        flag = true;
+                    }
+                } else {
+                    flag = true;
+                }
+
+                if (flag) {
+                    long fileSize = BytesConverter.decodeToBytes(poa.getFileContents()).length;
+
+                    if (fileSize <= defaultSize) {
+                        wrapper = new NotificationWrapper();
+                        prop = new NotifierProperties(HolderComponentLogic.class);
+                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop.getAuthoriserNotifierQueueName());
+                        
+                        List<PowerOfAttorney> powerList = new ArrayList();
+                        powerList.add(poa);
+                        
+                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setDescription("Authenticate power of attorney for " + holder.getFirstName() + " " + holder.getLastName());
+                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setFrom(login.getUserId());
+                        wrapper.setTo(authenticator);
+                        wrapper.setModel(powerList);
+                        resp = qSender.sendAuthorisationRequest(wrapper);
+                        
+                        resp.setRetn(0);
+                        resp.setDesc("Successful");
+                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(311);
+                    resp.setDesc("The size of the power of attorney cannot exceed 10MB.");
+                    logger.info("The size of the power of attorney cannot exceed 10MB - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(311);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in upload power of attorney process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(311);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing power of attorney upload. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing power of attorney upload - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess power of attorney upload. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes a saved request to upload power of attorney
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the upload power of attorney request
+     */
+    public Response uploadPowerOfAttorney_Authorise(Login login, String notificationCode) {
+        logger.info("authorise upload power of attorney, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<PowerOfAttorney> poaList = (List<PowerOfAttorney>) wrapper.getModel();
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
+            boolean flag = false;
+            String desc = "";
+            
+            PowerOfAttorney poaModel = poaList.get(0);
+            org.greenpole.hibernate.entity.PowerOfAttorney poa_hib = new org.greenpole.hibernate.entity.PowerOfAttorney();
+            org.greenpole.hibernate.entity.PowerOfAttorney currentPoa = new org.greenpole.hibernate.entity.PowerOfAttorney();
+            
+            long defaultSize = Long.valueOf(greenProp.getPowerOfAttorneySize());
+            Date current_date = new Date();
+            
+            if (hq.checkHolderAccount(poaModel.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(poaModel.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                boolean currentPoaExists = hq.checkCurrentPowerOfAttorney(poaModel.getHolderId());
+                if (currentPoaExists) {
+                    currentPoa = hq.getCurrentPowerOfAttorney(poaModel.getHolderId());
+                    logger.info("Holder has current power of attorney - [{}]", login.getUserId());
+                    
+                    if (current_date.before(currentPoa.getEndDate())) {
+                        desc += "\nThe current power of attorney is yet to expire";
+                    } else {
+                        flag = true;
+                    }
+                } else {
+                    flag = true;
+                }
+                
+                if (flag) {
+                    GreenpoleFile file = new GreenpoleFile(greenProp.getPowerOfAttorneyPath());
+                    long fileSize = BytesConverter.decodeToBytes(poaModel.getFileContents()).length;
+                    
+                    if (fileSize <= defaultSize) {
+                        logger.info("Power of attorney met file size requirement - [{}]", login.getUserId());
+                        
+                        if (file.createFile(BytesConverter.decodeToBytes(poaModel.getFileContents()))) {
+                            logger.info("Power of attorney file created and saved - [{}]", login.getUserId());
+                            
+                            String filepath = file.getFolderPath() + file.getFileName();
+                            poa_hib.setTitle(poaModel.getTitle());
+                            poa_hib.setType(poaModel.getType());
+                            poa_hib.setStartDate(formatter.parse(poaModel.getStartDate()));
+                            poa_hib.setEndDate(formatter.parse(poaModel.getEndDate()));
+                            poa_hib.setFilePath(filepath);
+                            
+                            boolean uploaded;
+                            if (currentPoaExists) {
+                                uploaded = hq.uploadPowerOfAttorney(poa_hib, currentPoa);
+                            } else {
+                                uploaded = hq.uploadPowerOfAttorney(poa_hib, null);
+                            }
+                            
+                            if (uploaded) {
+                                resp.setRetn(0);
+                                resp.setDesc("Successful");
+                                logger.info("Power of attorney successfully uploaded - [{}]", login.getUserId());
+                                return resp;
+                            }
+                            resp.setRetn(312);
+                            resp.setDesc("Power of attorney upload failed due to database error. Contact Administrator.");
+                            logger.info("Power of attorney upload failed due to database error. Check error logs - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(312);
+                        resp.setDesc("The Power of Attorney file could not be uploaded onto the server. Contact Administrator");
+                        logger.info("The Power of Attorney file could not be uploaded onto the server. See error logs - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(312);
+                    resp.setDesc("The size of the power of attorney cannot exceed 10MB.");
+                    logger.info("The size of the power of attorney cannot exceed 10MB - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(312);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in upload power of attorney process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(312);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to upload power of attorney. Contact System Administrator");
+            
+            return resp;
+        } catch (IOException ex) {
+            logger.info("Power of attorney file upload failed with an I/O error. See error log - [{}]", login.getUserId());
+            logger.error("Power of attorney file upload failed with an I/O error - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(312);
+            resp.setDesc("Power of attorney file upload failed with an I/O error. Contact Administrator");
+            
+            return resp;
+        } catch (ParseException ex) {
+            logger.info("Error occured while parsing start / end date into power of attorney. See error log - [{}]", login.getUserId());
+            logger.error("Error occured while parsing start / end date into power of attorney - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(312);
+            resp.setDesc("Error occured while parsing start / end date into power of attorney. Contact Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error uploading power of attorney. See error log - [{}]", login.getUserId());
+            logger.error("error uploading power of attorney - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to upload power of attorney. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Searches for a specific power of attorney for a holder.
+     * @param login the user's login details
+     * @param queryParams the query parameters
+     * @return response to the query power of attorney
+     */
+    public Response queryPowerOfAttorney_Request(Login login, PowerOfAttorney queryParams) {
+        logger.info("request to query power of attorney, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            PowerOfAttorney poa_model = new PowerOfAttorney();
+            org.greenpole.hibernate.entity.PowerOfAttorney poa_hib;
+            
+            if (hq.checkHolderAccount(queryParams.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(queryParams.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                poa_hib = hq.getHolderPowerOfAttorney(queryParams.getId());
+                
+                File file = new File(poa_hib.getFilePath());
+                byte[] read = Files.readAllBytes(file.toPath());
+                String encodedContents = BytesConverter.encodeToString(read);
+                logger.info("Power of attorney file successfully read - [{}]", login.getUserId());
+                
+                poa_model.setId(poa_hib.getId());
+                poa_model.setHolderId(poa_hib.getHolder().getId());
+                poa_model.setTitle(poa_hib.getTitle());
+                poa_model.setType(poa_hib.getType());
+                poa_model.setStartDate(formatter.format(poa_hib.getStartDate()));
+                poa_model.setEndDate(formatter.format(poa_hib.getEndDate()));
+                poa_model.setPrimaryPowerOfAttorney(poa_hib.isPowerOfAttorneyPrimary());
+                poa_model.setFilePath(poa_hib.getFilePath());
+                poa_model.setFileContents(encodedContents);
+                
+                List<PowerOfAttorney> poa_result = new ArrayList<>();
+                poa_result.add(poa_model);
+                
+                resp.setRetn(0);
+                resp.setDesc("Successful");
+                logger.info("Power of attorney successfully queried - [{}]", login.getUserId());
+                resp.setBody(poa_result);
+                return resp;
+            }
+            resp.setRetn(313);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error querying power of attorney. See error log - [{}]", login.getUserId());
+            logger.error("error querying power of attorney - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to query power of attorney. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Searches for all powers of attorney for a specific holder
+     * @param login the user's login details
+     * @param queryParams the query parameters
+     * @return response to the query all power of attorney request
+     */
+    public Response queryAllPowerOfAttorney_Request(Login login, PowerOfAttorney queryParams) {
+        logger.info("request to query power of attorney, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            List<org.greenpole.hibernate.entity.PowerOfAttorney> poa_hib_list;
+            
+            if (hq.checkHolderAccount(queryParams.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(queryParams.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                poa_hib_list = hq.getAllHolderPowerOfAttorney(queryParams.getHolderId());
+                List<PowerOfAttorney> poa_result = new ArrayList<>();
+                
+                for (org.greenpole.hibernate.entity.PowerOfAttorney poa_hib : poa_hib_list) {
+                    PowerOfAttorney poa_model = new PowerOfAttorney();
+                    
+                    File file = new File(poa_hib.getFilePath());
+                    byte[] read = Files.readAllBytes(file.toPath());
+                    String encodedContents = BytesConverter.encodeToString(read);
+                    logger.info("Power of attorney file successfully read - [{}]", login.getUserId());
+
+                    poa_model.setId(poa_hib.getId());
+                    poa_model.setHolderId(poa_hib.getHolder().getId());
+                    poa_model.setTitle(poa_hib.getTitle());
+                    poa_model.setType(poa_hib.getType());
+                    poa_model.setStartDate(formatter.format(poa_hib.getStartDate()));
+                    poa_model.setEndDate(formatter.format(poa_hib.getEndDate()));
+                    poa_model.setPrimaryPowerOfAttorney(poa_hib.isPowerOfAttorneyPrimary());
+                    poa_model.setFilePath(poa_hib.getFilePath());
+                    poa_model.setFileContents(encodedContents);
+                    
+                    poa_result.add(poa_model);
+                }
+                
+                resp.setRetn(0);
+                resp.setDesc("Successful");
+                logger.info("Power of attorney successfully queried - [{}]", login.getUserId());
+                resp.setBody(poa_result);
+                return resp;
+            }
+            resp.setRetn(314);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error querying power of attorney. See error log - [{}]", login.getUserId());
+            logger.error("error querying power of attorney - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to query power of attorney. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to store a NUBAN account in a shareholder's company account.
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the notification
+     * @param compAcct the shareholder's company account
+     * @return response to the store NUBAN account request
+     */
+    public Response storeShareholderNubanAccountNumber_Request(Login login, String authenticator, HolderCompanyAccount compAcct) {
+        Response resp = new Response();
+        logger.info("Store NUBAN account number to holder company account, invoked by - [{}]", login.getUserId());
+        
+        NotificationWrapper wrapper;
+        QueueSender qSender;
+        NotifierProperties prop;
+
+        try {
+            if (hq.checkHolderAccount(compAcct.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(compAcct.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkHolderCompanyAccount(compAcct.getHolderId(), compAcct.getClientCompanyId())) {
+                    logger.info("[{}]'s company account checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                    
+                    if (compAcct.getNubanAccount() != null && !"".equals(compAcct.getNubanAccount())) {
+                        
+                        if (compAcct.getBank() != null && compAcct.getBank().getId() != 0) {
+                            
+                            if (hq.checkBank(compAcct.getBank().getId())) {
+                                wrapper = new NotificationWrapper();
+                                prop = new NotifierProperties(HolderComponentLogic.class);
+                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                        prop.getAuthoriserNotifierQueueName());
+                                
+                                List<HolderCompanyAccount> compAcctList = new ArrayList();
+                                compAcctList.add(compAcct);
+                                
+                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setDescription("Authenticate storage of NUBAN account number for holder - " + holder.getFirstName() + " " + holder.getLastName());
+                                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                wrapper.setFrom(login.getUserId());
+                                wrapper.setTo(authenticator);
+                                wrapper.setModel(compAcctList);
+                                resp = qSender.sendAuthorisationRequest(wrapper);
+                                
+                                resp.setRetn(0);
+                                resp.setDesc("Successful");
+                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                return resp;
+                            }
+                            resp.setRetn(315);
+                            resp.setDesc("Bank does not exist.");
+                            logger.info("Bank does not exist - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(315);
+                        resp.setDesc("Bank cannot be empty.");
+                        logger.info("Bank account cannot be empty - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(315);
+                    resp.setDesc("NUBAN account cannot be empty.");
+                    logger.info("NUBAN account cannot be empty - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(315);
+                resp.setDesc("Holder's company account does not exist.");
+                logger.info("Holder's company account does not exist - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(315);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing NUBAN account store. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing NUBAN account store - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess NUBAN account store. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * Processes the saved request to store a NUBAN account in a shareholder's company account.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the store NUBAN account request
+     */
+    public Response addShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
+        Response resp = new Response();
+        logger.info("authorise NUBAN account number addition to holder company account, invoked by - [{}]", login.getUserId());
+        
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<HolderCompanyAccount> compAcctList = (List<HolderCompanyAccount>) wrapper.getModel();
+            HolderCompanyAccount compAcct = compAcctList.get(0);
+            
+            if (hq.checkHolderAccount(compAcct.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(compAcct.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkHolderCompanyAccount(compAcct.getHolderId(), compAcct.getClientCompanyId())) {
+                    org.greenpole.hibernate.entity.HolderCompanyAccount compAcct_hib = hq.getHolderCompanyAccount(compAcct.getHolderId(), compAcct.getClientCompanyId());
+                    logger.info("[{}]'s company account checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                    
+                    if (compAcct.getNubanAccount() != null && !"".equals(compAcct.getNubanAccount())) {
+                        
+                        if (compAcct.getBank() != null && compAcct.getBank().getId() != 0) {
+                            
+                            if (hq.checkBank(compAcct.getBank().getId())) {
+                                Bank bank = new Bank();
+                                bank.setId(compAcct.getBank().getId());
+                                
+                                compAcct_hib.setId(compAcct_hib.getId());
+                                compAcct_hib.setNubanAccount(compAcct.getNubanAccount());
+                                compAcct_hib.setBank(bank);
+                                
+                                hq.createUpdateHolderCompanyAccount(compAcct_hib);
+                                
+                                resp.setRetn(0);
+                                resp.setDesc("Successful");
+                                logger.info("NUBAN account stored - [{}]", login.getUserId());
+                                return resp;
+                            }
+                            resp.setRetn(316);
+                            resp.setDesc("Bank does not exist.");
+                            logger.info("Bank does not exist - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(316);
+                        resp.setDesc("Bank cannot be empty.");
+                        logger.info("Bank account cannot be empty - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(316);
+                    resp.setDesc("NUBAN account cannot be empty.");
+                    logger.info("NUBAN account cannot be empty - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(316);
+                resp.setDesc("Holder's company account does not exist.");
+                logger.info("Holder's company account does not exist - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(316);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to store NUBAN account. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error storing NUBAN account. See error log - [{}]", login.getUserId());
+            logger.error("error storing NUBAN account - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to store NUBAN account. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * Request to store a NUBAN account in a bond holder's company account.
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the notification
+     * @param bondAcct the bond holder's company account
+     * @return response to the store NUBAN account request
+     */
+    public Response storeBondholderNubanAccountNumber_Request(Login login, String authenticator, HolderBondAccount bondAcct) {
+        Response resp = new Response();
+        logger.info("Store NUBAN account number to holder bond account, invoked by - [{}]", login.getUserId());
+        
+        NotificationWrapper wrapper;
+        QueueSender qSender;
+        NotifierProperties prop;
+
+        try {
+            if (hq.checkHolderAccount(bondAcct.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(bondAcct.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkHolderBondAccount(bondAcct.getHolderId(), bondAcct.getBondOfferId())) {
+                    logger.info("[{}]'s bond account checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                    
+                    if (bondAcct.getNubanAccount() != null && !"".equals(bondAcct.getNubanAccount())) {
+                        
+                        if (bondAcct.getBank() != null && bondAcct.getBank().getId() != 0) {
+                            
+                            if (hq.checkBank(bondAcct.getBank().getId())) {
+                                wrapper = new NotificationWrapper();
+                                prop = new NotifierProperties(HolderComponentLogic.class);
+                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                        prop.getAuthoriserNotifierQueueName());
+                                
+                                List<HolderBondAccount> bondAcctList = new ArrayList();
+                                bondAcctList.add(bondAcct);
+                                
+                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setDescription("Authenticate storage of NUBAN account number for holder - " + holder.getFirstName() + " " + holder.getLastName());
+                                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                wrapper.setFrom(login.getUserId());
+                                wrapper.setTo(authenticator);
+                                wrapper.setModel(bondAcctList);
+                                resp = qSender.sendAuthorisationRequest(wrapper);
+                                
+                                resp.setRetn(0);
+                                resp.setDesc("Successful");
+                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                return resp;
+                            }
+                            resp.setRetn(317);
+                            resp.setDesc("Bank does not exist.");
+                            logger.info("Bank does not exist - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(317);
+                        resp.setDesc("Bank cannot be empty.");
+                        logger.info("Bank account cannot be empty - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(317);
+                    resp.setDesc("NUBAN account cannot be empty.");
+                    logger.info("NUBAN account cannot be empty - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(317);
+                resp.setDesc("Holder's bond account does not exist.");
+                logger.info("Holder's bond account does not exist - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(317);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing NUBAN account store. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing NUBAN account store - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess NUBAN account store. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * Processes the saved request to store a NUBAN account in a bond holder's company account.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the store NUBAN account request
+     */
+    public Response storeBondholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
+        Response resp = new Response();
+        logger.info("authorise NUBAN account number addition to holder bond account, invoked by - [{}]", login.getUserId());
+        
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<HolderBondAccount> bondAcctList = (List<HolderBondAccount>) wrapper.getModel();
+            HolderBondAccount bondAcct = bondAcctList.get(0);
+            
+            if (hq.checkHolderAccount(bondAcct.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(bondAcct.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkHolderBondAccount(bondAcct.getHolderId(), bondAcct.getBondOfferId())) {
+                    org.greenpole.hibernate.entity.HolderBondAccount bondAcct_hib = hq.getHolderBondAccount(bondAcct.getHolderId(), bondAcct.getBondOfferId());
+                    logger.info("[{}]'s bond account checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                    
+                    if (bondAcct.getNubanAccount() != null && !"".equals(bondAcct.getNubanAccount())) {
+                        
+                        if (bondAcct.getBank() != null && bondAcct.getBank().getId() != 0) {
+                            
+                            if (hq.checkBank(bondAcct.getBank().getId())) {
+                                Bank bank = new Bank();
+                                bank.setId(bondAcct.getBank().getId());
+                                
+                                bondAcct_hib.setId(bondAcct_hib.getId());
+                                bondAcct_hib.setNubanAccount(bondAcct.getNubanAccount());
+                                bondAcct_hib.setBank(bank);
+                                
+                                hq.createUpdateHolderBondAccount(bondAcct_hib);
+                                
+                                resp.setRetn(0);
+                                resp.setDesc("Successful");
+                                logger.info("NUBAN account stored - [{}]", login.getUserId());
+                                return resp;
+                            }
+                            resp.setRetn(318);
+                            resp.setDesc("Bank does not exist.");
+                            logger.info("Bank does not exist - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(318);
+                        resp.setDesc("Bank cannot be empty.");
+                        logger.info("Bank account cannot be empty - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(318);
+                    resp.setDesc("NUBAN account cannot be empty.");
+                    logger.info("NUBAN account cannot be empty - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(318);
+                resp.setDesc("Holder's bond account does not exist.");
+                logger.info("Holder's bond account does not exist - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(318);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to store NUBAN account. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error storing NUBAN account. See error log - [{}]", login.getUserId());
+            logger.error("error storing NUBAN account - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to store NUBAN account. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * Unwraps the holder model to create the administrator hibernate entity model.
+     * @param holder the holder which contains a list of its administrators to be created
+     * @return a holder hibernate entity with the administrators to be created
+     */
+    private org.greenpole.hibernate.entity.Holder createAdministrator(Holder holder) {
+        org.greenpole.hibernate.entity.Holder holder_hib;
+        org.greenpole.hibernate.entity.Administrator admin_hib = new org.greenpole.hibernate.entity.Administrator();
+        
+        //get holder entity
+        holder_hib = hq.getHolder(holder.getHolderId());
+        String nameAddition = "Estate of " + holder_hib.getFirstName();
+        holder_hib.setFirstName(nameAddition); //change holder name to begin with "estate of" because holder is now deceased
+        
+        //get all administrators
+        Set admins_hib = new HashSet();
+        for (Administrator admin_model : holder.getAdministrators()) {
+            //add main administrator details to hibernate entity
+            admin_hib.setFirstName(admin_model.getFirstName());
+            admin_hib.setLastName(admin_model.getLastName());
+            admin_hib.setMiddleName(admin_model.getMiddleName());
+            admin_hib.setPryAddress(""); //should not be empty. Correct once corrected from Samsudeen's end.
+                        
+            //add residential addresses to hibernate entity
+            retrieveAdministratorResidentialAddress(admin_model, admin_hib);
+            //add postal addresses to hibernate entity
+            retrieveAdministratorPostalAddress(admin_model, admin_hib); 
+            //add email addresses to hibernate entity
+            retrieveAdministratorEmailAddress(admin_model, admin_hib);
+            //add phone number to hibernate entity
+            retrieveAdministratorPhoneNumber(admin_model, admin_hib);
+            //add hibernate administrator into set for administrators
+            admins_hib.add(admin_hib);
+        }
+        //add administrator set into holder
+        holder_hib.setAdministrators(admins_hib);
+        
+        return holder_hib;
+    }
+
+    private void retrieveAdministratorPhoneNumber(Administrator admin_model, org.greenpole.hibernate.entity.Administrator admin_hib) {
+        //add phone number to hibernate entity
+        Set phone_set = new HashSet();
+        if (admin_model.getPhoneNumbers() != null && !admin_model.getPhoneNumbers().isEmpty()) {
+            for (PhoneNumber admin_phone_model : admin_model.getPhoneNumbers()) {
+                AdministratorPhoneNumber admin_phone_hib = new AdministratorPhoneNumber();
+                AdministratorPhoneNumberId admin_phone_id_hib = new AdministratorPhoneNumberId();
+
+                admin_phone_id_hib.setPhoneNumber(admin_phone_model.getPhoneNumber());
+
+                admin_phone_hib.setIsPrimary(admin_phone_model.isPrimaryPhoneNumber());
+
+                admin_phone_hib.setId(admin_phone_id_hib);
+
+                phone_set.add(admin_phone_hib);
+            }
+            admin_hib.setAdministratorPhoneNumbers(phone_set);
+        }
+    }
+
+    private void retrieveAdministratorEmailAddress(Administrator admin_model, org.greenpole.hibernate.entity.Administrator admin_hib) {
+        //add email address to hibernate entity
+        Set email_set = new HashSet();
+        if (admin_model.getEmailAddress() != null && !admin_model.getEmailAddress().isEmpty()) {
+            for (EmailAddress admin_email_model : admin_model.getEmailAddress()) {
+                AdministratorEmailAddress admin_email_hib = new AdministratorEmailAddress();
+                AdministratorEmailAddressId admin_email_id_hib = new AdministratorEmailAddressId();
+
+                admin_email_id_hib.setEmailAddress(admin_email_model.getEmailAddress());
+
+                admin_email_hib.setIsPrimary(admin_email_model.isPrimaryEmail());
+
+                admin_email_hib.setId(admin_email_id_hib);
+
+                email_set.add(admin_email_hib);
+            }
+            admin_hib.setAdministratorEmailAddresses(email_set);
+        }
+    }
+
+    private void retrieveAdministratorPostalAddress(Administrator admin_model, org.greenpole.hibernate.entity.Administrator admin_hib) {
+        //create set
+        Set pos_set = new HashSet();
+        if (admin_model.getPostalAddress() != null) {
+            Address admin_pos_model = admin_model.getResidentialAddress();
+            
+            AdministratorResidentialAddress admin_pos_hib = new AdministratorResidentialAddress();
+            AdministratorResidentialAddressId admin_pos_id_hib = new AdministratorResidentialAddressId();
+            
+            admin_pos_id_hib.setAddressLine1(admin_pos_model.getAddressLine1());
+            admin_pos_id_hib.setState(admin_pos_model.getState());
+            admin_pos_id_hib.setCountry(admin_pos_model.getCountry());
+            
+            admin_pos_hib.setAddressLine2(admin_pos_model.getAddressLine2());
+            admin_pos_hib.setAddressLine3(admin_pos_model.getAddressLine3());
+            admin_pos_hib.setAddressLine4(admin_pos_model.getAddressLine4());
+            admin_pos_hib.setCity(admin_pos_model.getCity());
+            admin_pos_hib.setPostCode(admin_pos_model.getPostCode());
+            admin_pos_hib.setIsPrimary(admin_pos_model.isPrimaryAddress());
+            
+            admin_pos_hib.setId(admin_pos_id_hib);
+            
+            pos_set.add(admin_pos_hib); //add residential address to set
+        }
+        admin_hib.setAdministratorPostalAddresses(pos_set); //add set to administrator hibernate entity
+    }
+
+    private void retrieveAdministratorResidentialAddress(Administrator admin_model, org.greenpole.hibernate.entity.Administrator admin_hib) {
+        //add residential addresses to hibernate entity
+        Set res_set = new HashSet();
+        if (admin_model.getResidentialAddress() != null) {
+            Address admin_res_model = admin_model.getResidentialAddress();
+            
+            AdministratorResidentialAddress admin_res_hib = new AdministratorResidentialAddress();
+            AdministratorResidentialAddressId admin_res_id_hib = new AdministratorResidentialAddressId();
+            
+            admin_res_id_hib.setAddressLine1(admin_res_model.getAddressLine1());
+            admin_res_id_hib.setState(admin_res_model.getState());
+            admin_res_id_hib.setCountry(admin_res_model.getCountry());
+            
+            admin_res_hib.setAddressLine2(admin_res_model.getAddressLine2());
+            admin_res_hib.setAddressLine3(admin_res_model.getAddressLine3());
+            admin_res_hib.setAddressLine4(admin_res_model.getAddressLine4());
+            admin_res_hib.setCity(admin_res_model.getCity());
+            admin_res_hib.setPostCode(admin_res_model.getPostCode());
+            admin_res_hib.setIsPrimary(admin_res_model.isPrimaryAddress());
+            
+            admin_res_hib.setId(admin_res_id_hib);
+            
+            //create set
+            res_set.add(admin_res_hib); //add residential address to set
+        }
+        admin_hib.setAdministratorResidentialAddresses(res_set); //add set to administrator hibernate entity
     }
 }

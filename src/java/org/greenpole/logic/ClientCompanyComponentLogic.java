@@ -5,6 +5,8 @@
  */
 package org.greenpole.logic;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +18,7 @@ import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
+import org.greenpole.entity.model.clientcompany.InitialPublicOffer;
 import org.greenpole.entity.model.clientcompany.QueryClientCompany;
 import org.greenpole.entity.model.clientcompany.ShareQuotation;
 import org.greenpole.entity.notification.NotificationWrapper;
@@ -35,6 +38,7 @@ import org.greenpole.hibernate.entity.NseSector;
 import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
+import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +51,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ClientCompanyComponentLogic {
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
+    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyComponentLogic.class);
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
     
     /**
@@ -345,7 +350,7 @@ public class ClientCompanyComponentLogic {
      * Searches for a list of client companies according to query parameters.
      * @param login the user's login details
      * @param queryParams the query parameters
-     * @return the response to the client company query request
+     * @return response to the client company query request
      */
     public Response queryClientCompany_Request(Login login, QueryClientCompany queryParams) {
         Response resp = new Response();
@@ -693,6 +698,165 @@ public class ClientCompanyComponentLogic {
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }
+    }
+    
+    /**
+     * Processes request to set up an Initial Public Offer.
+     * @param ipo the initial public offer details for a client company
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the
+     * notification
+     * @return response to the initial public offer request
+     */
+    public Response setupInitialPoblicOffer_Request(InitialPublicOffer ipo, Login login, String authenticator) {
+        logger.info("request to set up Initial Public Offer, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender qSender;
+        NotifierProperties prop;
+
+        try {
+            if (cq.checkClientCompany(ipo.getClientCompanyId())) {
+                org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(ipo.getClientCompanyId());
+                logger.info("client company [{}] checks out - [{}]", cc.getName(), login.getUserId());
+
+                if (!cq.checkClientCompanyForShareholders(cc.getName())) {
+                    logger.info("client company [{}] checks out. No shareholders found - [{}]", cc.getName(), login.getUserId());
+                    wrapper = new NotificationWrapper();
+                    prop = new NotifierProperties(ClientCompanyComponentLogic.class);
+                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                            prop.getAuthoriserNotifierQueueName());
+                    List<InitialPublicOffer> ipoList = new ArrayList();
+                    ipoList.add(ipo);
+                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setDescription("Authenticate set up of an Initial Public Offer under the client company " + cc.getName());
+                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setFrom(login.getUserId());
+                    wrapper.setTo(authenticator);
+                    wrapper.setModel(ipoList);
+                    resp = qSender.sendAuthorisationRequest(wrapper);
+
+                    resp.setRetn(0);
+                    resp.setDesc("Successful");
+                    logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(207);
+                resp.setDesc("The client company - " + cc.getName() + " - has shareholders. An IPO cannot be setup for it.");
+                logger.info("The client company - [{}] - has shareholders. An IPO cannot be setup for it - [{}]",
+                        cc.getName(), login.getUserId());
+                return resp;
+            }
+            resp.setRetn(207);//change error code
+            resp.setDesc("The specified client company does not exist in the database.");
+            logger.info("The specified client company does not exist in the database - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error processing IPO setup. See error log - [{}]", login.getUserId());
+            logger.error("error processing IPO setup - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process IPO setup. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes request to setup Initial public offer that has been saved to file with the notificationCode.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the setup initial public offer request
+     */
+    public Response setUpInitialPublicOffer_Authorise(Login login, String notificationCode) {
+        Response resp = new Response();
+        logger.info("authorise Initial Public Offer setup, invoked by [{}]", login.getUserId());
+        
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<InitialPublicOffer> ipoList = (List<InitialPublicOffer>) wrapper.getModel();
+            InitialPublicOffer ipoModel = ipoList.get(0);
+            
+            if (cq.checkClientCompany(ipoModel.getClientCompanyId())) {
+                org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(ipoModel.getClientCompanyId());
+                logger.info("client company [{}] checks out - [{}]", cc.getName(), login.getUserId());
+                
+                if (!cq.checkClientCompanyForShareholders(cc.getName())) {
+                    logger.info("client company [{}] checks out. No shareholders found - [{}]", cc.getName(), login.getUserId());
+                    
+                    org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = setUpInitialPublicOfferAfterAuthorisation(ipoModel, resp, login);
+                    cq.createInitialPublicOffer(ipo_hib);
+
+                    resp.setRetn(0);
+                    resp.setDesc("Success");
+                    logger.info("Initial Public Offer was Successfully created - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(208);
+                resp.setDesc("The client company - " + cc.getName() + " - has shareholders. An IPO cannot be setup for it.");
+                logger.info("The client company - [{}] - has shareholders. An IPO cannot be setup for it - [{}]",
+                        cc.getName(), login.getUserId());
+                return resp;
+            }
+            resp.setRetn(208);//change error code
+            resp.setDesc("The specified client company does not exist in the database.");
+            logger.info("The specified client company does not exist in the database - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to setup IPO. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error setting up IPO. See error log - [{}]", login.getUserId());
+            logger.error("error setting up IPO - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to setup IPO. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * creates the hibernate entity object using the InitialPublicOffer model.
+     * @param ipoModel the InitialPublicOffer object
+     * @return the hibernate entity object
+     */
+    private org.greenpole.hibernate.entity.InitialPublicOffer setUpInitialPublicOfferAfterAuthorisation(InitialPublicOffer ipoModel, Response resp, Login login) {
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+        org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
+        org.greenpole.hibernate.entity.ClientCompany cc_hib = new org.greenpole.hibernate.entity.ClientCompany();
+        
+        cc_hib.setId(ipoModel.getClientCompanyId());
+        
+        ipo_hib.setClientCompany(cc_hib);
+        ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer());
+        ipo_hib.setMethodOfOffer(ipoModel.getMethodOfOffer());
+        ipo_hib.setStartingMinSub(ipoModel.getStartingMinimumSubscription());
+        ipo_hib.setContMinSub(ipoModel.getContinuingMinimumSubscription());
+        ipo_hib.setOfferPrice(ipoModel.getOfferPrice());
+        ipo_hib.setOfferSize(ipoModel.getOfferPrice() * ipoModel.getTotalSharesOnOffer());
+        try {
+            ipo_hib.setOpeningDate(formatter.parse(ipoModel.getOpeningDate()));
+        } catch (ParseException ex) {
+            logger.info("an error was thrown while inputting the ipo model's opening date. See error log - [{}]", login.getUserId());
+            resp.setRetn(208);
+            resp.setDesc("Incorrect date format for opening date");
+            logger.error("Incorrect date format for opening date [" + login.getUserId() + "]", ex);
+        }
+        try {
+            ipo_hib.setClosingDate(formatter.parse(ipoModel.getClosingDate()));
+        } catch (ParseException ex) {
+            logger.info("an error was thrown while inputting the ipo model's closing date. See error log - [{}]", login.getUserId());
+            resp.setRetn(208);
+            resp.setDesc("Incorrect date format for closing date");
+            logger.error("Incorrect date format for closing date [" + login.getUserId() + "]", ex);
+        }
+        return ipo_hib;
     }
     
     /**
