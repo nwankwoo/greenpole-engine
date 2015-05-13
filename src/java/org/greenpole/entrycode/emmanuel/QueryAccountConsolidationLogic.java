@@ -82,6 +82,8 @@ public class QueryAccountConsolidationLogic {
                 } catch (ParseException ex) {
                     logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
                     resp.setRetn(300);
+                    resp.setDesc("Incorrect date format for start date");
+                    logger.error("Incorrect date format for start date - [{}]", login.getUserId(), ex);
                     resp.setDesc("Incorrect date format for end date");
                     logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
 

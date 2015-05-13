@@ -248,7 +248,18 @@ public class InitialPublicOfferLogic {
         hib_list = cq.retrieveShareUnitQuatationList();
         return hib_list;
     }
-    
+/*
+    public List<org.greenpole.hibernate.entity.Holder> retrieveAdministratorHolder(Administrator admin){
+        org.greenpole.hibernate.entity.Holder holder_hib = new org.greenpole.hibernate.entity.Holder();
+        List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList();
+        List<Holder> holderModel = admin.getHolder();
+        for(Holder holderObject: holderModel){
+        holder_hib.setId(holderObject.getId());
+        holderList.add(holder_hib);
+        }
+   return holderList;
+    }
+    */
     /**
      * Request to create administrators for a holder.
      * @param login used to get the userId that is performing this transaction
@@ -603,6 +614,7 @@ public class InitialPublicOfferLogic {
      * @param holder object of the holder entity model
      * @return the holder entity model of the updated firstName
      */
+    /*
     private void updateAdministratorHolderName(Administrator admin) {
         String replaceName = "Estate of";
         String name;
@@ -613,5 +625,6 @@ public class InitialPublicOfferLogic {
         holdReplaceName = replaceName+" "+name;
         holderAccount.setFirstName(holdReplaceName);
         hd.updateAdministrationHolderCompanyAccount(holderAccount);
-    }   
+    } 
+    */
 }
