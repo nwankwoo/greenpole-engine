@@ -587,62 +587,70 @@ public class HolderComponentLogic {
                                 if (senderHolderCompAcctExists) {//check if sender account has chn
                                     logger.info("sender holder has company account - [{}]", login.getUserId());
                                     
-                                    if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) {//check if sender has sufficient units to transact
-                                        logger.info("sender holder has appropriate units to send - [{}]", login.getUserId());
-                                        boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
-                                        boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
-
-                                        wrapper = new NotificationWrapper();
-                                        prop = new NotifierProperties(HolderComponentLogic.class);
-                                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                                                prop.getAuthoriserNotifierQueueName());
+                                    if (unitTransfer.getHolderIdFrom() == unitTransfer.getHolderIdTo()) {//cannot transfer between same accounts
                                         
-                                        logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
-                                                senderName, receiverName, login.getUserId());
+                                        if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) {//check if sender has sufficient units to transact
+                                            logger.info("sender holder has appropriate units to send - [{}]", login.getUserId());
+                                            boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
+                                            boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
 
-                                        List<UnitTransfer> transferList = new ArrayList<>();
-                                        transferList.add(unitTransfer);
+                                            wrapper = new NotificationWrapper();
+                                            prop = new NotifierProperties(HolderComponentLogic.class);
+                                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                    prop.getAuthoriserNotifierQueueName());
 
-                                        //wrap unit transfer object in notification object, along with other information
-                                        wrapper.setCode(Notification.createCode(login));
-                                        wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
-                                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                                        wrapper.setFrom(login.getUserId());
-                                        wrapper.setTo(authenticator);
-                                        wrapper.setModel(transferList);
-                                        
-                                        if(!receiverHolderCompAcctExists) {
-                                            if (receiverHolderChnExists) {
+                                            logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
+                                                    senderName, receiverName, login.getUserId());
+
+                                            List<UnitTransfer> transferList = new ArrayList<>();
+                                            transferList.add(unitTransfer);
+
+                                            //wrap unit transfer object in notification object, along with other information
+                                            wrapper.setCode(Notification.createCode(login));
+                                            wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
+                                            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                            wrapper.setFrom(login.getUserId());
+                                            wrapper.setTo(authenticator);
+                                            wrapper.setModel(transferList);
+
+                                            if (!receiverHolderCompAcctExists) {
+                                                if (receiverHolderChnExists) {
+                                                    resp = qSender.sendAuthorisationRequest(wrapper);
+                                                    logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
+                                                            wrapper.getCode(), login.getUserId());
+
+                                                    String originalMsg = resp.getDesc();
+                                                    resp.setDesc(originalMsg + "\nHolder - " + receiverName
+                                                            + " - has no active account with the company. One will be created for them upon authorisation.");
+                                                    logger.info("Holder - [{}] - has no active account with the company. "
+                                                            + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                                    return resp;
+                                                }
                                                 resp = qSender.sendAuthorisationRequest(wrapper);
-                                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
-                                                        wrapper.getCode(), login.getUserId());
+                                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
 
                                                 String originalMsg = resp.getDesc();
                                                 resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                        + " - has no active account with the company. One will be created for them upon authorisation.");
-                                                logger.info("Holder - [{}] - has no active account with the company. "
-                                                        + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                                        + " - has no active account with the company and no CHN. A certificate will be created for them upon authorisation.");
+                                                logger.info("Holder - [{}] - has no active account with the company. A certificate will be created for them upon authorisation - [{}]",
+                                                        receiverName, login.getUserId());
                                                 return resp;
                                             }
                                             resp = qSender.sendAuthorisationRequest(wrapper);
-                                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-
-                                            String originalMsg = resp.getDesc();
-                                            resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                    + " - has no active account with the company and no CHN. A certificate will be created for them upon authorisation.");
-                                            logger.info("Holder - [{}] - has no active account with the company. A certificate will be created for them upon authorisation - [{}]",
-                                                    receiverName, login.getUserId());
+                                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
+                                                    wrapper.getCode(), login.getUserId());
                                             return resp;
                                         }
-                                        resp = qSender.sendAuthorisationRequest(wrapper);
-                                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
-                                                wrapper.getCode(), login.getUserId());
+                                        resp.setRetn(304);
+                                        resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
+                                        logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
+                                                senderName, login.getUserId());
                                         return resp;
                                     }
                                     resp.setRetn(304);
-                                    resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
-                                    logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
-                                            senderName, login.getUserId());
+                                    resp.setDesc("Both holders are the same. Cannot transfer accounts between the same holders.");
+                                    logger.info("Both holders are the same. Cannot transfer accounts between the same holders - [{}]",
+                                            login.getUserId());
                                     return resp;
                                 }
                                 resp.setRetn(304);
@@ -873,47 +881,55 @@ public class HolderComponentLogic {
                                     org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
                                     boolean receiverHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                     
-                                    if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-                                        logger.info("sender holder has necessary units for transfer - [{}]", login.getUserId());
+                                    if (unitTransfer.getHolderIdFrom() == unitTransfer.getHolderIdTo()) {
                                         
-                                        wrapper = new NotificationWrapper();
-                                        prop = new NotifierProperties(HolderComponentLogic.class);
-                                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                                                prop.getAuthoriserNotifierQueueName());
-                                        
-                                        logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
-                                                senderName, receiverName, login.getUserId());
+                                        if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
+                                            logger.info("sender holder has necessary units for transfer - [{}]", login.getUserId());
 
-                                        List<UnitTransfer> transferList = new ArrayList<>();
-                                        transferList.add(unitTransfer);
+                                            wrapper = new NotificationWrapper();
+                                            prop = new NotifierProperties(HolderComponentLogic.class);
+                                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                    prop.getAuthoriserNotifierQueueName());
 
-                                        //wrap unit transfer object in notification object, along with other information
-                                        wrapper.setCode(Notification.createCode(login));
-                                        wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
-                                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                                        wrapper.setFrom(login.getUserId());
-                                        wrapper.setTo(authenticator);
-                                        wrapper.setModel(transferList);
-                                        
-                                        resp = qSender.sendAuthorisationRequest(wrapper);
-                                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
-                                                wrapper.getCode(), login.getUserId());
-                                        
-                                        //check if receiver holder has bond account, adjust message accordingly
-                                        if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
-                                            String originalMsg = resp.getDesc();
-                                            resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                    + " - has no active account with the company. One will be created for them upon authorisation.");
-                                            logger.info("Holder - [{}] - has no active account with the company. "
-                                                    + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                            logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
+                                                    senderName, receiverName, login.getUserId());
+
+                                            List<UnitTransfer> transferList = new ArrayList<>();
+                                            transferList.add(unitTransfer);
+
+                                            //wrap unit transfer object in notification object, along with other information
+                                            wrapper.setCode(Notification.createCode(login));
+                                            wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
+                                            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                            wrapper.setFrom(login.getUserId());
+                                            wrapper.setTo(authenticator);
+                                            wrapper.setModel(transferList);
+
+                                            resp = qSender.sendAuthorisationRequest(wrapper);
+                                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
+                                                    wrapper.getCode(), login.getUserId());
+
+                                            //check if receiver holder has bond account, adjust message accordingly
+                                            if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
+                                                String originalMsg = resp.getDesc();
+                                                resp.setDesc(originalMsg + "\nHolder - " + receiverName
+                                                        + " - has no active account with the company. One will be created for them upon authorisation.");
+                                                logger.info("Holder - [{}] - has no active account with the company. "
+                                                        + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
+                                            }
+
+                                            return resp;
                                         }
-                                        
+                                        resp.setRetn(306);
+                                        resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
+                                        logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
+                                                senderName, login.getUserId());
                                         return resp;
                                     }
                                     resp.setRetn(306);
-                                    resp.setDesc("The holder - " + senderName + " - does not have the sufficient share units to make this transaction.");
-                                    logger.info("The holder - [{}] - does not have the sufficient share units to make this transaction - [{}]",
-                                            senderName, login.getUserId());
+                                    resp.setDesc("Both holders are the same. Cannnot transfer units between the same holder.");
+                                    logger.info("Both holders are the same. Cannnot transfer units between the same holder - [{}]",
+                                            login.getUserId());
                                     return resp;
                                 }
                                 resp.setRetn(306);

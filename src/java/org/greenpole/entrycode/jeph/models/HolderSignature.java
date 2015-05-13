@@ -33,7 +33,7 @@ public class HolderSignature {
     @XmlElement
     private boolean holderSignaturePrimary;
     @XmlElement
-    private byte[] signImg;
+    private String signImg;
 
     public HolderSignature() {
     }
@@ -47,7 +47,7 @@ public class HolderSignature {
      * @param holderSignaturePrimary indicates primary signature
      * @param signImg signature image in bytes
      */
-    public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary, byte[] signImg) {
+    public HolderSignature(int id, int holderId, String title, String signaturePath, boolean holderSignaturePrimary, String signImg) {
         this.id = id;
         this.holderId = holderId;
         this.title = title;
@@ -96,11 +96,11 @@ public class HolderSignature {
         this.holderSignaturePrimary = holderSignaturePrimary;
     }
 
-    public byte[] getSignImg() {
+    public String getSignImg() {
         return signImg;
     }
 
-    public void setSignImg(byte[] signImg) {
+    public void setSignImg(String signImg) {
         this.signImg = signImg;
     }
 
