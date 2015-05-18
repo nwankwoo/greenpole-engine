@@ -8,7 +8,7 @@ package org.greenpole.entrycode.emmanuel;
 import java.util.List;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.Holder;
-import org.greenpole.entrycode.emmanuel.model.PowerOfAttorney;
+import org.greenpole.entity.model.holder.PowerOfAttorney;
 import org.greenpole.hibernate.entity.AccountConsolidation;
 import org.greenpole.hibernate.entity.Administrator;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
