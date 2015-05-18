@@ -8,6 +8,7 @@ package org.greenpole.logic;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,8 +18,10 @@ import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
+import org.greenpole.entity.model.clientcompany.BondOffer;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
 import org.greenpole.entity.model.clientcompany.InitialPublicOffer;
+import org.greenpole.entity.model.clientcompany.PrivatePlacement;
 import org.greenpole.entity.model.clientcompany.QueryClientCompany;
 import org.greenpole.entity.model.clientcompany.ShareQuotation;
 import org.greenpole.entity.notification.NotificationWrapper;
@@ -27,6 +30,8 @@ import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.response.Response;
+import org.greenpole.hibernate.entity.BondOfferPaymentPlan;
+import org.greenpole.hibernate.entity.BondType;
 import org.greenpole.hibernate.entity.ClientCompanyAddress;
 import org.greenpole.hibernate.entity.ClientCompanyAddressId;
 import org.greenpole.hibernate.entity.ClientCompanyEmailAddress;
@@ -98,9 +103,9 @@ public class ClientCompanyComponentLogic {
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(cclist);
-
-                    resp = qSender.sendAuthorisationRequest(wrapper);
+                    
                     logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    resp = qSender.sendAuthorisationRequest(wrapper);
                     return resp;
                 }
                 resp.setRetn(200);
@@ -265,9 +270,9 @@ public class ClientCompanyComponentLogic {
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(cclist);
-
-                        resp = qSender.sendAuthorisationRequest(wrapper);
+                        
                         logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        resp = qSender.sendAuthorisationRequest(wrapper);
                         return resp;
                     } else {
                         resp.setRetn(202);
@@ -595,9 +600,9 @@ public class ClientCompanyComponentLogic {
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(shareQuotation);
-
-                resp = qSender.sendAuthorisationRequest(wrapper);
+                
                 logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = qSender.sendAuthorisationRequest(wrapper);
                 return resp;
             }
             resp.setRetn(205);
@@ -734,11 +739,9 @@ public class ClientCompanyComponentLogic {
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(ipoList);
-                    resp = qSender.sendAuthorisationRequest(wrapper);
-
-                    resp.setRetn(0);
-                    resp.setDesc("Successful");
+                    
                     logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    resp = qSender.sendAuthorisationRequest(wrapper);
                     return resp;
                 }
                 resp.setRetn(207);
@@ -819,6 +822,395 @@ public class ClientCompanyComponentLogic {
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }
+    }
+    
+    /**
+     * Request to create a bond offer.
+     * @param login The user's login details
+     * @param authenticator The authenticator user meant to receive the
+     * notification
+     * @param bond The bond details to be created
+     * @return response to the create bond offer request
+     */
+    public Response createBondOffer_Request(Login login, String authenticator, BondOffer bond) {
+        logger.info("request to create bond offer [{}] at [{}] unit price, invoked by - [{}]", 
+                bond.getTitle(), bond.getUnitPrice(), login.getUserId());
+
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
+        
+        String desc = "";
+        boolean flag = false;
+
+        try {
+            // Check if bond title has a value
+            if (bond.getTitle() == null || "".equals(bond.getTitle()) ) {
+                desc += "\nBond title should not be empty";
+            } else if (bond.getBondTypeId() <= 0) {
+                desc += "\nBond type should not be empty";
+            } else if (bond.getUnitPrice() <= 0) {
+                desc += "\nBond unit price should be greater than zero";
+            } else if (bond.getInterestRate() <= 0) {
+                desc += "\nBond interest rate should be greater than zero";
+            } else if (bond.getPaymentPlanId() <= 0) {
+                desc += "\nBond payment plan should be specified";
+            } else {
+                flag = true;
+            }
+            
+            if (flag && bond.getBondTypeId() > 0) {
+                boolean found = false;
+                for (org.greenpole.hibernate.entity.BondType bt : cq.getAllBondTypes()) {
+                    if (bond.getBondTypeId() == bt.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nBond type not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag && bond.getPaymentPlanId() > 0) {
+                boolean found = false;
+                for (org.greenpole.hibernate.entity.BondOfferPaymentPlan bp : cq.getAllBondOfferPaymentPlans()) {
+                    if (bond.getPaymentPlanId() == bp.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nBond offer payment plan not valid";
+                    flag = false;
+                }
+            }
+
+            if (flag) {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                List<BondOffer> bc = new ArrayList<>();
+                bc.add(bond);
+                
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate Bond Setup - " + bond.getTitle());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(bc);
+                
+                logger.info("Notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = queue.sendAuthorisationRequest(wrapper);
+            }
+            resp.setRetn(209);
+            resp.setDesc("Error filing bond offer details: " + desc);
+            logger.info("Error filing bond offer details: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process bond setup request. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error processing bond setup request. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error processing bond setup request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes saved request to create bond offer.
+     * @param login The user's login details
+     * @param notificationCode The notification code
+     * @return response to request to create bond offer
+     */
+    public Response setupBondOffer_Authorise(Login login, String notificationCode) {
+        Response resp = new Response();
+        logger.info("Bond setup creation authorised. [{}] - [{}]", notificationCode, login.getUserId());
+        
+        String desc = "";
+        boolean flag = false;
+        
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<BondOffer> list = (List<BondOffer>) wrapper.getModel();
+            BondOffer bondModel = list.get(0);
+            
+            // Check if bond title has a value
+            if (bondModel.getTitle() == null || "".equals(bondModel.getTitle()) ) {
+                desc += "\nBond title should not be empty";
+            } else if (bondModel.getBondTypeId() <= 0) {
+                desc += "\nBond type should not be empty";
+            } else if (bondModel.getUnitPrice() <= 0) {
+                desc += "\nBond unit price should be greater than zero";
+            } else if (bondModel.getInterestRate() <= 0) {
+                desc += "\nBond interest rate should be greater than zero";
+            } else if (bondModel.getPaymentPlanId() <= 0) {
+                desc += "\nBond payment plan should be specified";
+            } else {
+                flag = true;
+            }
+            
+            if (flag && bondModel.getBondTypeId() > 0) {
+                boolean found = false;
+                for (org.greenpole.hibernate.entity.BondType bt : cq.getAllBondTypes()) {
+                    if (bondModel.getBondTypeId() == bt.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nBond type not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag && bondModel.getPaymentPlanId() > 0) {
+                boolean found = false;
+                for (org.greenpole.hibernate.entity.BondOfferPaymentPlan bp : cq.getAllBondOfferPaymentPlans()) {
+                    if (bondModel.getPaymentPlanId() == bp.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nBond offer payment plan not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag) {
+                // get BondOffer entity initialised with Bond Model
+                org.greenpole.hibernate.entity.BondOffer bondOffer = bondCreationMain(bondModel);
+                cq.createBondOffer(bondOffer);
+                resp.setRetn(0);
+                resp.setDesc("Successful");
+                logger.info("Bond offer created successfully - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(210);
+            resp.setDesc("Error filing bond offer details: " + desc);
+            logger.info("Error filing bond offer details: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+        } catch (ParseException ex) {
+            resp.setRetn(210);
+            resp.setDesc("Error converting string to date type. See error log");
+            logger.info("Error converting string to date type. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error converting string to date type - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("Error loading notification xml file. See error log");
+            logger.info("Error loading notification xml file. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to create bond. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error creating bond. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error creating bond - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to create a Private Placement.
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the
+     * notification
+     * @param privatePlacement the private placement details to be processed
+     * @return response object back to sender indicating creation request status
+     */
+    public Response createPrivatePlacement_Request(Login login, String authenticator, PrivatePlacement privatePlacement) {
+        logger.info("request to create private placement, invoked by [{}]", login.getUserId());
+
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties props;
+        
+        Date date = new Date();
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+
+        try {
+            boolean exits = cq.checkClientCompany(privatePlacement.getClientCompanyId());
+            if (exits) {
+                org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(privatePlacement.getClientCompanyId());
+                if (cc.isValid()) {
+                    if (date.before(formatter.parse(privatePlacement.getClosingDate()))) {
+                        if (cq.checkClientCompanyForShareholders(cc.getName())) {
+                            if (cq.checkOpenPrivatePlacement(cc.getId())) {
+                                wrapper = new NotificationWrapper();
+                                props = new NotifierProperties(ClientCompanyComponentLogic.class);
+                                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                List<PrivatePlacement> ppc = new ArrayList<>();
+                                ppc.add(privatePlacement);
+                                
+                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setDescription("Create Private Placement for " + cc.getName());
+                                wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+                                wrapper.setFrom(login.getUserId());
+                                wrapper.setTo(authenticator);
+                                wrapper.setModel(ppc);
+                                
+                                logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                resp = queue.sendAuthorisationRequest(wrapper);
+                                return resp;
+                            }
+                            resp.setRetn(211);
+                            resp.setDesc("A private placement is currently open");
+                            logger.info("A private placement is currently open - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(211);
+                        resp.setDesc("No shareholders in client company for private placement");
+                        logger.info("No shareholders in client company for priate placement - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(211);
+                    resp.setDesc("Private placement cannot be closed before current date");
+                    logger.info("Private placement cannot be closed before current date - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(211);
+                resp.setDesc("Client company for private placement is not valid");
+                logger.info("Client company for priate placement is not valid - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(211);
+            resp.setDesc("Client company for private placement does not exist");
+            logger.info("Client company for priate placement does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process private placement creation. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error processing private placement creation. See error log - [{}]", login.getUserId());
+            logger.error("Error processing private placement creation - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes saved request to create private placement.
+     * @param login The user's login details
+     * @param notificationCode The notification code
+     * @return Response to the create private placement request
+     */
+    public Response setupPrivatePlacement_Authorise(Login login, String notificationCode) {
+        logger.info("authorise private placement creation, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+        Date date = new Date();
+        
+        try { 
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
+            PrivatePlacement ppModel = pplist.get(0);
+            org.greenpole.hibernate.entity.PrivatePlacement ppEntity = new org.greenpole.hibernate.entity.PrivatePlacement();
+            
+            if (cq.checkClientCompany(ppModel.getClientCompanyId())) {
+                org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(ppModel.getClientCompanyId());
+                if (cc.isValid()) {
+                    if (date.before(formatter.parse(ppModel.getClosingDate()))) {
+                        if (cq.checkClientCompanyForShareholders(cc.getName())) {
+                            if (cq.checkOpenPrivatePlacement(cc.getId())) {
+                                ppEntity.setClientCompany(cc);
+                                ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer());
+                                ppEntity.setMethodOnOffer(Integer.parseInt(ppModel.getMethodOfOffer()));
+                                ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinimumSubscription());
+                                ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());
+                                ppEntity.setOfferPrice(ppModel.getOfferPrice());
+                                ppEntity.setOfferSize(ppModel.getOfferSize().doubleValue());
+                                ppEntity.setOpeningDate(formatter.parse(ppModel.getOpeningDate()));
+                                ppEntity.setClosingDate(formatter.parse(ppModel.getClosingDate()));
+                                ppEntity.setPlacementClosed(false);
+                                
+                                cq.createPrivatePlacement(ppEntity);
+                                
+                                resp.setRetn(0);
+                                resp.setDesc("Successful");
+                                logger.info("Private Placement created for Client Company: [{}] - [{}]", cc.getName(), login.getUserId());
+                            }
+                            resp.setRetn(212);
+                            resp.setDesc("A private placement is currently open");
+                            logger.info("A private placement is currently open - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(212);
+                        resp.setDesc("No shareholders in client company for private placement");
+                        logger.info("No shareholders in client company for priate placement - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(212);
+                    resp.setDesc("Private placement cannot be closed before current date");
+                    logger.info("Private placement cannot be closed before current date - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(212);
+                resp.setDesc("Client company for private placement is not valid");
+                logger.info("Client company for priate placement is not valid - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(212);
+            resp.setDesc("Client company for private placement does not exist");
+            logger.info("Client company for priate placement does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("General Error: Unable to load notification xml file. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (ParseException ex) {
+            resp.setRetn(212);
+            resp.setDesc("General Error: Unable to convert from string to date type. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error converting from string to date type - [{}]", login.getUserId());
+            logger.error("Error converting from string to date type - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to create private placement. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error creating private placement. See error log - [{}]", login.getUserId());
+            logger.error("Error creating private placement - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Unwraps bond model and inserts its details into the bond hibernate entity.
+     * @param bondModel the bond model
+     * @return BondOffer object to setupBondOfferAuthorise method
+     */
+    private org.greenpole.hibernate.entity.BondOffer bondCreationMain(BondOffer bondModel) throws ParseException {
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+        
+        // instantiate required hibernate entities
+        org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
+        BondOfferPaymentPlan paymentPlan = new BondOfferPaymentPlan();
+        BondType type = new BondType();
+        
+        org.greenpole.hibernate.entity.ClientCompany cc = new org.greenpole.hibernate.entity.ClientCompany();
+        
+        cc.setId(bondModel.getClientCompanyId());
+        type.setId(bondModel.getBondTypeId());
+        paymentPlan.setId(bondModel.getPaymentPlanId());
+        
+        bond_main.setTitle(bondModel.getTitle());
+        bond_main.setBondMaturity(formatter.parse(bondModel.getBondMaturity()));
+        bond_main.setBondUnitPrice(bondModel.getUnitPrice());
+        bond_main.setBondType(type);
+        bond_main.setInterestRate(bondModel.getInterestRate());
+        bond_main.setPaymentPlan(paymentPlan);
+        bond_main.setClientCompany(cc);
+
+        return bond_main;
     }
     
     /**
@@ -1111,7 +1503,7 @@ public class ClientCompanyComponentLogic {
         if (ccModel != null) {//guard against null pointer exception
             //get values from client company model and insert into client company hibernate entity
             if (!freshCreation) {
-                cc_main.setId(ccModel.getId());
+                cc_main = cq.getClientCompany(ccModel.getId());
             }
             cc_main.setName(ccModel.getName());
             cc_main.setCeo(ccModel.getCeo());

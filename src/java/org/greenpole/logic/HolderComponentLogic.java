@@ -31,6 +31,7 @@ import org.greenpole.entity.model.holder.HolderBondAccount;
 import org.greenpole.entity.model.holder.HolderChanges;
 import org.greenpole.entity.model.holder.HolderCompanyAccount;
 import org.greenpole.entity.model.holder.HolderMerger;
+import org.greenpole.entity.model.holder.HolderSignature;
 import org.greenpole.entity.model.holder.PowerOfAttorney;
 import org.greenpole.entity.model.holder.QueryHolder;
 import org.greenpole.entity.model.holder.QueryHolderChanges;
@@ -61,6 +62,7 @@ import org.greenpole.hibernate.entity.HolderPostalAddress;
 import org.greenpole.hibernate.entity.HolderPostalAddressId;
 import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderResidentialAddressId;
+import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
@@ -164,8 +166,9 @@ public class HolderComponentLogic {
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holderMerger);
-                resp = qSender.sendAuthorisationRequest(wrapper);
+                
                 logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = qSender.sendAuthorisationRequest(wrapper);
                 return resp;
             } else {
                 String errorMsg = "";
@@ -395,8 +398,9 @@ public class HolderComponentLogic {
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holderMerger);
-                resp = qSender.sendAuthorisationRequest(wrapper);
+                
                 logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = qSender.sendAuthorisationRequest(wrapper);
                 return resp;
             } else {
                 logger.info("The chosen primary holder account has not been merged, or has but isn't a primary account - [{}]", login.getUserId());
@@ -587,9 +591,9 @@ public class HolderComponentLogic {
                                 if (senderHolderCompAcctExists) {//check if sender account has chn
                                     logger.info("sender holder has company account - [{}]", login.getUserId());
                                     
-                                    if (unitTransfer.getHolderIdFrom() == unitTransfer.getHolderIdTo()) {//cannot transfer between same accounts
+                                    if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) {//cannot transfer between same accounts
                                         
-                                        if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) {//check if sender has sufficient units to transact
+                                        if (senderCompAcct.getShareUnits() >= unitTransfer.getUnits()) {//check if sender has sufficient units to transact
                                             logger.info("sender holder has appropriate units to send - [{}]", login.getUserId());
                                             boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
                                             boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
@@ -615,9 +619,9 @@ public class HolderComponentLogic {
 
                                             if (!receiverHolderCompAcctExists) {
                                                 if (receiverHolderChnExists) {
-                                                    resp = qSender.sendAuthorisationRequest(wrapper);
                                                     logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
                                                             wrapper.getCode(), login.getUserId());
+                                                    resp = qSender.sendAuthorisationRequest(wrapper);
 
                                                     String originalMsg = resp.getDesc();
                                                     resp.setDesc(originalMsg + "\nHolder - " + receiverName
@@ -626,8 +630,8 @@ public class HolderComponentLogic {
                                                             + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
                                                     return resp;
                                                 }
-                                                resp = qSender.sendAuthorisationRequest(wrapper);
                                                 logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                                resp = qSender.sendAuthorisationRequest(wrapper);
 
                                                 String originalMsg = resp.getDesc();
                                                 resp.setDesc(originalMsg + "\nHolder - " + receiverName
@@ -636,9 +640,9 @@ public class HolderComponentLogic {
                                                         receiverName, login.getUserId());
                                                 return resp;
                                             }
-                                            resp = qSender.sendAuthorisationRequest(wrapper);
                                             logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
                                                     wrapper.getCode(), login.getUserId());
+                                            resp = qSender.sendAuthorisationRequest(wrapper);
                                             return resp;
                                         }
                                         resp.setRetn(304);
@@ -742,7 +746,7 @@ public class HolderComponentLogic {
                                     org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
                                     boolean receiverHolderChnExists = !"".equals(receiverHolder.getChn()) && receiverHolder.getChn() != null;
                                     boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
-
+                                    
                                     if (receiverHolderCompAcctExists) {//check if receiver has company account and chn
                                         logger.info("receiver holder has company account - [{}]", login.getUserId());
                                         org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
@@ -881,9 +885,9 @@ public class HolderComponentLogic {
                                     org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getBondOfferId());
                                     boolean receiverHolderBondAcctExists = hq.checkHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                     
-                                    if (unitTransfer.getHolderIdFrom() == unitTransfer.getHolderIdTo()) {
+                                    if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) {
                                         
-                                        if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
+                                        if (senderBondAcct.getBondUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
                                             logger.info("sender holder has necessary units for transfer - [{}]", login.getUserId());
 
                                             wrapper = new NotificationWrapper();
@@ -904,10 +908,10 @@ public class HolderComponentLogic {
                                             wrapper.setFrom(login.getUserId());
                                             wrapper.setTo(authenticator);
                                             wrapper.setModel(transferList);
-
-                                            resp = qSender.sendAuthorisationRequest(wrapper);
+                                            
                                             logger.info("notification fowarded to queue - notification code: [{}] - [{}]",
                                                     wrapper.getCode(), login.getUserId());
+                                            resp = qSender.sendAuthorisationRequest(wrapper);
 
                                             //check if receiver holder has bond account, adjust message accordingly
                                             if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
@@ -1100,23 +1104,29 @@ public class HolderComponentLogic {
      * @return the response from the transfer
      */
     private Response invokeTransfer(org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct, Response resp, String senderName, String receiverName, Login login) {
-        if (senderCompAcct.getShareUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-            boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits());
-            if (transfered) {
-                resp.setRetn(0);
-                resp.setDesc("Successful Transfer");
-                logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", 
-                        unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
+        if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
+            if (senderCompAcct.getShareUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
+                boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits());
+                if (transfered) {
+                    resp.setRetn(0);
+                    resp.setDesc("Successful Transfer");
+                    logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]",
+                            unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(305);
+                resp.setDesc("Transfer Unsuccesful. An error occured in the database engine. Contact System Administrator");
+                logger.info("Transfer Unsuccesful. An error occured in the database engine - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
                 return resp;
             }
             resp.setRetn(305);
-            resp.setDesc("Transfer Unsuccesful. An error occured in the database engine. Contact System Administrator");
-            logger.info("Transfer Unsuccesful. An error occured in the database engine - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
+            resp.setDesc("Transaction error. Insufficient balance in " + senderName + "'s company account.");
+            logger.info("Transaction error. Insufficient balance in [{}]'s company account - [{}]", senderName, login.getUserId());
             return resp;
         }
         resp.setRetn(305);
-        resp.setDesc("Transaction error. Insufficient balance in " + senderName + "'s company account.");
-        logger.info("Transaction error. Insufficient balance in [{}]'s company account - [{}]", senderName, login.getUserId());
+        resp.setDesc("Transaction error. Sender and receiver are the same holder.");
+        logger.info("Transaction error. Sender and receiver are the same holder - [{}]", login.getUserId());
         return resp;
     }
     
@@ -1131,22 +1141,28 @@ public class HolderComponentLogic {
      * @return the response from the transfer
      */
     private Response invokeTransfer(org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct, Response resp, String senderName, String receiverName, Login login) {
-        if (senderBondAcct.getBondUnits() < unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-            boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice());
-            if (transfered) {
-                resp.setRetn(0);
-                resp.setDesc("Successful Transfer");
-                logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
+        if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
+            if (senderBondAcct.getBondUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
+                boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice());
+                if (transfered) {
+                    resp.setRetn(0);
+                    resp.setDesc("Successful Transfer");
+                    logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(307);
+                resp.setDesc("Transfer Unsuccesful. An error occured in the database engine. Contact System Administrator");
+                logger.info("Transfer Unsuccesful. An error occured in the database engine - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
                 return resp;
             }
             resp.setRetn(307);
-            resp.setDesc("Transfer Unsuccesful. An error occured in the database engine. Contact System Administrator");
-            logger.info("Transfer Unsuccesful. An error occured in the database engine - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
+            resp.setDesc("Transaction error. Insufficient balance in " + senderName + "'s company account.");
+            logger.info("Transaction error. Insufficient balance in [{}]'s company account - [{}]", senderName, login.getUserId());
             return resp;
         }
         resp.setRetn(307);
-        resp.setDesc("Transaction error. Insufficient balance in " + senderName + "'s company account.");
-        logger.info("Transaction error. Insufficient balance in [{}]'s company account - [{}]", senderName, login.getUserId());
+        resp.setDesc("Transaction error. Sender and receiver are the same holder.");
+        logger.info("Transaction error. Sender and receiver are the same holder - [{}]", login.getUserId());
         return resp;
     }
     
@@ -1273,6 +1289,7 @@ public class HolderComponentLogic {
                 String descriptor = queryParams.getDescriptor();
 
                 org.greenpole.hibernate.entity.Holder h_hib_search = new org.greenpole.hibernate.entity.Holder();
+                org.greenpole.hibernate.entity.HolderType h_type_hib_search = new org.greenpole.hibernate.entity.HolderType();
 
                 HolderResidentialAddress h_res_hib_search = new HolderResidentialAddress();
                 HolderResidentialAddressId h_res_id_hib_search = new HolderResidentialAddressId();
@@ -1297,6 +1314,8 @@ public class HolderComponentLogic {
                 Holder h_model_search;
                 if (queryParams.getHolder() != null) {
                     h_model_search = queryParams.getHolder();
+                    
+                    h_type_hib_search.setId(h_model_search.getTypeId());
 
                     h_hib_search.setFirstName(h_model_search.getFirstName());
                     h_hib_search.setMiddleName(h_model_search.getMiddleName());
@@ -1313,8 +1332,8 @@ public class HolderComponentLogic {
                     h_hib_search.setChn(h_model_search.getChn());
                     h_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
                     h_hib_search.setTaxExempted(h_model_search.isTaxExempted());
-                    h_hib_search.setPryAddress(h_model_search.getPryAddress());
-                    h_hib_search.setType(h_model_search.getType());
+                    h_hib_search.setPryAddress(h_model_search.getPrimaryAddress());
+                    h_hib_search.setType(h_type_hib_search);
                     h_hib_search.setPryHolder(true); //must be set
                 }
 
@@ -1415,6 +1434,8 @@ public class HolderComponentLogic {
                     hca_id_hib_search.setClientCompanyId(hca_model_search.getClientCompanyId());
 
                     hca_hib_search.setEsop(hca_model_search.isEsop());
+                    hca_hib_search.setHolderCompAccPrimary(true);//always set this
+                    hca_hib_search.setMerged(false);//always set this
 
                     hca_hib_search.setId(hca_id_hib_search);
 
@@ -1429,7 +1450,12 @@ public class HolderComponentLogic {
                     hba_model_search = queryParams.getHolder().getHolderBondAccounts().get(0);
 
                     hba_id_hib_search.setBondOfferId(hba_model_search.getBondOfferId());
-
+                    
+                    hba_hib_search.setStartingPrincipalValue(hba_model_search.getStartingPrincipalValue());
+                    hba_hib_search.setRemainingPrincipalValue(hba_model_search.getRemainingPrincipalValue());
+                    hba_hib_search.setHolderBondAccPrimary(true);//always set this
+                    hba_hib_search.setMerged(false);//always set this
+                    
                     hba_hib_search.setId(hba_id_hib_search);
 
                     Set hba_hib_set = new HashSet();
@@ -1439,8 +1465,8 @@ public class HolderComponentLogic {
                 }
 
                 Map<String, Integer> shareUnits_search;
-                if (!queryParams.getShareUnits().isEmpty() && queryParams.getShareUnits() != null) {
-                    shareUnits_search = queryParams.getShareUnits();
+                if (!queryParams.getUnits().isEmpty() && queryParams.getUnits() != null) {
+                    shareUnits_search = queryParams.getUnits();
                 } else {
                     shareUnits_search = new HashMap<>();
                 }
@@ -1452,7 +1478,7 @@ public class HolderComponentLogic {
                     totalHoldings_search = new HashMap<>();
                 }
 
-                List<org.greenpole.hibernate.entity.Holder> h_search_result = hq.queryHolderAccount(descriptor, h_hib_search, shareUnits_search, totalHoldings_search);
+                List<org.greenpole.hibernate.entity.Holder> h_search_result = hq.queryShareholderAccount(descriptor, h_hib_search, shareUnits_search, totalHoldings_search);
                 logger.info("retrieved holder result from query. Preparing local model - [{}]", login.getUserId());
                 
                 //unwrap result and set in holder front-end model
@@ -1474,8 +1500,8 @@ public class HolderComponentLogic {
                     h.setChn(h_hib_out.getChn());
                     h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
                     h.setTaxExempted(h_hib_out.isTaxExempted());
-                    h.setPryAddress(h_hib_out.getPryAddress());
-                    h.setType(h_hib_out.getType());
+                    h.setPrimaryAddress(h_hib_out.getPryAddress());
+                    h.setTypeId(h_hib_out.getType().getId());
                     h.setPryHolder(h_hib_out.isPryHolder());
 
                     //get all available addresses, email addresses and phone numbers
@@ -1627,6 +1653,11 @@ public class HolderComponentLogic {
                                     desc += "\nPhone number should not be empty";
                                 }
                             }
+                        } else if (admin.getPrimaryAddress() == null || "".equals(admin.getPrimaryAddress())) {
+                            desc += "\nPrimary address must be set";
+                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) || 
+                                admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                            desc += "\nPrimary address can only be residential or postal";
                         } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
                                 admin.getResidentialAddress() == null) {
                             desc += "\nResidential address cannot be empty, as it is the primary address";
@@ -1653,11 +1684,9 @@ public class HolderComponentLogic {
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(holderList);
-
-                        resp = qSender.sendAuthorisationRequest(wrapper);
-                        resp.setRetn(0);
-                        resp.setDesc("Successful");
+                        
                         logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        resp = qSender.sendAuthorisationRequest(wrapper);
                         return resp;
                     }
                     resp.setRetn(309);
@@ -1839,11 +1868,9 @@ public class HolderComponentLogic {
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(powerList);
-                        resp = qSender.sendAuthorisationRequest(wrapper);
                         
-                        resp.setRetn(0);
-                        resp.setDesc("Successful");
                         logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        resp = qSender.sendAuthorisationRequest(wrapper);
                         return resp;
                     }
                     resp.setRetn(311);
@@ -1930,6 +1957,9 @@ public class HolderComponentLogic {
                             poa_hib.setStartDate(formatter.parse(poaModel.getStartDate()));
                             poa_hib.setEndDate(formatter.parse(poaModel.getEndDate()));
                             poa_hib.setFilePath(filepath);
+                            
+                            poa_hib.setPowerOfAttorneyPrimary(true);
+                            poa_hib.setHolder(holder);
                             
                             boolean uploaded;
                             if (currentPoaExists) {
@@ -2168,11 +2198,9 @@ public class HolderComponentLogic {
                                 wrapper.setFrom(login.getUserId());
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(compAcctList);
-                                resp = qSender.sendAuthorisationRequest(wrapper);
                                 
-                                resp.setRetn(0);
-                                resp.setDesc("Successful");
                                 logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                resp = qSender.sendAuthorisationRequest(wrapper);
                                 return resp;
                             }
                             resp.setRetn(315);
@@ -2337,11 +2365,9 @@ public class HolderComponentLogic {
                                 wrapper.setFrom(login.getUserId());
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(bondAcctList);
-                                resp = qSender.sendAuthorisationRequest(wrapper);
                                 
-                                resp.setRetn(0);
-                                resp.setDesc("Successful");
                                 logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                resp = qSender.sendAuthorisationRequest(wrapper);
                                 return resp;
                             }
                             resp.setRetn(317);
@@ -2459,6 +2485,1371 @@ public class HolderComponentLogic {
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to store NUBAN account. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to create a holder account.
+     * @param login The user's login details
+     * @param authenticator The authenticator user meant to receive the
+     * notification
+     * @param holder Object representing holder details
+     * @return Response to create holder account request
+     */
+    public Response createShareHolder_Request(Login login, String authenticator, Holder holder) {
+        Response resp = new Response();
+        logger.info("Request to create holder account, invoked by [{}]", login.getUserId());
+        
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
+        
+        try {
+            String desc = "";
+            boolean flag = false;
+            
+            if (holder.getFirstName() == null || "".equals(holder.getFirstName())) {
+                desc = "\nHolder first name should not be empty";
+            } else if (holder.getLastName() == null || "".equals(holder.getLastName())) {
+                desc += "\nHolder last name should not be empty";
+            } else if (holder.getTypeId() <= 0) {
+                desc += "\nHolder type should not be empty";
+            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                desc += "\nPrimary Holder address is not specified";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                desc += "\nPrimary address can only be residential or postal";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                desc += "\nResidential address cannot be empty, as it is the primary address";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                desc += "\nPostal address cannot be empty, as it is the primary address";
+            } else {
+                flag = true;
+            } 
+            
+            if (flag && holder.getTypeId() > 0) {
+                boolean found = false;
+                for (HolderType ht : hq.getAllHolderTypes()) {
+                    if (holder.getTypeId() == ht.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nHolder type is not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderResidentialAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderPostalAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag) {
+                
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponentLogic.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                
+                List<Holder> holdList = new ArrayList<>();
+                holdList.add(holder);
+                
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate holder account creation for " + holder.getFirstName() + " " + holder.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holdList);
+                logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = queue.sendAuthorisationRequest(wrapper);
+                return resp;
+            }
+            resp.setRetn(319);
+            resp.setDesc("Error filing holder details: " + desc);
+            logger.info("Error filing holder details: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+            logger.info("Error creating holder account. See error log. [{}] - [{}]", resp.getRetn(), login.getUserId());
+            logger.error("Error creating holder account - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes saved request to create holder account.
+     * @param login The user's login details
+     * @param notificationCode The notification code
+     * @return response to holder account creation request
+     */
+    public Response createShareHolder_Authorise(Login login, String notificationCode) {
+        logger.info("authorise shareholder account creation, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Holder> holdList = (List<Holder>) wrapper.getModel();
+            Holder holder = holdList.get(0);
+            
+            String desc = "";
+            boolean flag = false;
+            
+            if (holder.getFirstName() == null || "".equals(holder.getFirstName())) {
+                desc = "\nHolder first name should not be empty";
+            } else if (holder.getLastName() == null || "".equals(holder.getLastName())) {
+                desc += "\nHolder last name should not be empty";
+            } else if (holder.getTypeId() <= 0) {
+                desc += "\nHolder type should not be empty";
+            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                desc += "\nPrimary Holder address is not specified";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                desc += "\nPrimary address can only be residential or postal";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                desc += "\nResidential address cannot be empty, as it is the primary address";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                desc += "\nPostal address cannot be empty, as it is the primary address";
+            } else {
+                flag = true;
+            } 
+            
+            if (flag && holder.getTypeId() > 0) {
+                boolean found = false;
+                for (HolderType ht : hq.getAllHolderTypes()) {
+                    if (holder.getTypeId() == ht.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nHolder type is not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderResidentialAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderPostalAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag) {
+                org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
+                HolderType typeEntity = new HolderType();
+                
+                typeEntity.setId(holder.getTypeId());
+                
+                holdEntity.setFirstName(holder.getFirstName());
+                holdEntity.setLastName(holder.getLastName());
+                holdEntity.setMiddleName(holder.getMiddleName());
+                holdEntity.setType(typeEntity);
+                holdEntity.setGender(holder.getGender());
+                holdEntity.setDob(formatter.parse(holder.getDob()));
+                
+                boolean created;
+                
+                if (holder.getChn() == null || "".equals(holder.getChn())) {
+                    //there are two versions of createHolderAccount, one for bond account and the other for company account
+                    //thus, null cannot be directly passed into the method, as java will not be able to distinguish between
+                    //both createHolderAccount methods.
+                    org.greenpole.hibernate.entity.HolderCompanyAccount emptyAcct = null;
+                    created = hq.createHolderAccount(holdEntity, emptyAcct,
+                            retrieveHolderResidentialAddress(holder), retrieveHolderPostalAddress(holder),
+                            retrieveHolderEmailAddress(holder), retrieveHolderPhoneNumber(holder));
+                } else {
+                    holdEntity.setChn(holder.getChn());//set chn
+                    created = hq.createHolderAccount(holdEntity, retrieveHolderCompanyAccount(holder),
+                            retrieveHolderResidentialAddress(holder), retrieveHolderPostalAddress(holder),
+                            retrieveHolderEmailAddress(holder), retrieveHolderPhoneNumber(holder));
+                }
+
+                if (created) {
+                    resp.setRetn(0);
+                    resp.setDesc("Holder details saved: Successful");
+                    logger.info("Shareholder account creation successful - [{}]", login.getUserId());
+                    return resp;
+                } else {
+                    resp.setRetn(320);
+                    resp.setDesc("General Error. Unable to persist holder account. Contact system administrator.");
+                    logger.info("Error persist holder account - [{}]", login.getUserId());
+                    return resp;
+                }
+            }
+            resp.setRetn(320);
+            resp.setDesc("Error filing holder details: " + desc);
+            logger.info("Error filing holder details: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("Error loading notification xml file. See error log");
+            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "] - ", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General Error. Unable to persist holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+            logger.info("Error persist holder account. See error log - [{}]", login.getUserId());
+            logger.error("Error persist holder account - [" + login.getUserId() + "] - ", ex);
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to create bond holder account.
+     * @param login user's login details
+     * @param authenticator the authenticator user meant to receive the
+     * notification
+     * @param holder the holder details object
+     * @return response to the bondholder account creation request
+     */
+    public Response createBondHolderAccount_Request(Login login, String authenticator, Holder holder) {
+        logger.info("Request to create bondholder account, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            NotificationWrapper wrapper;
+            QueueSender queue;
+            NotifierProperties prop;
+            
+            String desc = "";
+            boolean flag = false;
+
+            if (holder.getFirstName() == null || "".equals(holder.getFirstName())) {
+                desc = "\nHolder first name should not be empty";
+            } else if (holder.getLastName() == null || "".equals(holder.getLastName())) {
+                desc += "\nHolder last name should not be empty";
+            } else if (holder.getChn() == null || "".equals(holder.getChn())) {
+                desc += "\nCHN cannot be empty";
+            } else if (holder.getTypeId() <= 0) {
+                desc += "\nHolder type should not be empty";
+            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                desc += "\nPrimary Holder address is not specified";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                desc += "\nPrimary address can only be residential or postal";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                desc += "\nResidential address cannot be empty, as it is the primary address";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                desc += "\nPostal address cannot be empty, as it is the primary address";
+            } else {
+                flag = true;
+            } 
+            
+            if (flag && holder.getTypeId() > 0) {
+                boolean found = false;
+                for (HolderType ht : hq.getAllHolderTypes()) {
+                    if (holder.getTypeId() == ht.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nHolder type is not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderResidentialAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderPostalAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+
+            if (flag) {
+                wrapper = new NotificationWrapper();
+                prop = new NotifierProperties(HolderComponentLogic.class);
+                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+
+                List<Holder> holdList = new ArrayList<>();
+                holdList.add(holder);
+
+                wrapper.setCode(Notification.createCode(login));
+                wrapper.setDescription("Authenticate bond holder account, " + holder.getFirstName() + " " + holder.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(holdList);
+                logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = queue.sendAuthorisationRequest(wrapper);
+                return resp;
+            }
+            resp.setRetn(321);
+            resp.setDesc("Error filing bond holder details: " + desc);
+            logger.info("Error filing bond holder details: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General Error: Unable to create holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+            logger.info("Error creating holder account. See error log - [{}]", login.getUserId());
+            logger.error("Error creating holder account - [" + login.getUserId() + "] - ", ex);
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes saved request to create bondholder account.
+     * @param login user's login details
+     * @param notificationCode the notification code
+     * @return response to the bondholder account creation request
+     */
+    public Response createBondHolderAccount_Authorise(Login login, String notificationCode) {
+        logger.info("authorise bondholder creation, invoked by - [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Holder> holdList = (List<Holder>) wrapper.getModel();
+            Holder holder = holdList.get(0);
+            
+            String desc = "";
+            boolean flag = false;
+            
+            if (holder.getFirstName() == null || "".equals(holder.getFirstName())) {
+                desc = "\nHolder first name should not be empty";
+            } else if (holder.getLastName() == null || "".equals(holder.getLastName())) {
+                desc += "\nHolder last name should not be empty";
+            } else if (holder.getChn() == null || "".equals(holder.getChn())) {
+                desc += "\nCHN cannot be empty";
+            } else if (holder.getTypeId() <= 0) {
+                desc += "\nHolder type should not be empty";
+            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                desc += "\nPrimary Holder address is not specified";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                desc += "\nPrimary address can only be residential or postal";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                desc += "\nResidential address cannot be empty, as it is the primary address";
+            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                desc += "\nPostal address cannot be empty, as it is the primary address";
+            } else {
+                flag = true;
+            } 
+            
+            if (flag && holder.getTypeId() > 0) {
+                boolean found = false;
+                for (HolderType ht : hq.getAllHolderTypes()) {
+                    if (holder.getTypeId() == ht.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    desc += "\nHolder type is not valid";
+                    flag = false;
+                }
+            }
+            
+            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderResidentialAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getHolderPostalAddresses()) {
+                    if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                        desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getState() == null || "".equals(addr.getState())) {
+                        desc += "\nState should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                        desc += "\nCountry should not be empty. Delete entire address if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (flag) {
+                org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
+                HolderType typeEntity = new HolderType();
+                
+                typeEntity.setId(holder.getTypeId());
+                
+                holdEntity.setFirstName(holder.getFirstName());
+                holdEntity.setLastName(holder.getLastName());
+                holdEntity.setMiddleName(holder.getMiddleName());
+                holdEntity.setType(typeEntity);
+                holdEntity.setGender(holder.getGender());
+                holdEntity.setDob(formatter.parse(holder.getDob()));
+                holdEntity.setChn(holder.getChn());
+
+                boolean created = hq.createHolderAccount(holdEntity, retrieveHolderBondAccount(holder),
+                        retrieveHolderResidentialAddress(holder), retrieveHolderPostalAddress(holder),
+                        retrieveHolderEmailAddress(holder), retrieveHolderPhoneNumber(holder));
+
+                if (created) {
+                    resp.setRetn(0);
+                    resp.setDesc("Successful");
+                    logger.info("Bond holder account creation successful - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(322);
+                resp.setDesc("Unable to create bond holder from authorisation. Contact System Administrator");
+                logger.info("Unable to create bond holder from authorisation - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(322);
+            resp.setDesc("Error filing bond holder details: " + desc);
+            logger.info("Error filing bond holder details: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("Error loading notification xml file. Contact administrator");
+            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("Error loading notification xml file to object, invoked by [" + login.getUserId() + "] - ", ex);
+            return resp;
+        } catch (ParseException ex) {
+            resp.setRetn(322);
+            resp.setDesc("Error creating bondholder account, due to formatting with date of birth");
+            logger.info("Error creating bondholder account, due to formatting with date of birth - [{}]", login.getUserId());
+            logger.error("Error creating bondholder account - [" + login.getUserId() + "] - ", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("Error creating bondholder account. Contact administrator");
+            logger.info("Error creating bondholder account - See error log - [{}]", login.getUserId());
+            logger.error("Error creating bondholder account - [" + login.getUserId() + "] - ", ex);
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to upload a holder signature.
+     * @param login The user's login details
+     * @param authenticator The authenticator meant to receive the notification
+     * @param holderSig Holder signature details
+     * @return response to the upload holder signature request
+     */
+    public Response uploadHolderSignature_Request(Login login, String authenticator, HolderSignature holderSig) {
+        logger.info("Request to upload holder signature, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
+        
+        boolean flag = false;
+
+        try {
+            org.greenpole.hibernate.entity.Holder holder = new org.greenpole.hibernate.entity.Holder();
+            long defaultSize = Long.valueOf(greenProp.getSignatureSize());
+            
+            if (hq.checkHolderAccount(holderSig.getHolderId())) {
+                holder = hq.getHolder(holderSig.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                if (hq.checkCurrentSignature(holderSig.getHolderId())) {
+                    logger.info("Holder has current signature - [{}]", login.getUserId());
+                    flag = true;
+                } else {
+                    flag = true;
+                }
+            }
+            
+            if (flag) {
+                long fileSize = BytesConverter.decodeToBytes(holderSig.getSignatureContent()).length;
+                
+                if (fileSize <= defaultSize) {
+                    wrapper = new NotificationWrapper();
+                    prop = new NotifierProperties(HolderComponentLogic.class);
+                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                    
+                    List<HolderSignature> holderListSignature = new ArrayList<>();
+                    holderListSignature.add(holderSig);
+                    
+                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setDescription("Authenticate creation of holder signature for holder " + holder.getFirstName() + " " + holder.getLastName());
+                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setFrom(login.getUserId());
+                    wrapper.setTo(authenticator);
+                    wrapper.setModel(holderListSignature);
+                    
+                    logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    resp = queue.sendAuthorisationRequest(wrapper);
+                    return resp;
+                }
+                resp.setRetn(323);
+                resp.setDesc("Error uploading signature. Signature can be no bigger than 2MB");
+                logger.info("Error uploading signature. Signature can be no bigger than 2MB: [{}] - [{}]", resp.getRetn(), login.getUserId());
+                return resp;
+            }
+            resp.setRetn(323);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder signature upload. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder signature upload - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder signature upload. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes the saved request to upload holder signature.
+     * @param login user's login details
+     * @param notificationCode the notification code
+     * @return response to the upload holder signature request
+     */
+    public Response uploadHolderSignature_Authorise(Login login, String notificationCode) {
+        logger.info("authorise holder signature upload, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<HolderSignature> holdSigntureList = (List<HolderSignature>) wrapper.getModel();
+            HolderSignature sigModel = holdSigntureList.get(0);
+            
+            org.greenpole.hibernate.entity.HolderSignature sigEntity = new org.greenpole.hibernate.entity.HolderSignature();
+            org.greenpole.hibernate.entity.HolderSignature currentSig = new org.greenpole.hibernate.entity.HolderSignature();
+            
+            long defaultSize = Long.valueOf(greenProp.getSignatureSize());
+            
+            if (hq.checkHolderAccount(sigModel.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(sigModel.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+                
+                boolean currentSigExists = hq.checkCurrentSignature(sigModel.getHolderId());
+                if (currentSigExists) {
+                    currentSig = hq.getCurrentSignature(sigModel.getHolderId());
+                    logger.info("Holder has current signature - [{}]", login.getUserId());
+                }
+                
+                GreenpoleFile file = new GreenpoleFile(greenProp.getSignaturePath());
+                long fileSize = BytesConverter.decodeToBytes(sigModel.getSignatureContent()).length;
+
+                if (fileSize <= defaultSize) {
+                    logger.info("Holder signature met file size requirement - [{}]", login.getUserId());
+
+                    if (file.createFile(BytesConverter.decodeToBytes(sigModel.getSignatureContent()))) {
+                        logger.info("Holder signature file created and saved - [{}]", login.getUserId());
+
+                        String filepath = file.getFolderPath() + file.getFileName();
+
+                        sigEntity.setTitle(sigModel.getTitle());
+                        sigEntity.setSignaturePath(filepath);
+
+                        sigEntity.setHolderSignaturePrimary(true);
+                        sigEntity.setHolder(holder);
+
+                        boolean uploaded;
+                        if (currentSigExists) {
+                            uploaded = hq.uploadHolderSignature(sigEntity, currentSig);
+                        } else {
+                            uploaded = hq.uploadHolderSignature(sigEntity, null);
+                        }
+
+                        if (uploaded) {
+                            resp.setRetn(0);
+                            resp.setDesc("Successful");
+                            logger.info("Holder signature successfully uploaded - [{}]", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(324);
+                        resp.setDesc("Holder signature upload failed due to database error. Contact Administrator.");
+                        logger.info("Holder signature upload failed due to database error. Check error logs - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(324);
+                    resp.setDesc("The Holder signature file could not be uploaded onto the server. Contact Administrator");
+                    logger.info("The Holder signature file could not be uploaded onto the server. See error logs - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(324);
+                resp.setDesc("The size of the holder signature cannot exceed 2MB.");
+                logger.info("The size of the holder signature cannot exceed 2MB - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(324);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to upload holder signature. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error uploading holder signature. See error log - [{}]", login.getUserId());
+            logger.error("error uploading holder signature - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to upload holder signature. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to query holder signature.
+     * @param login user's login details
+     * @param authenticator the authenticator user meant to receive the
+     * notification details
+     * @param queryParams the query parameters
+     * @return response to query holder signature request
+     */
+    public Response queryHolderSignature_Request(Login login, String authenticator, HolderSignature queryParams) {
+        logger.info("request to query holder signature, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            HolderSignature sigModel = new HolderSignature();
+            
+            if (hq.checkHolderAccount(queryParams.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(queryParams.getHolderId());
+                logger.info("Holder [{}] checks out - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
+
+                org.greenpole.hibernate.entity.HolderSignature sig_hib = hq.getCurrentSignature(queryParams.getHolderId());
+
+                File file = new File(sig_hib.getSignaturePath());
+                byte[] read = Files.readAllBytes(file.toPath());
+                String encodedContents = BytesConverter.encodeToString(read);
+                logger.info("Holder signature file successfully read - [{}]", login.getUserId());
+
+                sigModel.setId(sig_hib.getId());
+                sigModel.setHolderId(sig_hib.getHolder().getId());
+                sigModel.setTitle(sig_hib.getTitle());
+                sigModel.setSignaturePath(sig_hib.getSignaturePath());
+                sigModel.setSignatureContent(encodedContents);
+                sigModel.setPrimarySignature(sig_hib.isHolderSignaturePrimary());
+
+                List<HolderSignature> sig_result = new ArrayList<>();
+                sig_result.add(sigModel);
+
+                resp.setRetn(0);
+                resp.setDesc("Successful");
+                resp.setBody(sig_result);
+                logger.info("Holder signature query successful - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(325);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error querying holder signature. See error log - [{}]", login.getUserId());
+            logger.error("error querying holder signature - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to query holder signature. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to transpose holder name.
+     * @param login user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param holder the holder detail
+     * @return response to the transpose name request
+     */
+    public Response transposeHolderName_Request(Login login, String authenticator, Holder holder) {
+        logger.info("request to transpose holder name, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
+        
+        String desc = "";
+        boolean flag = false;
+        
+        try {
+            
+            if (hq.checkHolderAccount(holder.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder_hib = hq.getHolder(holder.getHolderId());
+                logger.info("holder does not exits - [{}] [{}]", holder.getFirstName(), holder.getLastName());
+                
+                if (!"".equals(holder.getFirstName()) || holder.getFirstName() != null) {
+                    desc = "\nThe holder's first name cannot be empty";
+                } else if (!"".equals(holder.getLastName()) || holder.getLastName() != null) {
+                    desc = "\nThe holder's last name cannot be empty";
+                } else {
+                    flag = true;
+                }
+
+                if (flag) {
+                    wrapper = new NotificationWrapper();
+                    prop = new NotifierProperties(HolderComponentLogic.class);
+                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+
+                    List<Holder> holdList = new ArrayList<>();
+                    holdList.add(holder);
+
+                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setDescription("Authenticate transpose request for holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName());
+                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setFrom(login.getUserId());
+                    wrapper.setTo(authenticator);
+                    wrapper.setModel(holdList);
+                    
+                    logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    resp = queue.sendAuthorisationRequest(wrapper);
+                    return resp;
+                }
+                resp.setRetn(326);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in holder name tranpose process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(326);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder name transpose. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder name transpose - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder name transpose. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes request to transpose holder names.
+     * @param login user's login details
+     * @param notificationCode the notification code
+     * @return response object for the authorised request
+     */
+    public Response transposeHolderName_Authorise(Login login, String notificationCode) {
+        logger.info("authorise holder name transpose, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        String desc = "";
+        boolean flag = false;
+
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Holder> holdList = (List<Holder>) wrapper.getModel();
+            Holder holder = holdList.get(0);
+            
+            if (hq.checkHolderAccount(holder.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder_hib = hq.getHolder(holder.getHolderId());
+                logger.info("holder does not exits - [{}] [{}]", holder.getFirstName(), holder.getLastName());
+                
+                if (!"".equals(holder.getFirstName()) || holder.getFirstName() != null) {
+                    desc = "\nThe holder's first name cannot be empty";
+                } else if (!"".equals(holder.getLastName()) || holder.getLastName() != null) {
+                    desc = "\nThe holder's last name cannot be empty";
+                } else {
+                    flag = true;
+                }
+                
+                if (flag) {
+                    holder_hib.setFirstName(holder.getFirstName());
+                    holder_hib.setLastName(holder.getLastName());
+                    
+                    hq.updateHolderAccountForTranspose(holder_hib);
+                    
+                    resp.setRetn(0);
+                    resp.setDesc("Successful");
+                    logger.info("Holder name transpose sucessful - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(327);
+                resp.setDesc("Error: " + desc);
+                logger.info("error detected in holder name tranpose process - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(327);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to proccess holder name transpose. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder name transpose. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder name transpose - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder name transpose. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to edit holder details.
+     * @param login user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param holder the edited holder details
+     * @return response to the edit holder details request
+     */
+    public Response editHolderDetails_Request(Login login, String authenticator, Holder holder) {
+
+        Response resp = new Response();
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
+        
+        String desc = "";
+        boolean flag = false;
+
+        try {
+            wrapper = new NotificationWrapper();
+            prop = new NotifierProperties(HolderComponentLogic.class);
+            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            
+            //holder must exist
+            if (hq.checkHolderAccount(holder.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holderEntity = hq.getHolder(holder.getHolderId());
+                logger.info("holder exists - [{}]: [{}]", login.getUserId(), holderEntity.getFirstName() + " " + holderEntity.getLastName());
+
+                //holder must be primary to be edited
+                if (holderEntity.isPryHolder()) {
+
+                    if (holder.getFirstName() == null || "".equals(holder.getFirstName())) {
+                        desc = "\nHolder first name should not be empty";
+                    } else if (holder.getLastName() == null || "".equals(holder.getLastName())) {
+                        desc += "\nHolder last name should not be empty";
+                    } else if (holder.getTypeId() <= 0) {
+                        desc += "\nHolder type should not be empty";
+                    } else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                        desc += "\nPrimary Holder address is not specified";
+                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                        desc += "\nPrimary address can only be residential or postal";
+                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                        desc += "\nResidential address cannot be empty, as it is the primary address";
+                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                            && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                        desc += "\nPostal address cannot be empty, as it is the primary address";
+                    } else {
+                        flag = true;
+                    }
+
+                    if (flag && holder.getTypeId() > 0) {
+                        boolean found = false;
+                        for (HolderType ht : hq.getAllHolderTypes()) {
+                            if (holder.getTypeId() == ht.getId()) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            desc += "\nHolder type is not valid";
+                            flag = false;
+                        }
+                    }
+
+                    if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
+                        for (Address addr : holder.getHolderResidentialAddresses()) {
+                            if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getState() == null || "".equals(addr.getState())) {
+                                desc += "\nState should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
+                        for (Address addr : holder.getHolderPostalAddresses()) {
+                            if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getState() == null || "".equals(addr.getState())) {
+                                desc += "\nState should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                            if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                            if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+   
+                    if (flag && (holderEntity.getChn() != null || "".equals(holderEntity.getChn()))
+                            && (holder.getChn() == null || "".equals(holder.getChn()))) {
+                        desc += "\nCHN cannot be erased";
+                        flag = false;
+                    }
+                    
+                    if (flag) {
+                        List<Holder> holdList = new ArrayList<>();
+                        holdList.add(holder);
+                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
+                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setFrom(login.getUserId());
+                        wrapper.setTo(authenticator);
+                        wrapper.setModel(holdList);
+                        
+                        logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        resp = queue.sendAuthorisationRequest(wrapper);
+                        return resp;
+                    }
+                    resp.setRetn(328);
+                    resp.setDesc("Error filing holder details: " + desc);
+                    logger.info("Error filing holder details: [{}] - [{}]", desc, login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(328);
+                resp.setDesc("Holder account is not a primary account. Non-primary accounts cannot be edited");
+                logger.info("Holder account is not a primary account. Non-primary accounts cannot be edited - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(328);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("Error editing holder account. See error log - [{}]", login.getUserId());
+            logger.error("Error editing holder account - [" + login.getUserId() + "] - ", ex);
+            resp.setRetn(99);
+            resp.setDesc("General Error. Unable to editing holder account. Contact system administrator." + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes request authorisation to edit holder details
+     *
+     * @param login user's login details
+     * @param notificationCode the notification code
+     * @return response object for the authorized edit holder details request
+     */
+    public Response editHolderDetails_Authorise(Login login, String notificationCode) {
+        logger.info("request authorisation to persist holder details. Invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        String desc = "";
+        boolean flag = false;
+
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            List<Holder> holderEditList = (List<Holder>) wrapper.getModel();
+            Holder holder = holderEditList.get(0);
+
+            //holder must exist
+            if (hq.checkHolderAccount(holder.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holderEntity = hq.getHolder(holder.getHolderId());
+                logger.info("holder exists - [{}]: [{}]", login.getUserId(), holderEntity.getFirstName() + " " + holderEntity.getLastName());
+
+                //holder must be primary to be edited
+                if (holderEntity.isPryHolder()) {
+
+                    if (holder.getFirstName() == null || "".equals(holder.getFirstName())) {
+                        desc = "\nHolder first name should not be empty";
+                    } else if (holder.getLastName() == null || "".equals(holder.getLastName())) {
+                        desc += "\nHolder last name should not be empty";
+                    } else if (holder.getTypeId() <= 0) {
+                        desc += "\nHolder type should not be empty";
+                    } else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                        desc += "\nPrimary Holder address is not specified";
+                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                        desc += "\nPrimary address can only be residential or postal";
+                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                        desc += "\nResidential address cannot be empty, as it is the primary address";
+                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                            && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                        desc += "\nPostal address cannot be empty, as it is the primary address";
+                    } else {
+                        flag = true;
+                    }
+
+                    if (flag && holder.getTypeId() > 0) {
+                        boolean found = false;
+                        for (HolderType ht : hq.getAllHolderTypes()) {
+                            if (holder.getTypeId() == ht.getId()) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            desc += "\nHolder type is not valid";
+                            flag = false;
+                        }
+                    }
+
+                    if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
+                        for (Address addr : holder.getHolderResidentialAddresses()) {
+                            if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getState() == null || "".equals(addr.getState())) {
+                                desc += "\nState should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
+                        for (Address addr : holder.getHolderPostalAddresses()) {
+                            if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getState() == null || "".equals(addr.getState())) {
+                                desc += "\nState should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if (addr.getCountry() == null || "".equals(addr.getCountry())) {
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                            if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                            if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+   
+                    if (flag && (holderEntity.getChn() != null || "".equals(holderEntity.getChn()))
+                            && (holder.getChn() == null || "".equals(holder.getChn()))) {
+                        desc += "\nCHN cannot be erased";
+                        flag = false;
+                    }
+
+                    if (flag) {
+                        HolderType typeEntity = new HolderType();
+                        
+                        typeEntity.setId(holder.getTypeId());
+                        
+                        holderEntity.setFirstName(holder.getFirstName());
+                        holderEntity.setMiddleName(holder.getMiddleName());
+                        holderEntity.setLastName(holder.getLastName());
+                        holderEntity.setType(typeEntity);
+                        holderEntity.setGender(holder.getGender());
+                        holderEntity.setDob(formatter.parse(holder.getDob()));
+                        holderEntity.setChn(holder.getChn());
+                        List<org.greenpole.hibernate.entity.HolderChanges> holderChangesList = new ArrayList<>();
+                        org.greenpole.hibernate.entity.HolderChanges changes = new org.greenpole.hibernate.entity.HolderChanges();
+
+                        for (org.greenpole.entity.model.holder.HolderChanges hc : holder.getChanges()) {
+                            HolderChangeType changeType = new HolderChangeType();
+                            changeType.setId(hc.getChangeTypeId());
+                            
+                            changes.setHolder(holderEntity);
+                            changes.setInitialForm(hc.getInitialForm());
+                            changes.setCurrentForm(hc.getCurrentForm());
+                            changes.setChangeDate(formatter.parse(hc.getChangeDate()));
+                            changes.setHolderChangeType(changeType);
+                            
+                            holderChangesList.add(changes);
+                        }
+                        
+                        boolean updated = hq.updateHolderAccount(holderEntity, retrieveHolderResidentialAddress(holder),
+                                retrieveHolderPostalAddress(holder), retrieveHolderPhoneNumber(holder),
+                                retrieveHolderEmailAddress(holder), holderChangesList);
+                        
+                        if (updated) {
+                            resp.setRetn(0);
+                            resp.setDesc("Holder details saved");
+                            logger.info("Holder account update successful - [{}]", login.getUserId());
+                            // Send SMS/Email notification to shareholder
+                            return resp;
+                        } else {
+                            resp.setRetn(329);
+                            resp.setDesc("An error occurred while updating the holder's details. Contact Administrator.");
+                            logger.info("An error occurred while updating the holder's details - [{}]", login.getUserId());
+                            // Send SMS/Email notification to shareholder IF USER PERMITS
+                            return resp;
+                        }
+                    }
+                    resp.setRetn(329);
+                    resp.setDesc("Error filing holder details: " + desc);
+                    logger.info("Error filing holder details: [{}] - [{}]", desc, login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(329);
+                resp.setDesc("Holder account is not a primary account. Non-primary accounts cannot be edited");
+                logger.info("Holder account is not a primary account. Non-primary accounts cannot be edited - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(329);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(98);
+            resp.setDesc("Unable to proccess holder details edit. Contact System Administrator");
+            
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder name transpose. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder name transpose - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder name transpose. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }
@@ -2597,5 +3988,164 @@ public class HolderComponentLogic {
             res_set.add(admin_res_hib); //add residential address to set
         }
         admin_hib.setAdministratorResidentialAddresses(res_set); //add set to administrator hibernate entity
+    }
+    
+    
+    /**
+     * Unwraps the holder postal address details from the HolderModel into
+     * HolderPostalAddress hibernate entity
+     *
+     * @param holdModel the holderModel of holder details
+     * @param newEntry boolean value indicating new entry
+     * @return List object of HolderPostalAddress hibernate entity
+     */
+    private List<HolderPostalAddress> retrieveHolderPostalAddress(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
+        List<org.greenpole.entity.model.Address> hpaddyList = (List<org.greenpole.entity.model.Address>) holdModel.getHolderPostalAddresses();
+        List<org.greenpole.hibernate.entity.HolderPostalAddress> returnHolderPostalAddress = new ArrayList<>();
+
+        for (org.greenpole.entity.model.Address hpa : hpaddyList) {
+            HolderPostalAddressId postalAddyId = new HolderPostalAddressId();
+            /*if (newEntry) {
+                postalAddyId.setHolderId(holdModel.getHolderId());
+            }*/
+            postalAddyId.setAddressLine1(hpa.getAddressLine1());
+            postalAddyId.setState(hpa.getState());
+            postalAddyId.setCountry(hpa.getCountry());
+            postalAddressEntity.setId(postalAddyId);
+            postalAddressEntity.setAddressLine2(hpa.getAddressLine2());
+            postalAddressEntity.setAddressLine3(hpa.getAddressLine3());
+            postalAddressEntity.setCity(hpa.getCity());
+            postalAddressEntity.setPostCode(hpa.getPostCode());
+            postalAddressEntity.setIsPrimary(hpa.isPrimaryAddress());
+            returnHolderPostalAddress.add(postalAddressEntity);
+        }
+        return returnHolderPostalAddress;
+    }
+
+    /**
+     * Unwraps holder phone number details from the holder model passed as
+     * parameter into HolderPhoneNumber hibernate entity
+     * @param holdModel object of holder details
+     * @param newEntry boolean variable indicating whether or not the entry is
+     * new
+     * @return List of HolderPhoneNumber objects retrieveHolderEmailAddress
+     */
+    private List<HolderPhoneNumber> retrieveHolderPhoneNumber(Holder holdModel/*, boolean newEntry*/) {
+
+        org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
+        List<org.greenpole.entity.model.PhoneNumber> phoneNumberList = holdModel.getHolderPhoneNumbers();
+        List<org.greenpole.hibernate.entity.HolderPhoneNumber> returnPhoneNumber = new ArrayList<>();
+
+        for (PhoneNumber pnList : phoneNumberList) {
+            HolderPhoneNumberId phoneNoId = new HolderPhoneNumberId();
+            /*if (newEntry) {
+                phoneNoId.setHolderId(holdModel.getHolderId());
+            }*/
+            phoneNoId.setPhoneNumber(pnList.getPhoneNumber());
+            phoneNumberEntity.setIsPrimary(pnList.isPrimaryPhoneNumber());
+            phoneNumberEntity.setId(phoneNoId);
+        }
+        return returnPhoneNumber;
+    }
+
+    /**
+     * Unwraps Holder email address from the holder model into
+     * HolderEmailAddress hibernate entity object
+     * @param holdModel object to holder model
+     * @param newEntry boolean variable indicating whether or not entry is new
+     * @return List of HolderEmailAddress hibernate entity objects
+     */
+    private List<HolderEmailAddress> retrieveHolderEmailAddress(Holder holdModel/*, boolean newEntry*/) {
+
+        org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
+        List<org.greenpole.entity.model.EmailAddress> emailAddressList = holdModel.getHolderEmailAddresses();
+        List<org.greenpole.hibernate.entity.HolderEmailAddress> returnEmailAddress = new ArrayList<>();
+
+        for (EmailAddress email : emailAddressList) {
+            HolderEmailAddressId emailId = new HolderEmailAddressId();
+            /*if (newEntry) {
+                emailId.setHolderId(holdModel.getHolderId());
+            }*/
+            emailId.setEmailAddress(email.getEmailAddress());
+            emailAddressEntity.setIsPrimary(email.isPrimaryEmail());
+            emailAddressEntity.setId(emailId);
+        }
+        return returnEmailAddress;
+    }
+
+    /**
+     * Unwraps Holder residential address from the holder model into
+     * HolderResidentialAddress hibernate entity object.
+     * @param holdModel object of holder model
+     * @param newEntry boolean variable indicating whether or not entry is new
+     * @return List of HolderResidentialAddress hibernate entity objects
+     */
+    private List<HolderResidentialAddress> retrieveHolderResidentialAddress(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderResidentialAddress residentialAddressEntity = new org.greenpole.hibernate.entity.HolderResidentialAddress();
+        List<org.greenpole.entity.model.Address> residentialAddressList = (List<org.greenpole.entity.model.Address>) holdModel.getHolderResidentialAddresses();
+        List<org.greenpole.hibernate.entity.HolderResidentialAddress> returnResidentialAddress = new ArrayList();
+
+        for (org.greenpole.entity.model.Address rAddy : residentialAddressList) {
+            HolderResidentialAddressId rAddyId = new HolderResidentialAddressId();
+            /*if (newEntry) {
+                rAddyId.setHolderId(holdModel.getHolderId());
+            }*/
+            rAddyId.setAddressLine1(rAddy.getAddressLine1());
+            rAddyId.setState(rAddy.getState());
+            rAddyId.setCountry(rAddy.getCountry());
+
+            residentialAddressEntity.setId(rAddyId);
+            residentialAddressEntity.setAddressLine2(rAddy.getAddressLine2());
+            residentialAddressEntity.setAddressLine3(rAddy.getAddressLine3());
+            residentialAddressEntity.setAddressLine4(rAddy.getAddressLine4());
+            residentialAddressEntity.setCity(rAddy.getCity());
+            residentialAddressEntity.setPostCode(rAddy.getPostCode());
+
+            returnResidentialAddress.add(residentialAddressEntity);
+        }
+        return returnResidentialAddress;
+    }
+
+    /**
+     * Unwraps holder company account details from the holder model.
+     * @param holdModel object of the holder model
+     * @param newEntry boolean variable indicating whether or not entry is new
+     * @return object of HolderCompanyAccount
+     */
+    private org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderCompanyAccount companyAccountEntity = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+        org.greenpole.entity.model.holder.HolderCompanyAccount compAcct = holdModel.getHolderCompanyAccounts().get(0);
+        HolderCompanyAccountId compAcctId = new HolderCompanyAccountId();
+        
+        compAcctId.setClientCompanyId(compAcct.getClientCompanyId());
+        
+        companyAccountEntity.setId(compAcctId);
+        companyAccountEntity.setEsop(compAcct.isEsop());
+        companyAccountEntity.setHolderCompAccPrimary(true);
+        companyAccountEntity.setMerged(false);
+        
+        return companyAccountEntity;
+    }
+    
+    /**
+     * Unwraps Holder bond account details from holder model.
+     * @param holdModel object of holder model
+     * @param newEntry boolean variable indicating whether or not entry is new
+     * @return HolderBondAccount object
+     */
+    private org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondAccount(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderBondAccount bondAccountEntity = new org.greenpole.hibernate.entity.HolderBondAccount();
+        org.greenpole.entity.model.holder.HolderBondAccount bondAcct = holdModel.getHolderBondAccounts().get(0);
+        HolderBondAccountId bondAcctId = new HolderBondAccountId();
+        
+        bondAcctId.setBondOfferId(bondAcct.getBondOfferId());
+        
+        bondAccountEntity.setId(bondAcctId);
+        bondAccountEntity.setStartingPrincipalValue(bondAcct.getStartingPrincipalValue());
+        bondAccountEntity.setHolderBondAccPrimary(true);
+        bondAccountEntity.setMerged(false);
+        
+        return bondAccountEntity;
     }
 }
