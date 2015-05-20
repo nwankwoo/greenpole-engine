@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
-import org.greenpole.entity.model.AddressTag;
+import org.greenpole.entity.tags.AddressTag;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.UnitTransfer;
@@ -75,6 +75,7 @@ import org.greenpole.util.GreenpoleFile;
 import org.greenpole.util.Manipulator;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
+import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,6 +90,7 @@ public class HolderComponentLogic {
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GreenpoleProperties greenProp = new GreenpoleProperties(HolderComponentLogic.class);
+    private final NotificationProperties notificationProp = new NotificationProperties(HolderComponentLogic.class);
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     
     /**
@@ -208,7 +210,7 @@ public class HolderComponentLogic {
         
         try {
             //get Holder Merger model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
             HolderMerger merger = merger_list.get(0);
             
@@ -301,7 +303,7 @@ public class HolderComponentLogic {
                     }
                     boolean merged;
                     if (!similarToActive) {
-                        merged = hq.mergeHolderAccounts(pryHolder, secHolders, secHolderCompAccts, secHolderBondAccts);
+                        merged = hq.mergeHolderAccounts(pryHolder, secHolders, secHolderCompAccts, secHolderBondAccts, merger.getPryHolderOriginalValues());
                     } else {
                         resp.setRetn(301);
                         resp.setDesc("Merge unsuccessful, because one of the secondary holders has an active bond account "
@@ -312,6 +314,8 @@ public class HolderComponentLogic {
                     }
 
                     if (merged) {
+                        wrapper.setAttendedTo(true);
+                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                         resp.setRetn(0);
                         resp.setDesc("Successful merge");
                         logger.info("Successful merge - [{}]", login.getUserId());
@@ -433,7 +437,7 @@ public class HolderComponentLogic {
 
         try {
             //get Holder Merger model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
             HolderMerger demerger = merger_list.get(0);
             
@@ -482,18 +486,35 @@ public class HolderComponentLogic {
                             compAcctRecords = hq.getCompanyAccountMerges(secHolder.getId());
 
                             for (CompanyAccountConsolidation cac : compAcctRecords) {
-                                if (cac.isTransfer()) {//company account merge was transfer as a result of similar company acct in pry & sec holder
-                                    int finalUnit = hq.getFinalUnitAfterTransfer(cac.getTiedToCurrentHolderId(), cac.getForCompanyId());
-                                    org.greenpole.hibernate.entity.HolderCompanyAccount pry_hca = hq.getHolderCompanyAccount(cac.getTiedToCurrentHolderId(), cac.getForCompanyId());
-                                    ClientCompany cc_info = cq.getClientCompany(cac.getForCompanyId());//for client company information
-                                    if (finalUnit != pry_hca.getShareUnits()) {
-                                        resp.setRetn(303);
-                                        resp.setDesc("The account for the company - " + cc_info.getName() + " - has already been "
-                                                + "involved in a number of transactions, and so demerge cannot occur."
-                                                + "\nContact Administrator.");
-                                        logger.info("The account for the company - [{}] - has already been "
-                                                + "involved in a number of transactions, and so demerge cannot occur - [{}]", cc_info.getName(), login.getUserId());
-                                        return resp;
+                                if (cac.isTransfer()) {//company account merge is set to transfer as a result of similar company acct in pry & sec holder
+                                    if (cac.getForCompanyId() > 0) {//determine if transfer is for comp acct
+                                        int finalUnit = hq.getFinalUnitAfterTransfer(cac.getTiedToCurrentHolderId(), cac.getForCompanyId(), true);
+                                        org.greenpole.hibernate.entity.HolderCompanyAccount pry_hca = hq.getHolderCompanyAccount(cac.getTiedToCurrentHolderId(), cac.getForCompanyId());
+                                        ClientCompany cc_info = cq.getClientCompany(cac.getForCompanyId());//for client company information
+                                        if (finalUnit != pry_hca.getShareUnits()) {
+                                            resp.setRetn(303);
+                                            resp.setDesc("The account for the company - " + cc_info.getName() + " - has already been "
+                                                    + "involved in a number of transactions, and so demerge cannot occur."
+                                                    + "\nContact Administrator.");
+                                            logger.info("The account for the company - [{}] - has already been "
+                                                    + "involved in a number of transactions, and so demerge cannot occur - [{}]", cc_info.getName(), login.getUserId());
+                                            return resp;
+                                        }
+                                    }
+                                    
+                                    if (cac.getForBondOfferId() > 0) {//determine if transfer is for bond acct
+                                        int finalUnit = hq.getFinalUnitAfterTransfer(cac.getTiedToCurrentHolderId(), cac.getForBondOfferId(), false);
+                                        org.greenpole.hibernate.entity.HolderBondAccount pry_hba = hq.getHolderBondAccount(cac.getTiedToCurrentHolderId(), cac.getForBondOfferId());
+                                        BondOffer bo_info = cq.getBondOffer(cac.getForBondOfferId());//for bond offer information
+                                        if (finalUnit != pry_hba.getBondUnits()) {
+                                            resp.setRetn(303);
+                                            resp.setDesc("The account for the bond offer - " + bo_info.getTitle() + " - has already been "
+                                                    + "involved in a number of transactions, and so demerge cannot occur."
+                                                    + "\nContact Administrator.");
+                                            logger.info("The account for the bond offer - [{}] - has already been "
+                                                    + "involved in a number of transactions, and so demerge cannot occur - [{}]", bo_info.getTitle(), login.getUserId());
+                                            return resp;
+                                        }
                                     }
                                 }
                             }
@@ -502,6 +523,8 @@ public class HolderComponentLogic {
                         
                         boolean demerge = hq.demergeHolderAccounts(pryHolder, secondaryMergeInfo);
                         if (demerge) {
+                            wrapper.setAttendedTo(true);
+                            Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                             resp.setRetn(0);
                             resp.setDesc("Demerge Successful.");
                             logger.info("Demerge Successful - [{}]", login.getUserId());
@@ -715,7 +738,7 @@ public class HolderComponentLogic {
         logger.info("authorise share unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
             UnitTransfer unitTransfer = transferList.get(0);
             
@@ -753,7 +776,8 @@ public class HolderComponentLogic {
                                         logger.info("receiver holder has company account - [{}]", login.getUserId());
                                         org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
                                         //begin transfer
-                                        return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName, login);
+                                        return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName, login,
+                                                notificationCode, wrapper);
                                     }
                                     //no company account? attempt to create one for them if they have a chn
                                     if (receiverHolderChnExists) {
@@ -768,7 +792,8 @@ public class HolderComponentLogic {
                                         hq.createUpdateHolderCompanyAccount(receiverCompAcct);
                                         logger.info("receiver holder now has company account - [{}]", login.getUserId());
                                         //proceed with transfer
-                                        return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName, login);
+                                        return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName, login,
+                                                notificationCode, wrapper);
                                     }
                                     //no chn in main account? create certificate
                                     //METHOD TO CREATE CERTIFICATE HERE!!!
@@ -776,6 +801,8 @@ public class HolderComponentLogic {
                                     if (certCreated) {
                                         //QUERY CERTIFICATE FOR NUMBER
                                         String certNumber = "temp";
+                                        wrapper.setAttendedTo(true);
+                                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                                         resp.setRetn(0);
                                         resp.setDesc("Transaction Successful. Certificate " + certNumber + " created for " + receiverName);
                                         logger.info("Transaction Successful. Certificate [{}] created for [{}] - [{}]",
@@ -992,7 +1019,7 @@ public class HolderComponentLogic {
         logger.info("authorise bond unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
             UnitTransfer unitTransfer = transferList.get(0);
             
@@ -1029,7 +1056,8 @@ public class HolderComponentLogic {
                                         logger.info("receiver holder has bond account - [{}]", login.getUserId());
                                         org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                         //proceed with transaction
-                                        return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName, login);
+                                        return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName, login,
+                                                notificationCode, wrapper);
                                     }
                                     //no bond account? attempt to create one for them
                                     logger.info("receiver holder has no bond account, but has CHN. "
@@ -1037,11 +1065,13 @@ public class HolderComponentLogic {
                                     org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = new org.greenpole.hibernate.entity.HolderBondAccount();
                                     HolderBondAccountId receiverBondAcctId = new HolderBondAccountId(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                     receiverBondAcct.setId(receiverBondAcctId);
+                                    receiverBondAcct.setStartingPrincipalValue(0.00);
                                     receiverBondAcct.setMerged(false);
                                     receiverBondAcct.setHolderBondAccPrimary(true);
                                     hq.createUpdateHolderBondAccount(receiverBondAcct);
                                     //proceed with transfer
-                                    return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName, login);
+                                    return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName, login,
+                                            notificationCode, wrapper);
                                 }
                                 resp.setRetn(307);
                                 resp.setDesc("The holder - " + senderName + " - has no recorded CHN in his bond account. Transaction cancelled.");
@@ -1105,11 +1135,14 @@ public class HolderComponentLogic {
      * @param receiverName the receiver's name
      * @return the response from the transfer
      */
-    private Response invokeTransfer(org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct, Response resp, String senderName, String receiverName, Login login) {
+    private Response invokeTransfer(org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct, Response resp, String senderName, String receiverName, Login login,
+            String notificationCode, NotificationWrapper wrapper) throws JAXBException {
         if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
             if (senderCompAcct.getShareUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
                 boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits());
                 if (transfered) {
+                    wrapper.setAttendedTo(true);
+                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                     resp.setRetn(0);
                     resp.setDesc("Successful Transfer");
                     logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]",
@@ -1142,19 +1175,29 @@ public class HolderComponentLogic {
      * @param receiverName the receiver's name
      * @return the response from the transfer
      */
-    private Response invokeTransfer(org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct, Response resp, String senderName, String receiverName, Login login) {
+    private Response invokeTransfer(org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct, Response resp, String senderName, String receiverName, Login login,
+            String notificationCode, NotificationWrapper wrapper) throws JAXBException {
         if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
             if (senderBondAcct.getBondUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-                boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice());
-                if (transfered) {
-                    resp.setRetn(0);
-                    resp.setDesc("Successful Transfer");
-                    logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
+                double transferValue = unitTransfer.getUnits() * unitTransfer.getUnitPrice();
+                if (senderBondAcct.getRemainingPrincipalValue() >= transferValue) {
+                    boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice());
+                    if (transfered) {
+                        wrapper.setAttendedTo(true);
+                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                        resp.setRetn(0);
+                        resp.setDesc("Successful Transfer");
+                        logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(307);
+                    resp.setDesc("Transfer Unsuccesful. An error occured in the database engine. Contact System Administrator");
+                    logger.info("Transfer Unsuccesful. An error occured in the database engine - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
                     return resp;
                 }
                 resp.setRetn(307);
-                resp.setDesc("Transfer Unsuccesful. An error occured in the database engine. Contact System Administrator");
-                logger.info("Transfer Unsuccesful. An error occured in the database engine - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
+                resp.setDesc("Transfer Unsuccesful. Value of transfer is greater than value left to be redeemed.");
+                logger.info("Transfer Unsuccesful. Value of transfer is greater than value left to be redeemed - [{}]", login.getUserId()); //all methods in hibernate must throw hibernate exception
                 return resp;
             }
             resp.setRetn(307);
@@ -1227,7 +1270,8 @@ public class HolderComponentLogic {
                 change_type_hib.setId(queryParams.getHolderChanges().getChangeTypeId());
                 changes_hib.setHolderChangeType(change_type_hib);
 
-                List<org.greenpole.hibernate.entity.HolderChanges> changes_hib_result = hq.queryHolderChanges(queryParams.getDescriptor(), changes_hib, queryParams.getStart_date(), queryParams.getEnd_date());
+                List<org.greenpole.hibernate.entity.HolderChanges> changes_hib_result = hq.queryHolderChanges(queryParams.getDescriptor(), changes_hib,
+                        queryParams.getStart_date(), queryParams.getEnd_date(), greenProp.getDateFormat());
                 logger.info("retrieved holder changes result from query. Preparing local model - [{}]", login.getUserId());
                 List<Holder> return_list = new ArrayList<>();
 
@@ -1352,8 +1396,8 @@ public class HolderComponentLogic {
                 }
 
                 Address h_res_model_search;
-                if (!queryParams.getHolder().getHolderResidentialAddresses().isEmpty() && queryParams.getHolder().getHolderResidentialAddresses() != null) {
-                    h_res_model_search = queryParams.getHolder().getHolderResidentialAddresses().get(0);
+                if (!queryParams.getHolder().getResidentialAddresses().isEmpty() && queryParams.getHolder().getResidentialAddresses() != null) {
+                    h_res_model_search = queryParams.getHolder().getResidentialAddresses().get(0);
 
                     h_res_id_hib_search.setAddressLine1(h_res_model_search.getAddressLine1());
                     h_res_id_hib_search.setState(h_res_model_search.getState());
@@ -1375,8 +1419,8 @@ public class HolderComponentLogic {
                 }
 
                 Address h_pos_model_search;
-                if (!queryParams.getHolder().getHolderPostalAddresses().isEmpty() && queryParams.getHolder().getHolderPostalAddresses() != null) {
-                    h_pos_model_search = queryParams.getHolder().getHolderPostalAddresses().get(0);
+                if (!queryParams.getHolder().getPostalAddresses().isEmpty() && queryParams.getHolder().getPostalAddresses() != null) {
+                    h_pos_model_search = queryParams.getHolder().getPostalAddresses().get(0);
 
                     h_pos_id_hib_search.setAddressLine1(h_pos_model_search.getAddressLine1());
                     h_pos_id_hib_search.setState(h_pos_model_search.getState());
@@ -1398,8 +1442,8 @@ public class HolderComponentLogic {
                 }
 
                 EmailAddress h_email_model_search;
-                if (!queryParams.getHolder().getHolderEmailAddresses().isEmpty() && queryParams.getHolder().getHolderEmailAddresses() != null) {
-                    h_email_model_search = queryParams.getHolder().getHolderEmailAddresses().get(0);
+                if (!queryParams.getHolder().getEmailAddresses().isEmpty() && queryParams.getHolder().getEmailAddresses() != null) {
+                    h_email_model_search = queryParams.getHolder().getEmailAddresses().get(0);
 
                     h_email_id_hib_search.setEmailAddress(h_email_model_search.getEmailAddress());
 
@@ -1414,8 +1458,8 @@ public class HolderComponentLogic {
                 }
 
                 PhoneNumber h_phone_model_search;
-                if (!queryParams.getHolder().getHolderPhoneNumbers().isEmpty() && queryParams.getHolder().getHolderPhoneNumbers() != null) {
-                    h_phone_model_search = queryParams.getHolder().getHolderPhoneNumbers().get(0);
+                if (!queryParams.getHolder().getPhoneNumbers().isEmpty() && queryParams.getHolder().getPhoneNumbers() != null) {
+                    h_phone_model_search = queryParams.getHolder().getPhoneNumbers().get(0);
 
                     h_phone_id_hib_search.setPhoneNumber(h_phone_model_search.getPhoneNumber());
 
@@ -1430,8 +1474,8 @@ public class HolderComponentLogic {
                 }
 
                 HolderCompanyAccount hca_model_search;
-                if (!queryParams.getHolder().getHolderCompanyAccounts().isEmpty() && queryParams.getHolder().getHolderCompanyAccounts() != null) {
-                    hca_model_search = queryParams.getHolder().getHolderCompanyAccounts().get(0);
+                if (!queryParams.getHolder().getCompanyAccounts().isEmpty() && queryParams.getHolder().getCompanyAccounts() != null) {
+                    hca_model_search = queryParams.getHolder().getCompanyAccounts().get(0);
 
                     hca_id_hib_search.setClientCompanyId(hca_model_search.getClientCompanyId());
 
@@ -1448,8 +1492,8 @@ public class HolderComponentLogic {
                 }
 
                 HolderBondAccount hba_model_search;
-                if (!queryParams.getHolder().getHolderBondAccounts().isEmpty() && queryParams.getHolder().getHolderBondAccounts() != null) {
-                    hba_model_search = queryParams.getHolder().getHolderBondAccounts().get(0);
+                if (!queryParams.getHolder().getBondAccounts().isEmpty() && queryParams.getHolder().getBondAccounts() != null) {
+                    hba_model_search = queryParams.getHolder().getBondAccounts().get(0);
 
                     hba_id_hib_search.setBondOfferId(hba_model_search.getBondOfferId());
                     
@@ -1525,7 +1569,7 @@ public class HolderComponentLogic {
 
                         h_res_out.add(addy_model);
                     }
-                    h.setHolderResidentialAddresses(h_res_out);
+                    h.setResidentialAddresses(h_res_out);
 
                     List<HolderPostalAddress> pos_hib_list = hq.getHolderPostalAddress(h_hib_out.getId());
                     for (HolderPostalAddress pos_hib_out : pos_hib_list) {
@@ -1545,7 +1589,7 @@ public class HolderComponentLogic {
 
                         h_pos_out.add(addy_model);
                     }
-                    h.setHolderPostalAddresses(h_pos_out);
+                    h.setPostalAddresses(h_pos_out);
 
                     List<HolderEmailAddress> email_hib_list = hq.getHolderEmailAddresses(h_hib_out.getId());
                     for (HolderEmailAddress email_hib_out : email_hib_list) {
@@ -1558,7 +1602,7 @@ public class HolderComponentLogic {
 
                         h_email_out.add(email_model_out);
                     }
-                    h.setHolderEmailAddresses(h_email_out);
+                    h.setEmailAddresses(h_email_out);
 
                     List<HolderPhoneNumber> phone_hib_list = hq.getHolderPhoneNumbers(h_hib_out.getId());
                     for (HolderPhoneNumber phone_hib_out : phone_hib_list) {
@@ -1571,7 +1615,7 @@ public class HolderComponentLogic {
 
                         h_phone_out.add(phone_model_out);
                     }
-                    h.setHolderPhoneNumbers(h_phone_out);
+                    h.setPhoneNumbers(h_phone_out);
 
                     h_model_out.add(h);
                 }
@@ -1643,8 +1687,8 @@ public class HolderComponentLogic {
                             } else if (pos.getCountry() == null || "".equals(pos.getCountry())) {
                                 desc += "\nPostal address line 1 should not be empty";
                             }
-                        } else if (admin.getEmailAddress() != null && !admin.getEmailAddress().isEmpty()) {
-                            for (EmailAddress email : admin.getEmailAddress()) {
+                        } else if (admin.getEmailAddresses() != null && !admin.getEmailAddresses().isEmpty()) {
+                            for (EmailAddress email : admin.getEmailAddresses()) {
                                 if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                                     desc += "\nEmail address should not be empty";
                                 }
@@ -1727,7 +1771,7 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holderList = (List<Holder>) wrapper.getModel();
             Holder holderModel = holderList.get(0);
             
@@ -1757,8 +1801,8 @@ public class HolderComponentLogic {
                             } else if (pos.getCountry() == null || "".equals(pos.getCountry())) {
                                 desc += "\nPostal address line 1 should not be empty";
                             }
-                        } else if (admin.getEmailAddress() != null && !admin.getEmailAddress().isEmpty()) {
-                            for (EmailAddress email : admin.getEmailAddress()) {
+                        } else if (admin.getEmailAddresses() != null && !admin.getEmailAddresses().isEmpty()) {
+                            for (EmailAddress email : admin.getEmailAddresses()) {
                                 if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                                     desc += "\nEmail address should not be empty";
                                 }
@@ -1783,6 +1827,8 @@ public class HolderComponentLogic {
                     if (flag) {
                         hq.createAdministratorForHolder(createAdministrator(holderModel));
 
+                        wrapper.setAttendedTo(true);
+                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                         resp.setRetn(0);
                         resp.setDesc("Success");
                         logger.info("Administrators were created successfully - [{}]", login.getUserId());
@@ -1911,7 +1957,7 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PowerOfAttorney> poaList = (List<PowerOfAttorney>) wrapper.getModel();
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
@@ -1963,6 +2009,8 @@ public class HolderComponentLogic {
                             poa_hib.setPowerOfAttorneyPrimary(true);
                             poa_hib.setHolder(holder);
                             
+                            currentPoa.setPowerOfAttorneyPrimary(false);
+                            
                             boolean uploaded;
                             if (currentPoaExists) {
                                 uploaded = hq.uploadPowerOfAttorney(poa_hib, currentPoa);
@@ -1971,6 +2019,8 @@ public class HolderComponentLogic {
                             }
                             
                             if (uploaded) {
+                                wrapper.setAttendedTo(true);
+                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("Power of attorney successfully uploaded - [{}]", login.getUserId());
@@ -2251,7 +2301,7 @@ public class HolderComponentLogic {
         logger.info("authorise NUBAN account number addition to holder company account, invoked by - [{}]", login.getUserId());
         
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderCompanyAccount> compAcctList = (List<HolderCompanyAccount>) wrapper.getModel();
             HolderCompanyAccount compAcct = compAcctList.get(0);
             
@@ -2277,6 +2327,8 @@ public class HolderComponentLogic {
                                 
                                 hq.createUpdateHolderCompanyAccount(compAcct_hib);
                                 
+                                wrapper.setAttendedTo(true);
+                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("NUBAN account stored - [{}]", login.getUserId());
@@ -2418,7 +2470,7 @@ public class HolderComponentLogic {
         logger.info("authorise NUBAN account number addition to holder bond account, invoked by - [{}]", login.getUserId());
         
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> bondAcctList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondAcct = bondAcctList.get(0);
             
@@ -2444,6 +2496,8 @@ public class HolderComponentLogic {
                                 
                                 hq.createUpdateHolderBondAccount(bondAcct_hib);
                                 
+                                wrapper.setAttendedTo(true);
+                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("NUBAN account stored - [{}]", login.getUserId());
@@ -2524,14 +2578,21 @@ public class HolderComponentLogic {
                     || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                    && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
-                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                    && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
                 flag = true;
             } 
+            
+            if (flag && (!"".equals(holder.getChn()) || holder.getChn() != null)) {
+                if (hq.checkHolderAccount(holder.getChn())) {
+                    desc += "\nThe CHN already exists";
+                    flag = true;
+                }
+            }
             
             if (flag && holder.getTypeId() > 0) {
                 boolean found = false;
@@ -2547,8 +2608,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderResidentialAddresses()) {
+            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -2565,8 +2626,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderPostalAddresses()) {
+            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -2583,8 +2644,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
-                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
                     if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                         desc += "\nEmail address should not be empty. Delete email entry if you must";
                         flag = false;
@@ -2593,8 +2654,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
-                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+            if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
                     if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
                         desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                         flag = false;
@@ -2648,7 +2709,7 @@ public class HolderComponentLogic {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
             
@@ -2667,14 +2728,21 @@ public class HolderComponentLogic {
                     || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                    && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
-                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                    && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
                 flag = true;
             } 
+            
+            if (flag && (!"".equals(holder.getChn()) || holder.getChn() != null)) {
+                if (hq.checkHolderAccount(holder.getChn())) {
+                    desc += "\nThe CHN already exists";
+                    flag = true;
+                }
+            }
             
             if (flag && holder.getTypeId() > 0) {
                 boolean found = false;
@@ -2690,8 +2758,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderResidentialAddresses()) {
+            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -2708,8 +2776,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderPostalAddresses()) {
+            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -2726,8 +2794,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
-                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
                     if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                         desc += "\nEmail address should not be empty. Delete email entry if you must";
                         flag = false;
@@ -2736,8 +2804,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
-                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+            if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
                     if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
                         desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                         flag = false;
@@ -2758,6 +2826,8 @@ public class HolderComponentLogic {
                 holdEntity.setType(typeEntity);
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
+                holdEntity.setPryHolder(true);
+                holdEntity.setMerged(false);
                 
                 boolean created;
                 
@@ -2777,6 +2847,8 @@ public class HolderComponentLogic {
                 }
 
                 if (created) {
+                    wrapper.setAttendedTo(true);
+                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                     resp.setRetn(0);
                     resp.setDesc("Holder details saved: Successful");
                     logger.info("Shareholder account creation successful - [{}]", login.getUserId());
@@ -2841,10 +2913,10 @@ public class HolderComponentLogic {
                     || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                    && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
-                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                    && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
                 flag = true;
@@ -2864,8 +2936,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderResidentialAddresses()) {
+            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -2882,8 +2954,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderPostalAddresses()) {
+            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -2900,8 +2972,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
-                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
                     if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                         desc += "\nEmail address should not be empty. Delete email entry if you must";
                         flag = false;
@@ -2910,8 +2982,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
-                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+            if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
                     if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
                         desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                         flag = false;
@@ -2964,7 +3036,7 @@ public class HolderComponentLogic {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
             
@@ -2985,10 +3057,10 @@ public class HolderComponentLogic {
                     || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                    && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
             } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
-                    && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                    && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
                 flag = true;
@@ -3008,8 +3080,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderResidentialAddresses()) {
+            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -3026,8 +3098,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
-                for (Address addr : holder.getHolderPostalAddresses()) {
+            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                         flag = false;
@@ -3044,8 +3116,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
-                for (EmailAddress email : holder.getHolderEmailAddresses()) {
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
                     if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                         desc += "\nEmail address should not be empty. Delete email entry if you must";
                         flag = false;
@@ -3054,8 +3126,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
-                for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+            if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
                     if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
                         desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                         flag = false;
@@ -3077,12 +3149,16 @@ public class HolderComponentLogic {
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
                 holdEntity.setChn(holder.getChn());
+                holdEntity.setPryHolder(true);
+                holdEntity.setMerged(false);
 
                 boolean created = hq.createHolderAccount(holdEntity, retrieveHolderBondAccount(holder),
                         retrieveHolderResidentialAddress(holder), retrieveHolderPostalAddress(holder),
                         retrieveHolderEmailAddress(holder), retrieveHolderPhoneNumber(holder));
 
                 if (created) {
+                    wrapper.setAttendedTo(true);
+                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                     resp.setRetn(0);
                     resp.setDesc("Successful");
                     logger.info("Bond holder account creation successful - [{}]", login.getUserId());
@@ -3204,7 +3280,7 @@ public class HolderComponentLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderSignature> holdSigntureList = (List<HolderSignature>) wrapper.getModel();
             HolderSignature sigModel = holdSigntureList.get(0);
             
@@ -3248,6 +3324,8 @@ public class HolderComponentLogic {
                         }
 
                         if (uploaded) {
+                            wrapper.setAttendedTo(true);
+                            Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                             resp.setRetn(0);
                             resp.setDesc("Successful");
                             logger.info("Holder signature successfully uploaded - [{}]", login.getUserId());
@@ -3433,7 +3511,7 @@ public class HolderComponentLogic {
         boolean flag = false;
 
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
             
@@ -3455,6 +3533,8 @@ public class HolderComponentLogic {
                     
                     hq.updateHolderAccountForTranspose(holder_hib);
                     
+                    wrapper.setAttendedTo(true);
+                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                     resp.setRetn(0);
                     resp.setDesc("Successful");
                     logger.info("Holder name transpose sucessful - [{}]", login.getUserId());
@@ -3530,10 +3610,10 @@ public class HolderComponentLogic {
                             || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                         desc += "\nPrimary address can only be residential or postal";
                     } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                            && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                            && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                         desc += "\nResidential address cannot be empty, as it is the primary address";
                     } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
-                            && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                            && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                         desc += "\nPostal address cannot be empty, as it is the primary address";
                     } else {
                         flag = true;
@@ -3553,8 +3633,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
-                        for (Address addr : holder.getHolderResidentialAddresses()) {
+                    if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                        for (Address addr : holder.getResidentialAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                                 flag = false;
@@ -3571,8 +3651,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
-                        for (Address addr : holder.getHolderPostalAddresses()) {
+                    if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                        for (Address addr : holder.getPostalAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                                 flag = false;
@@ -3589,8 +3669,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : holder.getEmailAddresses()) {
                             if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                                 desc += "\nEmail address should not be empty. Delete email entry if you must";
                                 flag = false;
@@ -3599,8 +3679,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : holder.getPhoneNumbers()) {
                             if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
                                 desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                                 flag = false;
@@ -3669,7 +3749,7 @@ public class HolderComponentLogic {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holderEditList = (List<Holder>) wrapper.getModel();
             Holder holder = holderEditList.get(0);
 
@@ -3693,10 +3773,10 @@ public class HolderComponentLogic {
                             || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                         desc += "\nPrimary address can only be residential or postal";
                     } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                            && (holder.getHolderResidentialAddresses() == null || holder.getHolderResidentialAddresses().isEmpty())) {
+                            && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                         desc += "\nResidential address cannot be empty, as it is the primary address";
                     } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
-                            && (holder.getHolderPostalAddresses() == null || holder.getHolderPostalAddresses().isEmpty())) {
+                            && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                         desc += "\nPostal address cannot be empty, as it is the primary address";
                     } else {
                         flag = true;
@@ -3716,8 +3796,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderResidentialAddresses() != null && !holder.getHolderResidentialAddresses().isEmpty()) {
-                        for (Address addr : holder.getHolderResidentialAddresses()) {
+                    if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                        for (Address addr : holder.getResidentialAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                                 flag = false;
@@ -3734,8 +3814,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderPostalAddresses() != null && !holder.getHolderPostalAddresses().isEmpty()) {
-                        for (Address addr : holder.getHolderPostalAddresses()) {
+                    if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                        for (Address addr : holder.getPostalAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
                                 flag = false;
@@ -3752,8 +3832,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderEmailAddresses() != null && !holder.getHolderEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : holder.getHolderEmailAddresses()) {
+                    if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : holder.getEmailAddresses()) {
                             if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
                                 desc += "\nEmail address should not be empty. Delete email entry if you must";
                                 flag = false;
@@ -3762,8 +3842,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getHolderPhoneNumbers() != null && !holder.getHolderPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : holder.getHolderPhoneNumbers()) {
+                    if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : holder.getPhoneNumbers()) {
                             if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
                                 desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                                 flag = false;
@@ -3808,9 +3888,13 @@ public class HolderComponentLogic {
                         
                         boolean updated = hq.updateHolderAccount(holderEntity, retrieveHolderResidentialAddress(holder),
                                 retrieveHolderPostalAddress(holder), retrieveHolderPhoneNumber(holder),
-                                retrieveHolderEmailAddress(holder), holderChangesList);
+                                retrieveHolderEmailAddress(holder), retrieveHolderResidentialAddressForDeletion(holder),
+                                retrieveHolderPostalAddressForDeletion(holder), retrieveHolderPhoneNumberForDeletion(holder),
+                                retrieveHolderEmailAddressForDeletion(holder), holderChangesList);
                         
                         if (updated) {
+                            wrapper.setAttendedTo(true);
+                            Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                             resp.setRetn(0);
                             resp.setDesc("Holder details saved");
                             logger.info("Holder account update successful - [{}]", login.getUserId());
@@ -3868,7 +3952,7 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
             Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
             if (descriptors.size() == 1) {
@@ -3896,7 +3980,8 @@ public class HolderComponentLogic {
                         return resp;
                     }
                 }
-                List<org.greenpole.hibernate.entity.AccountConsolidation> acctConsolList = hq.getAllHolderAccountConsolidation(queryParams.getDescriptor(), queryParams.getStartDate(), queryParams.getEndDate());
+                List<org.greenpole.hibernate.entity.AccountConsolidation> acctConsolList = hq.getAllHolderAccountConsolidation(queryParams.getDescriptor(), queryParams.getStartDate(),
+                        queryParams.getEndDate(), greenProp.getDateFormat());
                 List<org.greenpole.entity.model.holder.merge.AccountConsolidation> acctConsolModelList = new ArrayList<>();
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.AccountConsolidation ac : acctConsolList) {
@@ -4020,8 +4105,8 @@ public class HolderComponentLogic {
     private void retrieveAdministratorEmailAddress(Administrator admin_model, org.greenpole.hibernate.entity.Administrator admin_hib) {
         //add email address to hibernate entity
         Set email_set = new HashSet();
-        if (admin_model.getEmailAddress() != null && !admin_model.getEmailAddress().isEmpty()) {
-            for (EmailAddress admin_email_model : admin_model.getEmailAddress()) {
+        if (admin_model.getEmailAddresses() != null && !admin_model.getEmailAddresses().isEmpty()) {
+            for (EmailAddress admin_email_model : admin_model.getEmailAddresses()) {
                 AdministratorEmailAddress admin_email_hib = new AdministratorEmailAddress();
                 AdministratorEmailAddressId admin_email_id_hib = new AdministratorEmailAddressId();
 
@@ -4103,7 +4188,51 @@ public class HolderComponentLogic {
      */
     private List<HolderPostalAddress> retrieveHolderPostalAddress(Holder holdModel/*, boolean newEntry*/) {
         org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
-        List<org.greenpole.entity.model.Address> hpaddyList = (List<org.greenpole.entity.model.Address>) holdModel.getHolderPostalAddresses();
+        List<org.greenpole.entity.model.Address> hpaddyList;
+        if (holdModel.getPostalAddresses() != null)
+            hpaddyList = holdModel.getPostalAddresses();
+        else
+            hpaddyList = new ArrayList<>();
+        
+        
+        List<org.greenpole.hibernate.entity.HolderPostalAddress> returnHolderPostalAddress = new ArrayList<>();
+
+        for (org.greenpole.entity.model.Address hpa : hpaddyList) {
+            HolderPostalAddressId postalAddyId = new HolderPostalAddressId();
+            /*if (newEntry) {
+                postalAddyId.setHolderId(holdModel.getHolderId());
+            }*/
+            postalAddyId.setAddressLine1(hpa.getAddressLine1());
+            postalAddyId.setState(hpa.getState());
+            postalAddyId.setCountry(hpa.getCountry());
+            postalAddressEntity.setId(postalAddyId);
+            postalAddressEntity.setAddressLine2(hpa.getAddressLine2());
+            postalAddressEntity.setAddressLine3(hpa.getAddressLine3());
+            postalAddressEntity.setCity(hpa.getCity());
+            postalAddressEntity.setPostCode(hpa.getPostCode());
+            postalAddressEntity.setIsPrimary(hpa.isPrimaryAddress());
+            returnHolderPostalAddress.add(postalAddressEntity);
+        }
+        return returnHolderPostalAddress;
+    }
+    
+    /**
+     * Unwraps the holder postal address details from the HolderModel into
+     * HolderPostalAddress hibernate entity
+     *
+     * @param holdModel the holderModel of holder details
+     * @param newEntry boolean value indicating new entry
+     * @return List object of HolderPostalAddress hibernate entity
+     */
+    private List<HolderPostalAddress> retrieveHolderPostalAddressForDeletion(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
+        List<org.greenpole.entity.model.Address> hpaddyList;
+        if (holdModel.getPostalAddresses() != null)
+            hpaddyList = holdModel.getDeletedPostalAddresses();
+        else
+            hpaddyList = new ArrayList<>();
+        
+        
         List<org.greenpole.hibernate.entity.HolderPostalAddress> returnHolderPostalAddress = new ArrayList<>();
 
         for (org.greenpole.entity.model.Address hpa : hpaddyList) {
@@ -4134,9 +4263,43 @@ public class HolderComponentLogic {
      * @return List of HolderPhoneNumber objects retrieveHolderEmailAddress
      */
     private List<HolderPhoneNumber> retrieveHolderPhoneNumber(Holder holdModel/*, boolean newEntry*/) {
-
         org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
-        List<org.greenpole.entity.model.PhoneNumber> phoneNumberList = holdModel.getHolderPhoneNumbers();
+        List<org.greenpole.entity.model.PhoneNumber> phoneNumberList;
+        if (holdModel.getPhoneNumbers() != null)
+            phoneNumberList = holdModel.getPhoneNumbers();
+        else
+            phoneNumberList = new ArrayList<>();
+        
+        List<org.greenpole.hibernate.entity.HolderPhoneNumber> returnPhoneNumber = new ArrayList<>();
+
+        for (PhoneNumber pnList : phoneNumberList) {
+            HolderPhoneNumberId phoneNoId = new HolderPhoneNumberId();
+            /*if (newEntry) {
+                phoneNoId.setHolderId(holdModel.getHolderId());
+            }*/
+            phoneNoId.setPhoneNumber(pnList.getPhoneNumber());
+            phoneNumberEntity.setIsPrimary(pnList.isPrimaryPhoneNumber());
+            phoneNumberEntity.setId(phoneNoId);
+        }
+        return returnPhoneNumber;
+    }
+    
+    /**
+     * Unwraps holder phone number details from the holder model passed as
+     * parameter into HolderPhoneNumber hibernate entity
+     * @param holdModel object of holder details
+     * @param newEntry boolean variable indicating whether or not the entry is
+     * new
+     * @return List of HolderPhoneNumber objects retrieveHolderEmailAddress
+     */
+    private List<HolderPhoneNumber> retrieveHolderPhoneNumberForDeletion(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
+        List<org.greenpole.entity.model.PhoneNumber> phoneNumberList;
+        if (holdModel.getPhoneNumbers() != null)
+            phoneNumberList = holdModel.getDeletedPhoneNumbers();
+        else
+            phoneNumberList = new ArrayList<>();
+        
         List<org.greenpole.hibernate.entity.HolderPhoneNumber> returnPhoneNumber = new ArrayList<>();
 
         for (PhoneNumber pnList : phoneNumberList) {
@@ -4159,9 +4322,42 @@ public class HolderComponentLogic {
      * @return List of HolderEmailAddress hibernate entity objects
      */
     private List<HolderEmailAddress> retrieveHolderEmailAddress(Holder holdModel/*, boolean newEntry*/) {
-
         org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
-        List<org.greenpole.entity.model.EmailAddress> emailAddressList = holdModel.getHolderEmailAddresses();
+        List<org.greenpole.entity.model.EmailAddress> emailAddressList;
+        if (holdModel.getEmailAddresses() != null)
+            emailAddressList = holdModel.getEmailAddresses();
+        else
+            emailAddressList = new ArrayList<>();
+        
+        List<org.greenpole.hibernate.entity.HolderEmailAddress> returnEmailAddress = new ArrayList<>();
+
+        for (EmailAddress email : emailAddressList) {
+            HolderEmailAddressId emailId = new HolderEmailAddressId();
+            /*if (newEntry) {
+                emailId.setHolderId(holdModel.getHolderId());
+            }*/
+            emailId.setEmailAddress(email.getEmailAddress());
+            emailAddressEntity.setIsPrimary(email.isPrimaryEmail());
+            emailAddressEntity.setId(emailId);
+        }
+        return returnEmailAddress;
+    }
+    
+    /**
+     * Unwraps Holder email address from the holder model into
+     * HolderEmailAddress hibernate entity object
+     * @param holdModel object to holder model
+     * @param newEntry boolean variable indicating whether or not entry is new
+     * @return List of HolderEmailAddress hibernate entity objects
+     */
+    private List<HolderEmailAddress> retrieveHolderEmailAddressForDeletion(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
+        List<org.greenpole.entity.model.EmailAddress> emailAddressList;
+        if (holdModel.getEmailAddresses() != null)
+            emailAddressList = holdModel.getDeletedEmailAddresses();
+        else
+            emailAddressList = new ArrayList<>();
+        
         List<org.greenpole.hibernate.entity.HolderEmailAddress> returnEmailAddress = new ArrayList<>();
 
         for (EmailAddress email : emailAddressList) {
@@ -4185,7 +4381,50 @@ public class HolderComponentLogic {
      */
     private List<HolderResidentialAddress> retrieveHolderResidentialAddress(Holder holdModel/*, boolean newEntry*/) {
         org.greenpole.hibernate.entity.HolderResidentialAddress residentialAddressEntity = new org.greenpole.hibernate.entity.HolderResidentialAddress();
-        List<org.greenpole.entity.model.Address> residentialAddressList = (List<org.greenpole.entity.model.Address>) holdModel.getHolderResidentialAddresses();
+        List<org.greenpole.entity.model.Address> residentialAddressList;
+        if (holdModel.getResidentialAddresses() != null)
+            residentialAddressList = holdModel.getResidentialAddresses();
+        else
+            residentialAddressList = new ArrayList<>();
+        
+        List<org.greenpole.hibernate.entity.HolderResidentialAddress> returnResidentialAddress = new ArrayList();
+
+        for (org.greenpole.entity.model.Address rAddy : residentialAddressList) {
+            HolderResidentialAddressId rAddyId = new HolderResidentialAddressId();
+            /*if (newEntry) {
+                rAddyId.setHolderId(holdModel.getHolderId());
+            }*/
+            rAddyId.setAddressLine1(rAddy.getAddressLine1());
+            rAddyId.setState(rAddy.getState());
+            rAddyId.setCountry(rAddy.getCountry());
+
+            residentialAddressEntity.setId(rAddyId);
+            residentialAddressEntity.setAddressLine2(rAddy.getAddressLine2());
+            residentialAddressEntity.setAddressLine3(rAddy.getAddressLine3());
+            residentialAddressEntity.setAddressLine4(rAddy.getAddressLine4());
+            residentialAddressEntity.setCity(rAddy.getCity());
+            residentialAddressEntity.setPostCode(rAddy.getPostCode());
+
+            returnResidentialAddress.add(residentialAddressEntity);
+        }
+        return returnResidentialAddress;
+    }
+    
+    /**
+     * Unwraps Holder residential address from the holder model into
+     * HolderResidentialAddress hibernate entity object.
+     * @param holdModel object of holder model
+     * @param newEntry boolean variable indicating whether or not entry is new
+     * @return List of HolderResidentialAddress hibernate entity objects
+     */
+    private List<HolderResidentialAddress> retrieveHolderResidentialAddressForDeletion(Holder holdModel/*, boolean newEntry*/) {
+        org.greenpole.hibernate.entity.HolderResidentialAddress residentialAddressEntity = new org.greenpole.hibernate.entity.HolderResidentialAddress();
+        List<org.greenpole.entity.model.Address> residentialAddressList;
+        if (holdModel.getResidentialAddresses() != null)
+            residentialAddressList = holdModel.getDeletedResidentialAddresses();
+        else
+            residentialAddressList = new ArrayList<>();
+        
         List<org.greenpole.hibernate.entity.HolderResidentialAddress> returnResidentialAddress = new ArrayList();
 
         for (org.greenpole.entity.model.Address rAddy : residentialAddressList) {
@@ -4217,7 +4456,7 @@ public class HolderComponentLogic {
      */
     private org.greenpole.hibernate.entity.HolderCompanyAccount retrieveHolderCompanyAccount(Holder holdModel/*, boolean newEntry*/) {
         org.greenpole.hibernate.entity.HolderCompanyAccount companyAccountEntity = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-        org.greenpole.entity.model.holder.HolderCompanyAccount compAcct = holdModel.getHolderCompanyAccounts().get(0);
+        org.greenpole.entity.model.holder.HolderCompanyAccount compAcct = holdModel.getCompanyAccounts().get(0);
         HolderCompanyAccountId compAcctId = new HolderCompanyAccountId();
         
         compAcctId.setClientCompanyId(compAcct.getClientCompanyId());
@@ -4238,13 +4477,14 @@ public class HolderComponentLogic {
      */
     private org.greenpole.hibernate.entity.HolderBondAccount retrieveHolderBondAccount(Holder holdModel/*, boolean newEntry*/) {
         org.greenpole.hibernate.entity.HolderBondAccount bondAccountEntity = new org.greenpole.hibernate.entity.HolderBondAccount();
-        org.greenpole.entity.model.holder.HolderBondAccount bondAcct = holdModel.getHolderBondAccounts().get(0);
+        org.greenpole.entity.model.holder.HolderBondAccount bondAcct = holdModel.getBondAccounts().get(0);
         HolderBondAccountId bondAcctId = new HolderBondAccountId();
         
         bondAcctId.setBondOfferId(bondAcct.getBondOfferId());
         
         bondAccountEntity.setId(bondAcctId);
         bondAccountEntity.setStartingPrincipalValue(bondAcct.getStartingPrincipalValue());
+        bondAccountEntity.setRemainingPrincipalValue(bondAcct.getRemainingPrincipalValue());
         bondAccountEntity.setHolderBondAccPrimary(true);
         bondAccountEntity.setMerged(false);
         

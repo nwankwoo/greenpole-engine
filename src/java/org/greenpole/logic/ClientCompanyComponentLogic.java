@@ -44,6 +44,7 @@ import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
+import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +58,7 @@ import org.slf4j.LoggerFactory;
 public class ClientCompanyComponentLogic {
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyComponentLogic.class);
+    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyComponentLogic.class);
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
     
     /**
@@ -141,7 +143,7 @@ public class ClientCompanyComponentLogic {
         logger.info("authorise client company creation, invoked by [{}] - [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
             ClientCompany ccModel = list.get(0);
             
@@ -163,6 +165,8 @@ public class ClientCompanyComponentLogic {
                             retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
                     
                     if (created) {
+                        wrapper.setAttendedTo(true);
+                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                         logger.info("client company created - [{}]: [{}]", login.getUserId(), ccModel.getName());
                         resp.setRetn(0);
                         resp.setDesc("Successful");
@@ -313,7 +317,7 @@ public class ClientCompanyComponentLogic {
         logger.info("authorise client company change, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
             ClientCompany ccModel = list.get(0);
             
@@ -322,6 +326,8 @@ public class ClientCompanyComponentLogic {
                     retrieveEmailAddressModelForDeletion(ccModel), retrievePhoneNumberModelForDeletion(ccModel));
             
             if (edited) {
+                wrapper.setAttendedTo(true);
+                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                 logger.info("client company edited - [{}]: [{}]", ccModel.getName(), login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
@@ -631,12 +637,14 @@ public class ClientCompanyComponentLogic {
         Response resp = new Response();
         logger.info("authorisation for share unit quotation upload, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ShareQuotation> quotationList = (List<ShareQuotation>) wrapper.getModel();
             
             boolean uploaded = cq.uploadShareQuotation(retrieveShareQuotation(quotationList));
             
             if (uploaded) {
+                wrapper.setAttendedTo(true);
+                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                 logger.info("share unit quotation upload authorised - [{}]", login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
@@ -776,7 +784,7 @@ public class ClientCompanyComponentLogic {
         logger.info("authorise Initial Public Offer setup, invoked by [{}]", login.getUserId());
         
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<InitialPublicOffer> ipoList = (List<InitialPublicOffer>) wrapper.getModel();
             InitialPublicOffer ipoModel = ipoList.get(0);
             
@@ -790,6 +798,8 @@ public class ClientCompanyComponentLogic {
                     org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = setUpInitialPublicOfferAfterAuthorisation(ipoModel, resp, login);
                     cq.createInitialPublicOffer(ipo_hib);
 
+                    wrapper.setAttendedTo(true);
+                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                     resp.setRetn(0);
                     resp.setDesc("Success");
                     logger.info("Initial Public Offer was Successfully created - [{}]", login.getUserId());
@@ -933,7 +943,7 @@ public class ClientCompanyComponentLogic {
         boolean flag = false;
         
         try {
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<BondOffer> list = (List<BondOffer>) wrapper.getModel();
             BondOffer bondModel = list.get(0);
             
@@ -984,6 +994,9 @@ public class ClientCompanyComponentLogic {
                 // get BondOffer entity initialised with Bond Model
                 org.greenpole.hibernate.entity.BondOffer bondOffer = bondCreationMain(bondModel);
                 cq.createBondOffer(bondOffer);
+                
+                wrapper.setAttendedTo(true);
+                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                 resp.setRetn(0);
                 resp.setDesc("Successful");
                 logger.info("Bond offer created successfully - [{}]", login.getUserId());
@@ -1107,7 +1120,7 @@ public class ClientCompanyComponentLogic {
         Date date = new Date();
         
         try { 
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationCode);
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
             PrivatePlacement ppModel = pplist.get(0);
             org.greenpole.hibernate.entity.PrivatePlacement ppEntity = new org.greenpole.hibernate.entity.PrivatePlacement();
@@ -1131,6 +1144,8 @@ public class ClientCompanyComponentLogic {
                                 
                                 cq.createPrivatePlacement(ppEntity);
                                 
+                                wrapper.setAttendedTo(true);
+                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("Private Placement created for Client Company: [{}] - [{}]", cc.getName(), login.getUserId());
@@ -1306,7 +1321,7 @@ public class ClientCompanyComponentLogic {
     }
 
     /**
-     * Unwraps the client company model to create the hibernate client company phone number entity.
+     * Unwraps the client company model to delete the hibernate client company phone number entity.
      * @param ccModel the client company model (not to be confused with the client company hibernate entity)
      * @param freshCreation if the client company phone number is being created for the first time or undergoing an edit
      * @return a list of hibernate client company phone number entity object(s)
@@ -1373,7 +1388,7 @@ public class ClientCompanyComponentLogic {
     }
     
     /**
-     * Unwraps the client company model to create the hibernate client company email address entity.
+     * Unwraps the client company model to delete the hibernate client company email address entity.
      * @param ccModel the client company model (not to be confused with the client company hibernate entity)
      * @param freshCreation if the client company email address is being created for the first time or undergoing an edit
      * @return a list of hibernate client company email address entity object(s)
@@ -1446,7 +1461,7 @@ public class ClientCompanyComponentLogic {
     }
     
     /**
-     * Unwraps the client company model to create the hibernate client company address entity.
+     * Unwraps the client company model to delete the hibernate client company address entity.
      * @param ccModel the client company model (not to be confused with the client company hibernate entity)
      * @param freshCreation if the client company address is being created for the first time or undergoing an edit
      * @return a list of hibernate client company address entity object(s)
