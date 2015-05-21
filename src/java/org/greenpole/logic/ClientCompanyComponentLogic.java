@@ -721,7 +721,7 @@ public class ClientCompanyComponentLogic {
      * notification
      * @return response to the initial public offer request
      */
-    public Response setupInitialPoblicOffer_Request(InitialPublicOffer ipo, Login login, String authenticator) {
+    public Response setupInitialPublicOffer_Request(Login login, InitialPublicOffer ipo, String authenticator) {
         logger.info("request to set up Initial Public Offer, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         NotificationWrapper wrapper;
@@ -779,7 +779,7 @@ public class ClientCompanyComponentLogic {
      * @param notificationCode the notification code
      * @return response to the setup initial public offer request
      */
-    public Response setUpInitialPublicOffer_Authorise(Login login, String notificationCode) {
+    public Response setupInitialPublicOffer_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorise Initial Public Offer setup, invoked by [{}]", login.getUserId());
         
@@ -1036,7 +1036,7 @@ public class ClientCompanyComponentLogic {
      * @param privatePlacement the private placement details to be processed
      * @return response object back to sender indicating creation request status
      */
-    public Response createPrivatePlacement_Request(Login login, String authenticator, PrivatePlacement privatePlacement) {
+    public Response setupPrivatePlacement_Request(Login login, String authenticator, PrivatePlacement privatePlacement) {
         logger.info("request to create private placement, invoked by [{}]", login.getUserId());
 
         Response resp = new Response();

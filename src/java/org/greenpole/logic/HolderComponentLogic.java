@@ -1524,7 +1524,13 @@ public class HolderComponentLogic {
                     totalHoldings_search = new HashMap<>();
                 }
 
-                List<org.greenpole.hibernate.entity.Holder> h_search_result = hq.queryShareholderAccount(descriptor, h_hib_search, shareUnits_search, totalHoldings_search);
+                List<org.greenpole.hibernate.entity.Holder> h_search_result;
+                if (queryParams.isIsShareHolder())
+                    h_search_result = hq.queryShareholderAccount(descriptor, h_hib_search, shareUnits_search, totalHoldings_search);
+                else
+                    h_search_result = hq.queryBondholderAccount(descriptor, h_hib_search, shareUnits_search, totalHoldings_search);
+                
+                
                 logger.info("retrieved holder result from query. Preparing local model - [{}]", login.getUserId());
                 
                 //unwrap result and set in holder front-end model
@@ -3733,11 +3739,10 @@ public class HolderComponentLogic {
     }
     
     /**
-     * Processes request authorisation to edit holder details
-     *
+     * Processes saved request to edit holder details.
      * @param login user's login details
      * @param notificationCode the notification code
-     * @return response object for the authorized edit holder details request
+     * @return response to the edit holder request
      */
     public Response editHolderDetails_Authorise(Login login, String notificationCode) {
         logger.info("request authorisation to persist holder details. Invoked by [{}]", login.getUserId());
