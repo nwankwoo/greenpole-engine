@@ -1082,6 +1082,7 @@ public class HolderComponentLogic {
                                     HolderBondAccountId receiverBondAcctId = new HolderBondAccountId(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                     receiverBondAcct.setId(receiverBondAcctId);
                                     receiverBondAcct.setStartingPrincipalValue(0.00);
+                                    receiverBondAcct.setDateApplied(new Date());
                                     receiverBondAcct.setMerged(false);
                                     receiverBondAcct.setHolderBondAccPrimary(true);
                                     hq.createUpdateHolderBondAccount(receiverBondAcct);
@@ -1155,7 +1156,7 @@ public class HolderComponentLogic {
             String notificationCode, NotificationWrapper wrapper) throws JAXBException {
         if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
             if (senderCompAcct.getShareUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
-                boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits());
+                boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits(), unitTransfer.getTransferTypeId());
                 if (transfered) {
                     wrapper.setAttendedTo(true);
                     Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
@@ -1197,7 +1198,7 @@ public class HolderComponentLogic {
             if (senderBondAcct.getBondUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
                 double transferValue = unitTransfer.getUnits() * unitTransfer.getUnitPrice();
                 if (senderBondAcct.getRemainingPrincipalValue() >= transferValue) {
-                    boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice());
+                    boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice(), unitTransfer.getTransferTypeId());
                     if (transfered) {
                         wrapper.setAttendedTo(true);
                         Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
@@ -3598,7 +3599,7 @@ public class HolderComponentLogic {
      * @return response to the edit holder details request
      */
     public Response editHolderDetails_Request(Login login, String authenticator, Holder holder) {
-
+        logger.info("request to edit holder details, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
@@ -3761,7 +3762,7 @@ public class HolderComponentLogic {
      * @return response to the edit holder request
      */
     public Response editHolderDetails_Authorise(Login login, String notificationCode) {
-        logger.info("request authorisation to persist holder details. Invoked by [{}]", login.getUserId());
+        logger.info("authorise holder details edit, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         
         String desc = "";
@@ -4058,6 +4059,126 @@ public class HolderComponentLogic {
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to query holder changes. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to apply for a bond offer.
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param bondAccount the bond account containing the bond application
+     * @return response to the bond offer application request
+     */
+    public Response applyForBondOffer_Request(Login login, String authenticator, HolderBondAccount bondAccount) {
+        logger.info("request to apply for bond offer, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
+        
+        try {
+            
+            if (hq.checkHolderAccount(bondAccount.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder_hib = hq.getHolder(bondAccount.getHolderId());
+
+                if (cq.bondOfferIsValid(bondAccount.getBondOfferId())) {
+                    BondOffer bond = cq.getBondOffer(bondAccount.getBondOfferId());
+                    
+                    wrapper = new NotificationWrapper();
+                    prop = new NotifierProperties(HolderComponentLogic.class);
+                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+
+                    List<HolderBondAccount> acctList = new ArrayList<>();
+                    acctList.add(bondAccount);
+
+                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setDescription("Authenticate holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName() + 
+                            "'s application for the bond offer - " + bond.getTitle());
+                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setFrom(login.getUserId());
+                    wrapper.setTo(authenticator);
+                    wrapper.setModel(acctList);
+
+                    logger.info("notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                    resp = queue.sendAuthorisationRequest(wrapper);
+                    return resp;
+                }
+                resp.setRetn(331);
+                resp.setDesc("The bond offer is no longer valid.");
+                logger.info("The bond offer is no longer valid - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(331);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder bond application. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder bond application - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder bond application. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Processes a saved request to apply for a bond offer.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the bond offer application request
+     */
+    public Response applyForBondOffer_Authorise(Login login, String notificationCode) {
+        logger.info("request authorisation to persist holder details. Invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+
+        try {
+            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<HolderBondAccount> acctList = (List<HolderBondAccount>) wrapper.getModel();
+            HolderBondAccount bondAccount = acctList.get(0);
+            
+            if (hq.checkHolderAccount(bondAccount.getHolderId())) {
+                org.greenpole.hibernate.entity.Holder holder_hib = hq.getHolder(bondAccount.getHolderId());
+
+                if (cq.bondOfferIsValid(bondAccount.getBondOfferId())) {
+                    BondOffer bond = cq.getBondOffer(bondAccount.getBondOfferId());
+                    
+                    org.greenpole.hibernate.entity.HolderBondAccount bondAcct_hib = new org.greenpole.hibernate.entity.HolderBondAccount();
+                    
+                    bondAcct_hib.setBondOffer(bond);
+                    bondAcct_hib.setHolder(holder_hib);
+                    bondAcct_hib.setBondUnits(bondAccount.getBondUnits());
+                    bondAcct_hib.setStartingPrincipalValue(bondAccount.getStartingPrincipalValue());
+                    bondAcct_hib.setRemainingPrincipalValue(0.00);
+                    bondAcct_hib.setDateApplied(new Date());
+                    bondAcct_hib.setHolderBondAccPrimary(true);
+                    bondAcct_hib.setMerged(false);
+                    
+                    hq.createUpdateHolderBondAccount(bondAcct_hib);
+                    
+                    resp.setRetn(0);
+                    resp.setDesc("Bond Offer application successful");
+                    logger.info("Bond Offer application successful - [{}]", login.getUserId());
+                }
+                resp.setRetn(332);
+                resp.setDesc("The bond offer is no longer valid.");
+                logger.info("The bond offer is no longer valid - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(332);
+            resp.setDesc("The holder does not exist.");
+            logger.info("The holder does not exist - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error proccessing holder bond application. See error log - [{}]", login.getUserId());
+            logger.error("error proccessing holder bond application - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to proccess holder bond application. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }

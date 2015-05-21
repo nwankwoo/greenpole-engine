@@ -189,5 +189,15 @@ public class HolderComponentServiceImpl implements HolderComponentService {
     public Response viewAccountConsolidation_request(Login login, QueryHolderConsolidation queryParams) {
         return request.viewAccountConsolidation_request(login, queryParams);
     }
+
+    @Override
+    public Response applyForBondOffer_Request(Login login, String authenticator, HolderBondAccount bondAccount) {
+        return request.applyForBondOffer_Request(login, authenticator, bondAccount);
+    }
+
+    @Override
+    public Response applyForBondOffer_Authorise(Login login, String notificationCode) {
+        return request.applyForBondOffer_Authorise(login, notificationCode);
+    }
     
 }

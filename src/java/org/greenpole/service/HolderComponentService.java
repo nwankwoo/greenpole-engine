@@ -383,4 +383,25 @@ public interface HolderComponentService {
     @WebResult(name = "response")
     public Response viewAccountConsolidation_request(@WebParam(name = "login", header = true) Login login, @WebParam(name = "queryParams") QueryHolderConsolidation queryParams);
     
+    /**
+     * Request to apply for a bond offer.
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param bondAccount the bond account containing the bond application
+     * @return response to the bond offer application request
+     */
+    @WebMethod
+    @WebResult(name = "response")
+    public Response applyForBondOffer_Request(@WebParam(name = "login", header = true) Login login, @WebParam(name = "authenticator") String authenticator,
+            @WebParam(name = "bondAccount") HolderBondAccount bondAccount);
+    
+    /**
+     * Processes a saved request to apply for a bond offer.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the bond offer application request
+     */
+    @WebMethod
+    @WebResult(name = "response")
+    public Response applyForBondOffer_Authorise(@WebParam(name = "login", header = true) Login login, @WebParam(name = "notificationCode") String notificationCode);
 }

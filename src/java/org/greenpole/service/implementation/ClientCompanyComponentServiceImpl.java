@@ -77,8 +77,8 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
     }
 
     @Override
-    public Response createBondOffer_Request(Login login, String authenticator, BondOffer bond) {
-        return request.createBondOffer_Request(login, authenticator, bond);
+    public Response setupBondOffer_Request(Login login, String authenticator, BondOffer bond) {
+        return request.setupBondOffer_Request(login, authenticator, bond);
     }
 
     @Override

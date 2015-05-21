@@ -795,7 +795,7 @@ public class ClientCompanyComponentLogic {
                 if (!cq.checkClientCompanyForShareholders(cc.getName())) {
                     logger.info("client company [{}] checks out. No shareholders found - [{}]", cc.getName(), login.getUserId());
                     
-                    org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = setUpInitialPublicOfferAfterAuthorisation(ipoModel, resp, login);
+                    org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = unwrapInitialPublicOfferModel(ipoModel, resp, login);
                     cq.createInitialPublicOffer(ipo_hib);
 
                     wrapper.setAttendedTo(true);
@@ -842,7 +842,7 @@ public class ClientCompanyComponentLogic {
      * @param bond The bond details to be created
      * @return response to the create bond offer request
      */
-    public Response createBondOffer_Request(Login login, String authenticator, BondOffer bond) {
+    public Response setupBondOffer_Request(Login login, String authenticator, BondOffer bond) {
         logger.info("request to create bond offer [{}] at [{}] unit price, invoked by - [{}]", 
                 bond.getTitle(), bond.getUnitPrice(), login.getUserId());
 
@@ -992,7 +992,7 @@ public class ClientCompanyComponentLogic {
             
             if (flag) {
                 // get BondOffer entity initialised with Bond Model
-                org.greenpole.hibernate.entity.BondOffer bondOffer = bondCreationMain(bondModel);
+                org.greenpole.hibernate.entity.BondOffer bondOffer = unwrapBondOfferModel(bondModel);
                 cq.createBondOffer(bondOffer);
                 
                 wrapper.setAttendedTo(true);
@@ -1203,7 +1203,7 @@ public class ClientCompanyComponentLogic {
      * @param bondModel the bond model
      * @return BondOffer object to setupBondOfferAuthorise method
      */
-    private org.greenpole.hibernate.entity.BondOffer bondCreationMain(BondOffer bondModel) throws ParseException {
+    private org.greenpole.hibernate.entity.BondOffer unwrapBondOfferModel(BondOffer bondModel) throws ParseException {
         SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         
         // instantiate required hibernate entities
@@ -1224,6 +1224,7 @@ public class ClientCompanyComponentLogic {
         bond_main.setInterestRate(bondModel.getInterestRate());
         bond_main.setbondOfferPaymentPlan(paymentPlan);
         bond_main.setClientCompany(cc);
+        bond_main.setValid(true);
 
         return bond_main;
     }
@@ -1233,7 +1234,7 @@ public class ClientCompanyComponentLogic {
      * @param ipoModel the InitialPublicOffer object
      * @return the hibernate entity object
      */
-    private org.greenpole.hibernate.entity.InitialPublicOffer setUpInitialPublicOfferAfterAuthorisation(InitialPublicOffer ipoModel, Response resp, Login login) {
+    private org.greenpole.hibernate.entity.InitialPublicOffer unwrapInitialPublicOfferModel(InitialPublicOffer ipoModel, Response resp, Login login) {
         SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
         org.greenpole.hibernate.entity.ClientCompany cc_hib = new org.greenpole.hibernate.entity.ClientCompany();
@@ -1247,6 +1248,7 @@ public class ClientCompanyComponentLogic {
         ipo_hib.setContMinSub(ipoModel.getContinuingMinimumSubscription());
         ipo_hib.setOfferPrice(ipoModel.getOfferPrice());
         ipo_hib.setOfferSize(ipoModel.getOfferPrice() * ipoModel.getTotalSharesOnOffer());
+        ipo_hib.setIpoClosed(false);
         try {
             ipo_hib.setOpeningDate(formatter.parse(ipoModel.getOpeningDate()));
         } catch (ParseException ex) {

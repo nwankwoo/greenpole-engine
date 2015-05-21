@@ -149,7 +149,7 @@ public interface ClientCompanyComponentService {
      */
     @WebMethod
     @WebResult(name = "response")
-    public Response createBondOffer_Request(@WebParam(name = "login", header = true) Login login, @WebParam(name = "authenticator") String authenticator,
+    public Response setupBondOffer_Request(@WebParam(name = "login", header = true) Login login, @WebParam(name = "authenticator") String authenticator,
             @WebParam(name = "bond") BondOffer bond);
     
     /**
