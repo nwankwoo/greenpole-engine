@@ -1222,7 +1222,7 @@ public class ClientCompanyComponentLogic {
         bond_main.setBondUnitPrice(bondModel.getUnitPrice());
         bond_main.setBondType(type);
         bond_main.setInterestRate(bondModel.getInterestRate());
-        bond_main.setPaymentPlan(paymentPlan);
+        bond_main.setbondOfferPaymentPlan(paymentPlan);
         bond_main.setClientCompany(cc);
 
         return bond_main;
