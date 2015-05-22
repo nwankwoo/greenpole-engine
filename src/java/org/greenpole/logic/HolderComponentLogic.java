@@ -5,7 +5,6 @@
  */
 package org.greenpole.logic;
 
-import com.sun.javafx.scene.control.skin.VirtualFlow;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,7 +17,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.tags.AddressTag;
@@ -42,7 +40,6 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entity.model.holder.QueryHolderConsolidation;
-import org.greenpole.hibernate.entity.AccountConsolidation;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorEmailAddressId;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
@@ -66,13 +63,13 @@ import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderResidentialAddressId;
 import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
+import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.BytesConverter;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.GreenpoleFile;
-import org.greenpole.util.Manipulator;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotificationProperties;
@@ -89,6 +86,7 @@ import org.slf4j.LoggerFactory;
 public class HolderComponentLogic {
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
+    private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
     private final GreenpoleProperties greenProp = new GreenpoleProperties(HolderComponentLogic.class);
     private final NotificationProperties notificationProp = new NotificationProperties(HolderComponentLogic.class);
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
@@ -209,7 +207,22 @@ public class HolderComponentLogic {
         logger.info("authorise holder accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         
         try {
-            //get Holder Merger model from wrapper
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
             HolderMerger merger = merger_list.get(0);
@@ -314,8 +327,7 @@ public class HolderComponentLogic {
                     }
 
                     if (merged) {
-                        wrapper.setAttendedTo(true);
-                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                        Notification.markAttended(notificationCode);
                         resp.setRetn(0);
                         resp.setDesc("Successful merge");
                         logger.info("Successful merge - [{}]", login.getUserId());
@@ -436,6 +448,22 @@ public class HolderComponentLogic {
         logger.info("authorise holder accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
 
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             //get Holder Merger model from wrapper
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
@@ -523,8 +551,7 @@ public class HolderComponentLogic {
                         
                         boolean demerge = hq.demergeHolderAccounts(pryHolder, secondaryMergeInfo);
                         if (demerge) {
-                            wrapper.setAttendedTo(true);
-                            Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                            Notification.markAttended(notificationCode);
                             resp.setRetn(0);
                             resp.setDesc("Demerge Successful.");
                             logger.info("Demerge Successful - [{}]", login.getUserId());
@@ -745,6 +772,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
         logger.info("authorise share unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             //get client company model from wrapper
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
@@ -809,8 +852,7 @@ public class HolderComponentLogic {
                                     if (certCreated) {
                                         //QUERY CERTIFICATE FOR NUMBER
                                         String certNumber = "temp";
-                                        wrapper.setAttendedTo(true);
-                                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                                        Notification.markAttended(notificationCode);
                                         resp.setRetn(0);
                                         resp.setDesc("Transaction Successful. Certificate " + certNumber + " created for " + receiverName);
                                         logger.info("Transaction Successful. Certificate [{}] created for [{}] - [{}]",
@@ -1158,8 +1200,7 @@ public class HolderComponentLogic {
             if (senderCompAcct.getShareUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
                 boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits(), unitTransfer.getTransferTypeId());
                 if (transfered) {
-                    wrapper.setAttendedTo(true);
-                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                    Notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Successful Transfer");
                     logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]",
@@ -1200,8 +1241,7 @@ public class HolderComponentLogic {
                 if (senderBondAcct.getRemainingPrincipalValue() >= transferValue) {
                     boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice(), unitTransfer.getTransferTypeId());
                     if (transfered) {
-                        wrapper.setAttendedTo(true);
-                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                        Notification.markAttended(notificationCode);
                         resp.setRetn(0);
                         resp.setDesc("Successful Transfer");
                         logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
@@ -1249,7 +1289,7 @@ public class HolderComponentLogic {
                 //check that start date is properly formatted
                 if (!descriptors.get("date").equalsIgnoreCase("none")) {
                     try {
-                        formatter.parse(queryParams.getStart_date());
+                        formatter.parse(queryParams.getStartDate());
                     } catch (ParseException ex) {
                         logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
                         resp.setRetn(308);
@@ -1263,7 +1303,7 @@ public class HolderComponentLogic {
                 //check that start and end dates are properly formatted
                 if (descriptors.get("date").equalsIgnoreCase("between")) {
                     try {
-                        formatter.parse(queryParams.getStart_date());
+                        formatter.parse(queryParams.getStartDate());
                     } catch (ParseException ex) {
                         logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
                         resp.setRetn(308);
@@ -1273,7 +1313,7 @@ public class HolderComponentLogic {
                         return resp;
                     }
                     try {
-                        formatter.parse(queryParams.getEnd_date());
+                        formatter.parse(queryParams.getEndDate());
                     } catch (ParseException ex) {
                         logger.info("an error was thrown while checking the end date. See error log - [{}]", login.getUserId());
                         resp.setRetn(308);
@@ -1288,7 +1328,7 @@ public class HolderComponentLogic {
                 changes_hib.setHolderChangeType(change_type_hib);
 
                 List<org.greenpole.hibernate.entity.HolderChanges> changes_hib_result = hq.queryHolderChanges(queryParams.getDescriptor(), changes_hib,
-                        queryParams.getStart_date(), queryParams.getEnd_date(), greenProp.getDateFormat());
+                        queryParams.getStartDate(), queryParams.getEndDate(), greenProp.getDateFormat());
                 logger.info("retrieved holder changes result from query. Preparing local model - [{}]", login.getUserId());
                 List<Holder> return_list = new ArrayList<>();
 
@@ -1395,7 +1435,7 @@ public class HolderComponentLogic {
                     h_hib_search.setChn(h_model_search.getChn());
                     h_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
                     h_hib_search.setTaxExempted(h_model_search.isTaxExempted());
-                    h_hib_search.setPryAddress(h_model_search.getPrimaryAddress());
+                    h_hib_search.setPryAddress(h_model_search.getPryAddress());
                     h_hib_search.setType(h_type_hib_search);
                     h_hib_search.setPryHolder(true); //must be set
                 }
@@ -1569,7 +1609,7 @@ public class HolderComponentLogic {
                     h.setChn(h_hib_out.getChn());
                     h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
                     h.setTaxExempted(h_hib_out.isTaxExempted());
-                    h.setPrimaryAddress(h_hib_out.getPryAddress());
+                    h.setPryAddress(h_hib_out.getPryAddress());
                     h.setTypeId(h_hib_out.getType().getId());
                     h.setPryHolder(h_hib_out.isPryHolder());
 
@@ -1722,15 +1762,15 @@ public class HolderComponentLogic {
                                     desc += "\nPhone number should not be empty";
                                 }
                             }
-                        } else if (admin.getPrimaryAddress() == null || "".equals(admin.getPrimaryAddress())) {
+                        } else if (admin.getPryAddress() == null || "".equals(admin.getPryAddress())) {
                             desc += "\nPrimary address must be set";
-                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) || 
-                                admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                        } else if (admin.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) || 
+                                admin.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                             desc += "\nPrimary address can only be residential or postal";
-                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                        } else if (admin.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
                                 admin.getResidentialAddress() == null) {
                             desc += "\nResidential address cannot be empty, as it is the primary address";
-                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                        } else if (admin.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
                                 admin.getPostalAddress() == null) {
                             desc += "\nPostal address cannot be empty, as it is the primary address";
                         } else {
@@ -1794,6 +1834,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holderList = (List<Holder>) wrapper.getModel();
             Holder holderModel = holderList.get(0);
@@ -1836,10 +1892,10 @@ public class HolderComponentLogic {
                                     desc += "\nPhone number should not be empty";
                                 }
                             }
-                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                        } else if (admin.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
                                 admin.getResidentialAddress() == null) {
                             desc += "\nResidential address cannot be empty, as it is the primary address";
-                        } else if (admin.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                        } else if (admin.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
                                 admin.getPostalAddress() == null) {
                             desc += "\nPostal address cannot be empty, as it is the primary address";
                         } else {
@@ -1850,8 +1906,7 @@ public class HolderComponentLogic {
                     if (flag) {
                         hq.createAdministratorForHolder(createAdministrator(holderModel));
 
-                        wrapper.setAttendedTo(true);
-                        Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                        Notification.markAttended(notificationCode);
                         resp.setRetn(0);
                         resp.setDesc("Success");
                         logger.info("Administrators were created successfully - [{}]", login.getUserId());
@@ -1980,6 +2035,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PowerOfAttorney> poaList = (List<PowerOfAttorney>) wrapper.getModel();
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
@@ -2042,8 +2113,7 @@ public class HolderComponentLogic {
                             }
                             
                             if (uploaded) {
-                                wrapper.setAttendedTo(true);
-                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                                Notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("Power of attorney successfully uploaded - [{}]", login.getUserId());
@@ -2319,11 +2389,27 @@ public class HolderComponentLogic {
      * @param notificationCode the notification code
      * @return response to the store NUBAN account request
      */
-    public Response addShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
+    public Response storeShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorise NUBAN account number addition to holder company account, invoked by - [{}]", login.getUserId());
         
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderCompanyAccount> compAcctList = (List<HolderCompanyAccount>) wrapper.getModel();
             HolderCompanyAccount compAcct = compAcctList.get(0);
@@ -2350,8 +2436,7 @@ public class HolderComponentLogic {
                                 
                                 hq.createUpdateHolderCompanyAccount(compAcct_hib);
                                 
-                                wrapper.setAttendedTo(true);
-                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                                Notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("NUBAN account stored - [{}]", login.getUserId());
@@ -2493,6 +2578,22 @@ public class HolderComponentLogic {
         logger.info("authorise NUBAN account number addition to holder bond account, invoked by - [{}]", login.getUserId());
         
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> bondAcctList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondAcct = bondAcctList.get(0);
@@ -2519,8 +2620,7 @@ public class HolderComponentLogic {
                                 
                                 hq.createUpdateHolderBondAccount(bondAcct_hib);
                                 
-                                wrapper.setAttendedTo(true);
-                                Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                                Notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("NUBAN account stored - [{}]", login.getUserId());
@@ -2595,15 +2695,15 @@ public class HolderComponentLogic {
                 desc += "\nHolder last name should not be empty";
             } else if (holder.getTypeId() <= 0) {
                 desc += "\nHolder type should not be empty";
-            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+            }else if (holder.getPryAddress() == null || "".equals(holder.getPryAddress())) {
                 desc += "\nPrimary Holder address is not specified";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
                     && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
                     && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
@@ -2730,6 +2830,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
@@ -2745,15 +2861,15 @@ public class HolderComponentLogic {
                 desc += "\nHolder last name should not be empty";
             } else if (holder.getTypeId() <= 0) {
                 desc += "\nHolder type should not be empty";
-            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+            }else if (holder.getPryAddress() == null || "".equals(holder.getPryAddress())) {
                 desc += "\nPrimary Holder address is not specified";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
                     && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
                     && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
@@ -2870,8 +2986,7 @@ public class HolderComponentLogic {
                 }
 
                 if (created) {
-                    wrapper.setAttendedTo(true);
-                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                    Notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Holder details saved: Successful");
                     logger.info("Shareholder account creation successful - [{}]", login.getUserId());
@@ -2930,15 +3045,15 @@ public class HolderComponentLogic {
                 desc += "\nCHN cannot be empty";
             } else if (holder.getTypeId() <= 0) {
                 desc += "\nHolder type should not be empty";
-            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+            }else if (holder.getPryAddress() == null || "".equals(holder.getPryAddress())) {
                 desc += "\nPrimary Holder address is not specified";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
                     && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
                     && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
@@ -3057,6 +3172,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
@@ -3074,15 +3205,15 @@ public class HolderComponentLogic {
                 desc += "\nCHN cannot be empty";
             } else if (holder.getTypeId() <= 0) {
                 desc += "\nHolder type should not be empty";
-            }else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+            }else if (holder.getPryAddress() == null || "".equals(holder.getPryAddress())) {
                 desc += "\nPrimary Holder address is not specified";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                    || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    || holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                 desc += "\nPrimary address can only be residential or postal";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
                     && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                 desc += "\nResidential address cannot be empty, as it is the primary address";
-            } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+            } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
                     && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                 desc += "\nPostal address cannot be empty, as it is the primary address";
             } else {
@@ -3180,8 +3311,7 @@ public class HolderComponentLogic {
                         retrieveHolderEmailAddress(holder), retrieveHolderPhoneNumber(holder));
 
                 if (created) {
-                    wrapper.setAttendedTo(true);
-                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                    Notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Successful");
                     logger.info("Bond holder account creation successful - [{}]", login.getUserId());
@@ -3303,6 +3433,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
 
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderSignature> holdSigntureList = (List<HolderSignature>) wrapper.getModel();
             HolderSignature sigModel = holdSigntureList.get(0);
@@ -3347,8 +3493,7 @@ public class HolderComponentLogic {
                         }
 
                         if (uploaded) {
-                            wrapper.setAttendedTo(true);
-                            Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                            Notification.markAttended(notificationCode);
                             resp.setRetn(0);
                             resp.setDesc("Successful");
                             logger.info("Holder signature successfully uploaded - [{}]", login.getUserId());
@@ -3534,6 +3679,22 @@ public class HolderComponentLogic {
         boolean flag = false;
 
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
@@ -3556,8 +3717,7 @@ public class HolderComponentLogic {
                     
                     hq.updateHolderAccountForTranspose(holder_hib);
                     
-                    wrapper.setAttendedTo(true);
-                    Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                    Notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Successful");
                     logger.info("Holder name transpose sucessful - [{}]", login.getUserId());
@@ -3627,15 +3787,15 @@ public class HolderComponentLogic {
                         desc += "\nHolder last name should not be empty";
                     } else if (holder.getTypeId() <= 0) {
                         desc += "\nHolder type should not be empty";
-                    } else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                    } else if (holder.getPryAddress() == null || "".equals(holder.getPryAddress())) {
                         desc += "\nPrimary Holder address is not specified";
-                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                            || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                    } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            || holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                         desc += "\nPrimary address can only be residential or postal";
-                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
                             && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                         desc += "\nResidential address cannot be empty, as it is the primary address";
-                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                    } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
                             && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                         desc += "\nPostal address cannot be empty, as it is the primary address";
                     } else {
@@ -3769,6 +3929,22 @@ public class HolderComponentLogic {
         boolean flag = false;
 
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
@@ -3789,15 +3965,15 @@ public class HolderComponentLogic {
                         desc += "\nHolder last name should not be empty";
                     } else if (holder.getTypeId() <= 0) {
                         desc += "\nHolder type should not be empty";
-                    } else if (holder.getPrimaryAddress() == null || "".equals(holder.getPrimaryAddress())) {
+                    } else if (holder.getPryAddress() == null || "".equals(holder.getPryAddress())) {
                         desc += "\nPrimary Holder address is not specified";
-                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
-                            || holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
+                    } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            || holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())) {
                         desc += "\nPrimary address can only be residential or postal";
-                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                    } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
                             && (holder.getResidentialAddresses() == null || holder.getResidentialAddresses().isEmpty())) {
                         desc += "\nResidential address cannot be empty, as it is the primary address";
-                    } else if (holder.getPrimaryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                    } else if (holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
                             && (holder.getPostalAddresses() == null || holder.getPostalAddresses().isEmpty())) {
                         desc += "\nPostal address cannot be empty, as it is the primary address";
                     } else {
@@ -3915,8 +4091,7 @@ public class HolderComponentLogic {
                                 retrieveHolderEmailAddressForDeletion(holder), holderChangesList);
                         
                         if (updated) {
-                            wrapper.setAttendedTo(true);
-                            Notification.persistNotificationFile(notificationProp.getNotificationLocation(), notificationCode, wrapper);
+                            Notification.markAttended(notificationCode);
                             resp.setRetn(0);
                             resp.setDesc("Holder details saved");
                             logger.info("Holder account update successful - [{}]", login.getUserId());
@@ -4137,6 +4312,22 @@ public class HolderComponentLogic {
         Response resp = new Response();
 
         try {
+            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
+                if (gq.checkNotification(notificationCode)) {
+                    Notification.writeOffNotification(notificationCode);
+                    resp.setRetn(301);
+                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
+                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
+                            login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(301);
+                resp.setDesc("Illegal notification code sent.");
+                logger.info("Illegal notification code sent - [{}]",
+                        login.getUserId());
+                return resp;
+            }
+            
             NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> acctList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondAccount = acctList.get(0);
@@ -4160,6 +4351,7 @@ public class HolderComponentLogic {
                     
                     hq.createUpdateHolderBondAccount(bondAcct_hib);
                     
+                    Notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Bond Offer application successful");
                     logger.info("Bond Offer application successful - [{}]", login.getUserId());

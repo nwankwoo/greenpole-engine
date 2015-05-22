@@ -224,7 +224,7 @@ public interface HolderComponentService {
      */
     @WebMethod
     @WebResult(name = "response")
-    public Response addShareholderNubanAccountNumber_Authorise(@WebParam(name = "login", header = true) Login login, @WebParam(name = "notificationCode") String notificationCode);
+    public Response storeShareholderNubanAccountNumber_Authorise(@WebParam(name = "login", header = true) Login login, @WebParam(name = "notificationCode") String notificationCode);
     
     /**
      * Request to store a NUBAN account in a bond holder's company account.

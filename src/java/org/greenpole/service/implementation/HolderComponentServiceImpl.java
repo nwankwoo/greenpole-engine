@@ -116,8 +116,8 @@ public class HolderComponentServiceImpl implements HolderComponentService {
     }
 
     @Override
-    public Response addShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
-        return request.addShareholderNubanAccountNumber_Authorise(login, notificationCode);
+    public Response storeShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
+        return request.storeShareholderNubanAccountNumber_Authorise(login, notificationCode);
     }
 
     @Override
