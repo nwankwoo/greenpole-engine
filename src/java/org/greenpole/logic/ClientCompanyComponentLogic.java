@@ -71,8 +71,9 @@ public class ClientCompanyComponentLogic {
      * @return response to the client company creation request 
      */
     public Response createClientCompany_Request(Login login, String authenticator, ClientCompany cc) {
-        logger.info("request to create the client company [{}], invoked by", cc.getName(), login.getUserId());
+        logger.info("request to create the client company [{}], invoked by [{}]", cc.getName(), login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
             NotificationWrapper wrapper;
@@ -101,7 +102,7 @@ public class ClientCompanyComponentLogic {
                     List<ClientCompany> cclist = new ArrayList<>();
                     cclist.add(cc);
                     //wrap client company object in notification object, along with other information
-                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate creation of the client company, " + cc.getName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                     wrapper.setFrom(login.getUserId());
@@ -141,27 +142,12 @@ public class ClientCompanyComponentLogic {
      */
     public Response createClientCompany_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         boolean freshCreation = true;
         logger.info("authorise client company creation, invoked by [{}] - [{}]", login.getUserId(), notificationCode);
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
             ClientCompany ccModel = list.get(0);
             
@@ -183,7 +169,7 @@ public class ClientCompanyComponentLogic {
                             retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel));
                     
                     if (created) {
-                        Notification.markAttended(notificationCode);
+                        notification.markAttended(notificationCode);
                         logger.info("client company created - [{}]: [{}]", login.getUserId(), ccModel.getName());
                         resp.setRetn(0);
                         resp.setDesc("Successful");
@@ -232,6 +218,7 @@ public class ClientCompanyComponentLogic {
     public Response editClientCompany_Request(Login login, String authenticator, ClientCompany cc) {
         logger.info("request to edit the client company [{}], invoked by [{}]", cc.getName(), login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
        
         try {
             NotificationWrapper wrapper;
@@ -285,7 +272,7 @@ public class ClientCompanyComponentLogic {
                         List<ClientCompany> cclist = new ArrayList<>();
                         cclist.add(cc);
                         //wrap client company object in notification object, along with other information
-                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate change to client company, " + cc.getName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                         wrapper.setFrom(login.getUserId());
@@ -330,27 +317,12 @@ public class ClientCompanyComponentLogic {
      */
     public Response editClientCompany_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         boolean freshCreation = false;
         logger.info("authorise client company change, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
             ClientCompany ccModel = list.get(0);
             
@@ -359,7 +331,7 @@ public class ClientCompanyComponentLogic {
                     retrieveEmailAddressModelForDeletion(ccModel), retrievePhoneNumberModelForDeletion(ccModel));
             
             if (edited) {
-                Notification.markAttended(notificationCode);
+                notification.markAttended(notificationCode);
                 logger.info("client company edited - [{}]: [{}]", ccModel.getName(), login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
@@ -397,10 +369,11 @@ public class ClientCompanyComponentLogic {
      */
     public Response queryClientCompany_Request(Login login, QueryClientCompany queryParams) {
         Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
         logger.info("request to query client company, invoked by [{}]", login.getUserId());
         
         try {
-            Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
 
             if (descriptors.size() == 4) {
                 String descriptor = queryParams.getDescriptor();
@@ -607,6 +580,7 @@ public class ClientCompanyComponentLogic {
     public Response uploadShareUnitQuotations_Request(Login login, String authenticator, List<ShareQuotation> shareQuotation) {
         logger.info("request to upload share unit quotations, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
 
         try {
             NotificationWrapper wrapper;
@@ -632,7 +606,7 @@ public class ClientCompanyComponentLogic {
 
                 logger.info("client company codes exist - [{}]", login.getUserId());
                 //wrap client company object in notification object, along with other information
-                wrapper.setCode(Notification.createCode(login));
+                wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Upload of share-unit quotations");
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
@@ -667,31 +641,16 @@ public class ClientCompanyComponentLogic {
      */
     public Response uploadShareUnitQuotations_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorisation for share unit quotation upload, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ShareQuotation> quotationList = (List<ShareQuotation>) wrapper.getModel();
             
             boolean uploaded = cq.uploadShareQuotation(retrieveShareQuotation(quotationList));
             
             if (uploaded) {
-                Notification.markAttended(notificationCode);
+                notification.markAttended(notificationCode);
                 logger.info("share unit quotation upload authorised - [{}]", login.getUserId());
                 resp.setRetn(0);
                 resp.setDesc("Successful");
@@ -762,15 +721,17 @@ public class ClientCompanyComponentLogic {
     
     /**
      * Processes request to set up an Initial Public Offer.
-     * @param ipo the initial public offer details for a client company
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the
      * notification
+     * @param ipo the initial public offer details for a client company
      * @return response to the initial public offer request
      */
-    public Response setupInitialPublicOffer_Request(Login login, InitialPublicOffer ipo, String authenticator) {
+    public Response setupInitialPublicOffer_Request(Login login, String authenticator, InitialPublicOffer ipo) {
         logger.info("request to set up Initial Public Offer, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
+        
         NotificationWrapper wrapper;
         QueueSender qSender;
         NotifierProperties prop;
@@ -788,7 +749,7 @@ public class ClientCompanyComponentLogic {
                             prop.getAuthoriserNotifierQueueName());
                     List<InitialPublicOffer> ipoList = new ArrayList();
                     ipoList.add(ipo);
-                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate set up of an Initial Public Offer under the client company " + cc.getName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                     wrapper.setFrom(login.getUserId());
@@ -828,26 +789,11 @@ public class ClientCompanyComponentLogic {
      */
     public Response setupInitialPublicOffer_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorise Initial Public Offer setup, invoked by [{}]", login.getUserId());
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<InitialPublicOffer> ipoList = (List<InitialPublicOffer>) wrapper.getModel();
             InitialPublicOffer ipoModel = ipoList.get(0);
             
@@ -861,7 +807,7 @@ public class ClientCompanyComponentLogic {
                     org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = unwrapInitialPublicOfferModel(ipoModel, resp, login);
                     cq.createInitialPublicOffer(ipo_hib);
 
-                    Notification.markAttended(notificationCode);
+                    notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Success");
                     logger.info("Initial Public Offer was Successfully created - [{}]", login.getUserId());
@@ -909,6 +855,8 @@ public class ClientCompanyComponentLogic {
                 bond.getTitle(), bond.getUnitPrice(), login.getUserId());
 
         Response resp = new Response();
+        Notification notification = new Notification();
+        
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
@@ -967,7 +915,7 @@ public class ClientCompanyComponentLogic {
                 List<BondOffer> bc = new ArrayList<>();
                 bc.add(bond);
                 
-                wrapper.setCode(Notification.createCode(login));
+                wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate Bond Setup - " + bond.getTitle());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
@@ -999,29 +947,14 @@ public class ClientCompanyComponentLogic {
      */
     public Response setupBondOffer_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("Bond setup creation authorised. [{}] - [{}]", notificationCode, login.getUserId());
         
         String desc = "";
         boolean flag = false;
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<BondOffer> list = (List<BondOffer>) wrapper.getModel();
             BondOffer bondModel = list.get(0);
             
@@ -1073,7 +1006,7 @@ public class ClientCompanyComponentLogic {
                 org.greenpole.hibernate.entity.BondOffer bondOffer = unwrapBondOfferModel(bondModel);
                 cq.createBondOffer(bondOffer);
                 
-                Notification.markAttended(notificationCode);
+                notification.markAttended(notificationCode);
                 resp.setRetn(0);
                 resp.setDesc("Successful");
                 logger.info("Bond offer created successfully - [{}]", login.getUserId());
@@ -1117,6 +1050,8 @@ public class ClientCompanyComponentLogic {
         logger.info("request to create private placement, invoked by [{}]", login.getUserId());
 
         Response resp = new Response();
+        Notification notification = new Notification();
+        
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties props;
@@ -1138,7 +1073,7 @@ public class ClientCompanyComponentLogic {
                                 List<PrivatePlacement> ppc = new ArrayList<>();
                                 ppc.add(privatePlacement);
                                 
-                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Create Private Placement for " + cc.getName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
                                 wrapper.setFrom(login.getUserId());
@@ -1192,28 +1127,13 @@ public class ClientCompanyComponentLogic {
     public Response setupPrivatePlacement_Authorise(Login login, String notificationCode) {
         logger.info("authorise private placement creation, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         Date date = new Date();
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
             PrivatePlacement ppModel = pplist.get(0);
             org.greenpole.hibernate.entity.PrivatePlacement ppEntity = new org.greenpole.hibernate.entity.PrivatePlacement();
@@ -1237,7 +1157,7 @@ public class ClientCompanyComponentLogic {
                                 
                                 cq.createPrivatePlacement(ppEntity);
                                 
-                                Notification.markAttended(notificationCode);
+                                notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("Private Placement created for Client Company: [{}] - [{}]", cc.getName(), login.getUserId());

@@ -7,6 +7,7 @@ package org.greenpole.service.implementation;
 
 import java.util.List;
 import javax.jws.WebService;
+import org.greenpole.entity.model.Carrier;
 import org.greenpole.entity.model.clientcompany.BondOffer;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
 import org.greenpole.entity.model.clientcompany.InitialPublicOffer;
@@ -16,13 +17,14 @@ import org.greenpole.entity.model.clientcompany.ShareQuotation;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.logic.ClientCompanyComponentLogic;
+import org.greenpole.security.SecurityCheck;
 import org.greenpole.service.ClientCompanyComponentService;
 
 /**
  *
  * @author Akin
  */
-@WebService(serviceName = "clientcompanycomponentservice", endpointInterface = "org.greenpole.service.ClientCompanyComponentService")
+@WebService(serviceName = "clientcompanyservice", endpointInterface = "org.greenpole.service.ClientCompanyComponentService")
 public class ClientCompanyComponentServiceImpl implements ClientCompanyComponentService {
     private final ClientCompanyComponentLogic request = new ClientCompanyComponentLogic();
 
@@ -33,7 +35,9 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
 
     @Override
     public Response createClientCompany_Authorise(Login login, String notificationCode) {
-        return request.createClientCompany_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.createClientCompany_Authorise(login, notificationCode);
     }
 
     @Override
@@ -43,7 +47,9 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
 
     @Override
     public Response editClientCompany_Authorise(Login login, String notificationCode) {
-        return request.editClientCompany_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.editClientCompany_Authorise(login, notificationCode);
     }
 
     @Override
@@ -52,13 +58,16 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
     }
 
     @Override
-    public Response uploadShareUnitQuotations_Request(Login login, String authenticator, List<ShareQuotation> shareQuotation) {
-        return request.uploadShareUnitQuotations_Request(login, authenticator, shareQuotation);
+    public Response uploadShareUnitQuotations_Request(Login login, String authenticator, Carrier shareQuotation) {
+        List<ShareQuotation> quotations = (List<ShareQuotation>) shareQuotation.getCarriedList();
+        return request.uploadShareUnitQuotations_Request(login, authenticator, quotations);
     }
 
     @Override
     public Response uploadShareUnitQuotations_Authorise(Login login, String notificationCode) {
-        return request.uploadShareUnitQuotations_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.uploadShareUnitQuotations_Authorise(login, notificationCode);
     }
 
     @Override
@@ -67,13 +76,15 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
     }
 
     @Override
-    public Response setupInitialPublicOffer_Request(Login login, InitialPublicOffer ipo, String authenticator) {
-        return request.setupInitialPublicOffer_Request(login, ipo, authenticator);
+    public Response setupInitialPublicOffer_Request(Login login, String authenticator, InitialPublicOffer ipo) {
+        return request.setupInitialPublicOffer_Request(login, authenticator, ipo);
     }
 
     @Override
     public Response setupInitialPublicOffer_Authorise(Login login, String notificationCode) {
-        return request.setupInitialPublicOffer_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.setupInitialPublicOffer_Authorise(login, notificationCode);
     }
 
     @Override
@@ -83,7 +94,9 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
 
     @Override
     public Response setupBondOffer_Authorise(Login login, String notificationCode) {
-        return request.setupBondOffer_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.setupBondOffer_Authorise(login, notificationCode);
     }
 
     @Override
@@ -93,7 +106,9 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
 
     @Override
     public Response setupPrivatePlacement_Authorise(Login login, String notificationCode) {
-        return request.setupPrivatePlacement_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.setupPrivatePlacement_Authorise(login, notificationCode);
     }
     
 }

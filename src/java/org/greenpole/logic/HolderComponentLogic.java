@@ -101,6 +101,7 @@ public class HolderComponentLogic {
     public Response mergeHolderAccounts_Request(Login login, String authenticator, HolderMerger accountsToMerge) {
         logger.info("request holder accounts merge, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
             NotificationWrapper wrapper;
@@ -162,7 +163,7 @@ public class HolderComponentLogic {
                 descMsg += ", requested by " + login.getUserId();
                 
                 //wrap unit transfer object in notification object, along with other information
-                wrapper.setCode(Notification.createCode(login));
+                wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription(descMsg);
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
@@ -204,26 +205,11 @@ public class HolderComponentLogic {
      */
     public Response mergeHolderAccounts_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorise holder accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
             HolderMerger merger = merger_list.get(0);
             
@@ -327,7 +313,7 @@ public class HolderComponentLogic {
                     }
 
                     if (merged) {
-                        Notification.markAttended(notificationCode);
+                        notification.markAttended(notificationCode);
                         resp.setRetn(0);
                         resp.setDesc("Successful merge");
                         logger.info("Successful merge - [{}]", login.getUserId());
@@ -378,6 +364,7 @@ public class HolderComponentLogic {
     public Response demergeHolderAccounts_Request(Login login, String authenticator, HolderMerger accountsToDemerge) {
         logger.info("request holder accounts demerge, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
             NotificationWrapper wrapper;
@@ -410,7 +397,7 @@ public class HolderComponentLogic {
                 String pryName = h_hib.getFirstName() + " " + h_hib.getLastName();
                 
                 //wrap unit transfer object in notification object, along with other information
-                wrapper.setCode(Notification.createCode(login));
+                wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Demerge accounts from " + pryName);
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
@@ -445,27 +432,12 @@ public class HolderComponentLogic {
      */
     public Response demergeHolderAccounts_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorise holder accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
 
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             //get Holder Merger model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderMerger> merger_list = (List<HolderMerger>) wrapper.getModel();
             HolderMerger demerger = merger_list.get(0);
             
@@ -551,7 +523,7 @@ public class HolderComponentLogic {
                         
                         boolean demerge = hq.demergeHolderAccounts(pryHolder, secondaryMergeInfo);
                         if (demerge) {
-                            Notification.markAttended(notificationCode);
+                            notification.markAttended(notificationCode);
                             resp.setRetn(0);
                             resp.setDesc("Demerge Successful.");
                             logger.info("Demerge Successful - [{}]", login.getUserId());
@@ -609,6 +581,7 @@ public class HolderComponentLogic {
     public Response transferShareUnitManual_Request(Login login, String authenticator, UnitTransfer unitTransfer) {
         logger.info("request share unit transfer, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
             NotificationWrapper wrapper;
@@ -664,7 +637,7 @@ public class HolderComponentLogic {
                                                 transferList.add(unitTransfer);
 
                                                 //wrap unit transfer object in notification object, along with other information
-                                                wrapper.setCode(Notification.createCode(login));
+                                                wrapper.setCode(notification.createCode(login));
                                                 wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
                                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                                                 wrapper.setFrom(login.getUserId());
@@ -770,26 +743,11 @@ public class HolderComponentLogic {
      */
     public Response transferShareUnitManual_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorise share unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
             UnitTransfer unitTransfer = transferList.get(0);
             
@@ -828,7 +786,7 @@ public class HolderComponentLogic {
                                         org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
                                         //begin transfer
                                         return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName, login,
-                                                notificationCode, wrapper);
+                                                notificationCode, wrapper, notification);
                                     }
                                     //no company account? attempt to create one for them if they have a chn
                                     if (receiverHolderChnExists) {
@@ -844,7 +802,7 @@ public class HolderComponentLogic {
                                         logger.info("receiver holder now has company account - [{}]", login.getUserId());
                                         //proceed with transfer
                                         return invokeTransfer(senderCompAcct, unitTransfer, receiverCompAcct, resp, senderName, receiverName, login,
-                                                notificationCode, wrapper);
+                                                notificationCode, wrapper, notification);
                                     }
                                     //no chn in main account? create certificate
                                     //METHOD TO CREATE CERTIFICATE HERE!!!
@@ -852,7 +810,7 @@ public class HolderComponentLogic {
                                     if (certCreated) {
                                         //QUERY CERTIFICATE FOR NUMBER
                                         String certNumber = "temp";
-                                        Notification.markAttended(notificationCode);
+                                        notification.markAttended(notificationCode);
                                         resp.setRetn(0);
                                         resp.setDesc("Transaction Successful. Certificate " + certNumber + " created for " + receiverName);
                                         logger.info("Transaction Successful. Certificate [{}] created for [{}] - [{}]",
@@ -929,6 +887,7 @@ public class HolderComponentLogic {
     public Response transferBondUnitManual_Request(Login login, String authenticator, UnitTransfer unitTransfer) {
         logger.info("request bond unit transfer, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
             NotificationWrapper wrapper;
@@ -983,7 +942,7 @@ public class HolderComponentLogic {
                                                 transferList.add(unitTransfer);
 
                                                 //wrap unit transfer object in notification object, along with other information
-                                                wrapper.setCode(Notification.createCode(login));
+                                                wrapper.setCode(notification.createCode(login));
                                                 wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
                                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                                                 wrapper.setFrom(login.getUserId());
@@ -1074,10 +1033,11 @@ public class HolderComponentLogic {
      */
     public Response transferBondUnitManual_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorise bond unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         try {
             //get client company model from wrapper
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<UnitTransfer> transferList = (List<UnitTransfer>) wrapper.getModel();
             UnitTransfer unitTransfer = transferList.get(0);
             
@@ -1115,7 +1075,7 @@ public class HolderComponentLogic {
                                         org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct = hq.getHolderBondAccount(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                         //proceed with transaction
                                         return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName, login,
-                                                notificationCode, wrapper);
+                                                notificationCode, wrapper, notification);
                                     }
                                     //no bond account? attempt to create one for them
                                     logger.info("receiver holder has no bond account, but has CHN. "
@@ -1130,7 +1090,7 @@ public class HolderComponentLogic {
                                     hq.createUpdateHolderBondAccount(receiverBondAcct);
                                     //proceed with transfer
                                     return invokeTransfer(senderBondAcct, unitTransfer, receiverBondAcct, resp, senderName, receiverName, login,
-                                            notificationCode, wrapper);
+                                            notificationCode, wrapper, notification);
                                 }
                                 resp.setRetn(307);
                                 resp.setDesc("The holder - " + senderName + " - has no recorded CHN in his bond account. Transaction cancelled.");
@@ -1195,12 +1155,12 @@ public class HolderComponentLogic {
      * @return the response from the transfer
      */
     private Response invokeTransfer(org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderCompanyAccount receiverCompAcct, Response resp, String senderName, String receiverName, Login login,
-            String notificationCode, NotificationWrapper wrapper) throws JAXBException {
+            String notificationCode, NotificationWrapper wrapper, Notification notification)  throws JAXBException {
         if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
             if (senderCompAcct.getShareUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
                 boolean transfered = hq.transferShareUnits(senderCompAcct, receiverCompAcct, unitTransfer.getUnits(), unitTransfer.getTransferTypeId());
                 if (transfered) {
-                    Notification.markAttended(notificationCode);
+                    notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Successful Transfer");
                     logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]",
@@ -1234,14 +1194,14 @@ public class HolderComponentLogic {
      * @return the response from the transfer
      */
     private Response invokeTransfer(org.greenpole.hibernate.entity.HolderBondAccount senderBondAcct, UnitTransfer unitTransfer, org.greenpole.hibernate.entity.HolderBondAccount receiverBondAcct, Response resp, String senderName, String receiverName, Login login,
-            String notificationCode, NotificationWrapper wrapper) throws JAXBException {
+            String notificationCode, NotificationWrapper wrapper, Notification notification) throws JAXBException {
         if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) { //check if holder and sender are not the same
             if (senderBondAcct.getBondUnits() >= unitTransfer.getUnits()) { //check if sender has sufficient units to transact
                 double transferValue = unitTransfer.getUnits() * unitTransfer.getUnitPrice();
                 if (senderBondAcct.getRemainingPrincipalValue() >= transferValue) {
                     boolean transfered = hq.transferBondUnits(senderBondAcct, receiverBondAcct, unitTransfer.getUnits(), unitTransfer.getUnitPrice(), unitTransfer.getTransferTypeId());
                     if (transfered) {
-                        Notification.markAttended(notificationCode);
+                        notification.markAttended(notificationCode);
                         resp.setRetn(0);
                         resp.setDesc("Successful Transfer");
                         logger.info("Transaction successful: [{}] units from [{}] to [{}] - [{}]", unitTransfer.getUnits(), senderName, receiverName, login.getUserId());
@@ -1276,12 +1236,13 @@ public class HolderComponentLogic {
      */
     public Response viewHolderChanges_Request(Login login, QueryHolderChanges queryParams) {
         Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
         logger.info("request to query holder changes, invoked by [{}]", login.getUserId());
         
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
 
-            Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
             org.greenpole.hibernate.entity.HolderChanges changes_hib = new org.greenpole.hibernate.entity.HolderChanges();
             HolderChangeType change_type_hib = new HolderChangeType();
 
@@ -1381,12 +1342,13 @@ public class HolderComponentLogic {
      */
     public Response queryHolder_Request(Login login, QueryHolder queryParams) {
         Response resp = new Response();
+        Descriptor descriptorUtil =  new Descriptor();
         logger.info("request to query holder, invoked by [{}]", login.getUserId());
         
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
 
-            Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
 
             if (descriptors.size() == 3) {
                 String descriptor = queryParams.getDescriptor();
@@ -1436,7 +1398,7 @@ public class HolderComponentLogic {
                     h_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
                     h_hib_search.setTaxExempted(h_model_search.isTaxExempted());
                     h_hib_search.setPryAddress(h_model_search.getPryAddress());
-                    h_hib_search.setType(h_type_hib_search);
+                    h_hib_search.setHolderType(h_type_hib_search);
                     h_hib_search.setPryHolder(true); //must be set
                 }
 
@@ -1610,7 +1572,7 @@ public class HolderComponentLogic {
                     h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
                     h.setTaxExempted(h_hib_out.isTaxExempted());
                     h.setPryAddress(h_hib_out.getPryAddress());
-                    h.setTypeId(h_hib_out.getType().getId());
+                    h.setTypeId(h_hib_out.getHolderType().getId());
                     h.setPryHolder(h_hib_out.isPryHolder());
 
                     //get all available addresses, email addresses and phone numbers
@@ -1719,6 +1681,8 @@ public class HolderComponentLogic {
         logger.info("request to create administrator for holder [{}], invoked by [{}]", 
                 holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
+        
         NotificationWrapper wrapper;
         QueueSender qSender;
         NotifierProperties prop;
@@ -1787,7 +1751,7 @@ public class HolderComponentLogic {
                         List<Holder> holderList = new ArrayList();
                         holderList.add(holder);
 
-                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate creation of administrator(s) for holder " + holder.getFirstName() + " " + holder.getLastName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                         wrapper.setFrom(login.getUserId());
@@ -1832,25 +1796,10 @@ public class HolderComponentLogic {
     public Response createAdministrator_Authorise(Login login, String notificationCode) {
         logger.info("authorise bond unit transfer, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holderList = (List<Holder>) wrapper.getModel();
             Holder holderModel = holderList.get(0);
             
@@ -1906,7 +1855,7 @@ public class HolderComponentLogic {
                     if (flag) {
                         hq.createAdministratorForHolder(createAdministrator(holderModel));
 
-                        Notification.markAttended(notificationCode);
+                        notification.markAttended(notificationCode);
                         resp.setRetn(0);
                         resp.setDesc("Success");
                         logger.info("Administrators were created successfully - [{}]", login.getUserId());
@@ -1948,6 +1897,9 @@ public class HolderComponentLogic {
         logger.info("request to upload power of attorney, invoked by [{}]", login.getUserId());
         
         Response resp = new Response();
+        Notification notification = new Notification();
+        BytesConverter bytesConverter = new BytesConverter();
+        
         NotificationWrapper wrapper;
         QueueSender qSender;
         NotifierProperties prop;
@@ -1977,7 +1929,7 @@ public class HolderComponentLogic {
                 }
 
                 if (flag) {
-                    long fileSize = BytesConverter.decodeToBytes(poa.getFileContents()).length;
+                    long fileSize = bytesConverter.decodeToBytes(poa.getFileContents()).length;
 
                     if (fileSize <= defaultSize) {
                         wrapper = new NotificationWrapper();
@@ -1988,7 +1940,7 @@ public class HolderComponentLogic {
                         List<PowerOfAttorney> powerList = new ArrayList();
                         powerList.add(poa);
                         
-                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate power of attorney for " + holder.getFirstName() + " " + holder.getLastName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                         wrapper.setFrom(login.getUserId());
@@ -2033,25 +1985,11 @@ public class HolderComponentLogic {
     public Response uploadPowerOfAttorney_Authorise(Login login, String notificationCode) {
         logger.info("authorise upload power of attorney, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
+        BytesConverter bytesConverter = new BytesConverter();
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PowerOfAttorney> poaList = (List<PowerOfAttorney>) wrapper.getModel();
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
@@ -2085,12 +2023,12 @@ public class HolderComponentLogic {
                 
                 if (flag) {
                     GreenpoleFile file = new GreenpoleFile(greenProp.getPowerOfAttorneyPath());
-                    long fileSize = BytesConverter.decodeToBytes(poaModel.getFileContents()).length;
+                    long fileSize = bytesConverter.decodeToBytes(poaModel.getFileContents()).length;
                     
                     if (fileSize <= defaultSize) {
                         logger.info("Power of attorney met file size requirement - [{}]", login.getUserId());
                         
-                        if (file.createFile(BytesConverter.decodeToBytes(poaModel.getFileContents()))) {
+                        if (file.createFile(bytesConverter.decodeToBytes(poaModel.getFileContents()))) {
                             logger.info("Power of attorney file created and saved - [{}]", login.getUserId());
                             
                             String filepath = file.getFolderPath() + file.getFileName();
@@ -2113,7 +2051,7 @@ public class HolderComponentLogic {
                             }
                             
                             if (uploaded) {
-                                Notification.markAttended(notificationCode);
+                                notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("Power of attorney successfully uploaded - [{}]", login.getUserId());
@@ -2187,6 +2125,7 @@ public class HolderComponentLogic {
     public Response queryPowerOfAttorney_Request(Login login, PowerOfAttorney queryParams) {
         logger.info("request to query power of attorney, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        BytesConverter bytesConverter = new BytesConverter();
         
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
@@ -2201,7 +2140,7 @@ public class HolderComponentLogic {
                 
                 File file = new File(poa_hib.getFilePath());
                 byte[] read = Files.readAllBytes(file.toPath());
-                String encodedContents = BytesConverter.encodeToString(read);
+                String encodedContents = bytesConverter.encodeToString(read);
                 logger.info("Power of attorney file successfully read - [{}]", login.getUserId());
                 
                 poa_model.setId(poa_hib.getId());
@@ -2247,6 +2186,7 @@ public class HolderComponentLogic {
     public Response queryAllPowerOfAttorney_Request(Login login, PowerOfAttorney queryParams) {
         logger.info("request to query power of attorney, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        BytesConverter bytesConverter = new BytesConverter();
         
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
@@ -2264,7 +2204,7 @@ public class HolderComponentLogic {
                     
                     File file = new File(poa_hib.getFilePath());
                     byte[] read = Files.readAllBytes(file.toPath());
-                    String encodedContents = BytesConverter.encodeToString(read);
+                    String encodedContents = bytesConverter.encodeToString(read);
                     logger.info("Power of attorney file successfully read - [{}]", login.getUserId());
 
                     poa_model.setId(poa_hib.getId());
@@ -2309,8 +2249,9 @@ public class HolderComponentLogic {
      * @return response to the store NUBAN account request
      */
     public Response storeShareholderNubanAccountNumber_Request(Login login, String authenticator, HolderCompanyAccount compAcct) {
-        Response resp = new Response();
         logger.info("Store NUBAN account number to holder company account, invoked by - [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
         
         NotificationWrapper wrapper;
         QueueSender qSender;
@@ -2337,7 +2278,7 @@ public class HolderComponentLogic {
                                 List<HolderCompanyAccount> compAcctList = new ArrayList();
                                 compAcctList.add(compAcct);
                                 
-                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Authenticate storage of NUBAN account number for holder - " + holder.getFirstName() + " " + holder.getLastName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                                 wrapper.setFrom(login.getUserId());
@@ -2390,27 +2331,12 @@ public class HolderComponentLogic {
      * @return response to the store NUBAN account request
      */
     public Response storeShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
-        Response resp = new Response();
         logger.info("authorise NUBAN account number addition to holder company account, invoked by - [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderCompanyAccount> compAcctList = (List<HolderCompanyAccount>) wrapper.getModel();
             HolderCompanyAccount compAcct = compAcctList.get(0);
             
@@ -2436,7 +2362,7 @@ public class HolderComponentLogic {
                                 
                                 hq.createUpdateHolderCompanyAccount(compAcct_hib);
                                 
-                                Notification.markAttended(notificationCode);
+                                notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("NUBAN account stored - [{}]", login.getUserId());
@@ -2494,6 +2420,7 @@ public class HolderComponentLogic {
      */
     public Response storeBondholderNubanAccountNumber_Request(Login login, String authenticator, HolderBondAccount bondAcct) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("Store NUBAN account number to holder bond account, invoked by - [{}]", login.getUserId());
         
         NotificationWrapper wrapper;
@@ -2521,7 +2448,7 @@ public class HolderComponentLogic {
                                 List<HolderBondAccount> bondAcctList = new ArrayList();
                                 bondAcctList.add(bondAcct);
                                 
-                                wrapper.setCode(Notification.createCode(login));
+                                wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Authenticate storage of NUBAN account number for holder - " + holder.getFirstName() + " " + holder.getLastName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                                 wrapper.setFrom(login.getUserId());
@@ -2575,26 +2502,11 @@ public class HolderComponentLogic {
      */
     public Response storeBondholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("authorise NUBAN account number addition to holder bond account, invoked by - [{}]", login.getUserId());
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> bondAcctList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondAcct = bondAcctList.get(0);
             
@@ -2620,7 +2532,7 @@ public class HolderComponentLogic {
                                 
                                 hq.createUpdateHolderBondAccount(bondAcct_hib);
                                 
-                                Notification.markAttended(notificationCode);
+                                notification.markAttended(notificationCode);
                                 resp.setRetn(0);
                                 resp.setDesc("Successful");
                                 logger.info("NUBAN account stored - [{}]", login.getUserId());
@@ -2679,6 +2591,7 @@ public class HolderComponentLogic {
      */
     public Response createShareHolder_Request(Login login, String authenticator, Holder holder) {
         Response resp = new Response();
+        Notification notification = new Notification();
         logger.info("Request to create holder account, invoked by [{}]", login.getUserId());
         
         NotificationWrapper wrapper;
@@ -2796,7 +2709,7 @@ public class HolderComponentLogic {
                 List<Holder> holdList = new ArrayList<>();
                 holdList.add(holder);
                 
-                wrapper.setCode(Notification.createCode(login));
+                wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate holder account creation for " + holder.getFirstName() + " " + holder.getLastName());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
@@ -2828,27 +2741,12 @@ public class HolderComponentLogic {
     public Response createShareHolder_Authorise(Login login, String notificationCode) {
         logger.info("authorise shareholder account creation, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
             
@@ -2962,7 +2860,7 @@ public class HolderComponentLogic {
                 holdEntity.setFirstName(holder.getFirstName());
                 holdEntity.setLastName(holder.getLastName());
                 holdEntity.setMiddleName(holder.getMiddleName());
-                holdEntity.setType(typeEntity);
+                holdEntity.setHolderType(typeEntity);
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
                 holdEntity.setPryHolder(true);
@@ -2986,7 +2884,7 @@ public class HolderComponentLogic {
                 }
 
                 if (created) {
-                    Notification.markAttended(notificationCode);
+                    notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Holder details saved: Successful");
                     logger.info("Shareholder account creation successful - [{}]", login.getUserId());
@@ -3028,6 +2926,7 @@ public class HolderComponentLogic {
     public Response createBondHolderAccount_Request(Login login, String authenticator, Holder holder) {
         logger.info("Request to create bondholder account, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
             NotificationWrapper wrapper;
@@ -3138,7 +3037,7 @@ public class HolderComponentLogic {
                 List<Holder> holdList = new ArrayList<>();
                 holdList.add(holder);
 
-                wrapper.setCode(Notification.createCode(login));
+                wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate bond holder account, " + holder.getFirstName() + " " + holder.getLastName());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                 wrapper.setFrom(login.getUserId());
@@ -3170,27 +3069,12 @@ public class HolderComponentLogic {
     public Response createBondHolderAccount_Authorise(Login login, String notificationCode) {
         logger.info("authorise bondholder creation, invoked by - [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
             
@@ -3299,7 +3183,7 @@ public class HolderComponentLogic {
                 holdEntity.setFirstName(holder.getFirstName());
                 holdEntity.setLastName(holder.getLastName());
                 holdEntity.setMiddleName(holder.getMiddleName());
-                holdEntity.setType(typeEntity);
+                holdEntity.setHolderType(typeEntity);
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
                 holdEntity.setChn(holder.getChn());
@@ -3311,7 +3195,7 @@ public class HolderComponentLogic {
                         retrieveHolderEmailAddress(holder), retrieveHolderPhoneNumber(holder));
 
                 if (created) {
-                    Notification.markAttended(notificationCode);
+                    notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Successful");
                     logger.info("Bond holder account creation successful - [{}]", login.getUserId());
@@ -3357,6 +3241,8 @@ public class HolderComponentLogic {
     public Response uploadHolderSignature_Request(Login login, String authenticator, HolderSignature holderSig) {
         logger.info("Request to upload holder signature, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
+        BytesConverter bytesConverter = new BytesConverter();
         
         NotificationWrapper wrapper;
         QueueSender queue;
@@ -3381,7 +3267,7 @@ public class HolderComponentLogic {
             }
             
             if (flag) {
-                long fileSize = BytesConverter.decodeToBytes(holderSig.getSignatureContent()).length;
+                long fileSize = bytesConverter.decodeToBytes(holderSig.getSignatureContent()).length;
                 
                 if (fileSize <= defaultSize) {
                     wrapper = new NotificationWrapper();
@@ -3391,7 +3277,7 @@ public class HolderComponentLogic {
                     List<HolderSignature> holderListSignature = new ArrayList<>();
                     holderListSignature.add(holderSig);
                     
-                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate creation of holder signature for holder " + holder.getFirstName() + " " + holder.getLastName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                     wrapper.setFrom(login.getUserId());
@@ -3431,25 +3317,11 @@ public class HolderComponentLogic {
     public Response uploadHolderSignature_Authorise(Login login, String notificationCode) {
         logger.info("authorise holder signature upload, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
+        BytesConverter bytesConverter = new BytesConverter();
 
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderSignature> holdSigntureList = (List<HolderSignature>) wrapper.getModel();
             HolderSignature sigModel = holdSigntureList.get(0);
             
@@ -3469,12 +3341,12 @@ public class HolderComponentLogic {
                 }
                 
                 GreenpoleFile file = new GreenpoleFile(greenProp.getSignaturePath());
-                long fileSize = BytesConverter.decodeToBytes(sigModel.getSignatureContent()).length;
+                long fileSize = bytesConverter.decodeToBytes(sigModel.getSignatureContent()).length;
 
                 if (fileSize <= defaultSize) {
                     logger.info("Holder signature met file size requirement - [{}]", login.getUserId());
 
-                    if (file.createFile(BytesConverter.decodeToBytes(sigModel.getSignatureContent()))) {
+                    if (file.createFile(bytesConverter.decodeToBytes(sigModel.getSignatureContent()))) {
                         logger.info("Holder signature file created and saved - [{}]", login.getUserId());
 
                         String filepath = file.getFolderPath() + file.getFileName();
@@ -3493,7 +3365,7 @@ public class HolderComponentLogic {
                         }
 
                         if (uploaded) {
-                            Notification.markAttended(notificationCode);
+                            notification.markAttended(notificationCode);
                             resp.setRetn(0);
                             resp.setDesc("Successful");
                             logger.info("Holder signature successfully uploaded - [{}]", login.getUserId());
@@ -3548,6 +3420,7 @@ public class HolderComponentLogic {
     public Response queryHolderSignature_Request(Login login, String authenticator, HolderSignature queryParams) {
         logger.info("request to query holder signature, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        BytesConverter bytesConverter = new BytesConverter();
         
         try {
             HolderSignature sigModel = new HolderSignature();
@@ -3560,7 +3433,7 @@ public class HolderComponentLogic {
 
                 File file = new File(sig_hib.getSignaturePath());
                 byte[] read = Files.readAllBytes(file.toPath());
-                String encodedContents = BytesConverter.encodeToString(read);
+                String encodedContents = bytesConverter.encodeToString(read);
                 logger.info("Holder signature file successfully read - [{}]", login.getUserId());
 
                 sigModel.setId(sig_hib.getId());
@@ -3604,6 +3477,7 @@ public class HolderComponentLogic {
     public Response transposeHolderName_Request(Login login, String authenticator, Holder holder) {
         logger.info("request to transpose holder name, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         NotificationWrapper wrapper;
         QueueSender queue;
@@ -3634,7 +3508,7 @@ public class HolderComponentLogic {
                     List<Holder> holdList = new ArrayList<>();
                     holdList.add(holder);
 
-                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate transpose request for holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                     wrapper.setFrom(login.getUserId());
@@ -3674,28 +3548,13 @@ public class HolderComponentLogic {
     public Response transposeHolderName_Authorise(Login login, String notificationCode) {
         logger.info("authorise holder name transpose, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         String desc = "";
         boolean flag = false;
 
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holdList = (List<Holder>) wrapper.getModel();
             Holder holder = holdList.get(0);
             
@@ -3717,7 +3576,7 @@ public class HolderComponentLogic {
                     
                     hq.updateHolderAccountForTranspose(holder_hib);
                     
-                    Notification.markAttended(notificationCode);
+                    notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Successful");
                     logger.info("Holder name transpose sucessful - [{}]", login.getUserId());
@@ -3761,6 +3620,8 @@ public class HolderComponentLogic {
     public Response editHolderDetails_Request(Login login, String authenticator, Holder holder) {
         logger.info("request to edit holder details, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
+        
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
@@ -3881,7 +3742,7 @@ public class HolderComponentLogic {
                     if (flag) {
                         List<Holder> holdList = new ArrayList<>();
                         holdList.add(holder);
-                        wrapper.setCode(Notification.createCode(login));
+                        wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                         wrapper.setFrom(login.getUserId());
@@ -3924,30 +3785,15 @@ public class HolderComponentLogic {
     public Response editHolderDetails_Authorise(Login login, String notificationCode) {
         logger.info("authorise holder details edit, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         String desc = "";
         boolean flag = false;
 
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Holder> holderEditList = (List<Holder>) wrapper.getModel();
             Holder holder = holderEditList.get(0);
 
@@ -4064,7 +3910,7 @@ public class HolderComponentLogic {
                         holderEntity.setFirstName(holder.getFirstName());
                         holderEntity.setMiddleName(holder.getMiddleName());
                         holderEntity.setLastName(holder.getLastName());
-                        holderEntity.setType(typeEntity);
+                        holderEntity.setHolderType(typeEntity);
                         holderEntity.setGender(holder.getGender());
                         holderEntity.setDob(formatter.parse(holder.getDob()));
                         holderEntity.setChn(holder.getChn());
@@ -4091,7 +3937,7 @@ public class HolderComponentLogic {
                                 retrieveHolderEmailAddressForDeletion(holder), holderChangesList);
                         
                         if (updated) {
-                            Notification.markAttended(notificationCode);
+                            notification.markAttended(notificationCode);
                             resp.setRetn(0);
                             resp.setDesc("Holder details saved");
                             logger.info("Holder account update successful - [{}]", login.getUserId());
@@ -4147,11 +3993,12 @@ public class HolderComponentLogic {
     public Response viewAccountConsolidation_request(Login login, QueryHolderConsolidation queryParams) {
         logger.info("request to query company account consolidation, invoked by [{}] ", login.getUserId());
         Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
         
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
-            Map<String, String> descriptors = Descriptor.decipherDescriptor(queryParams.getDescriptor());
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
             if (descriptors.size() == 1) {
                 //check start date is properly formatted
                 if (descriptors.get("date").equalsIgnoreCase("none")) {
@@ -4249,6 +4096,7 @@ public class HolderComponentLogic {
     public Response applyForBondOffer_Request(Login login, String authenticator, HolderBondAccount bondAccount) {
         logger.info("request to apply for bond offer, invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
         
         NotificationWrapper wrapper;
         QueueSender queue;
@@ -4269,7 +4117,7 @@ public class HolderComponentLogic {
                     List<HolderBondAccount> acctList = new ArrayList<>();
                     acctList.add(bondAccount);
 
-                    wrapper.setCode(Notification.createCode(login));
+                    wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName() + 
                             "'s application for the bond offer - " + bond.getTitle());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
@@ -4310,25 +4158,10 @@ public class HolderComponentLogic {
     public Response applyForBondOffer_Authorise(Login login, String notificationCode) {
         logger.info("request authorisation to persist holder details. Invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Notification notification = new Notification();
 
         try {
-            if (!Notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
-                if (gq.checkNotification(notificationCode)) {
-                    Notification.writeOffNotification(notificationCode);
-                    resp.setRetn(301);
-                    resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
-                    logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]",
-                            login.getUserId());
-                    return resp;
-                }
-                resp.setRetn(301);
-                resp.setDesc("Illegal notification code sent.");
-                logger.info("Illegal notification code sent - [{}]",
-                        login.getUserId());
-                return resp;
-            }
-            
-            NotificationWrapper wrapper = Notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> acctList = (List<HolderBondAccount>) wrapper.getModel();
             HolderBondAccount bondAccount = acctList.get(0);
             
@@ -4351,7 +4184,7 @@ public class HolderComponentLogic {
                     
                     hq.createUpdateHolderBondAccount(bondAcct_hib);
                     
-                    Notification.markAttended(notificationCode);
+                    notification.markAttended(notificationCode);
                     resp.setRetn(0);
                     resp.setDesc("Bond Offer application successful");
                     logger.info("Bond Offer application successful - [{}]", login.getUserId());

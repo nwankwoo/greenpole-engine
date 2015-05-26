@@ -8,7 +8,7 @@ package org.greenpole.notifier.sender;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.logging.Level;
+import javax.jms.DeliveryMode;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -43,7 +43,7 @@ public class QueueSender {
     private Queue queue;
     private MessageProducer producer;
     private MessageConsumer consumer;
-    private final int TIME_OUT = 10000;
+    private final int TIME_OUT = 20000;
     
     /**
      * Initialises queue factory and prepares queue.
@@ -80,6 +80,7 @@ public class QueueSender {
         
         properties.load(input);
         logger.info("Loaded configuration file - {}", config_file);
+        input.close();
         
         return new InitialContext(properties);
     }
@@ -127,7 +128,9 @@ public class QueueSender {
             
             qcon.start();
             
-            producer.send(om);
+            logger.info("sending notification to queue");
+            //producer.send(om);
+            producer.send(om, DeliveryMode.PERSISTENT, 9, 40000);
             consumer = qsession.createConsumer(tempqueue);
             Message callback = consumer.receive(TIME_OUT);
             
@@ -136,8 +139,8 @@ public class QueueSender {
                 resp = (Response) ((ObjectMessage) callback).getObject();
             } else {
                 resp.setRetn(100);
-                resp.setDesc("Did not receive a response from the notification manager.\n"
-                        + "It is possible the manager is offline. Contact system administrator.");
+                resp.setDesc("Did not receive a response from the notification manager. Manager may be offline or exception was thrown.\n"
+                        + "Contact system administrator.");
                 logger.info("response not received from queue - [{}]", queue.getQueueName());
             }
             //close all connections
@@ -145,6 +148,13 @@ public class QueueSender {
             return resp;
         } catch (JMSException ex) {
             logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
+            logger.error("An error(s) was thrown in the QueueSender", ex);
+            resp.setRetn(100);
+            resp.setDesc("An error occurred while sending authorisation request.\n"
+                    + "Contact system administrator");
+            return resp;
+        } catch (Exception ex) {
+            logger.info("Error thrown in QueueSender. See error log");
             logger.error("An error(s) was thrown in the QueueSender", ex);
             resp.setRetn(100);
             resp.setDesc("An error occurred while sending authorisation request.\n"
