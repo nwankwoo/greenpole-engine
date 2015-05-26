@@ -19,6 +19,7 @@ import org.greenpole.entity.model.holder.QueryHolderConsolidation;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.logic.HolderComponentLogic;
+import org.greenpole.security.SecurityCheck;
 import org.greenpole.service.HolderComponentService;
 
 /**
@@ -26,7 +27,7 @@ import org.greenpole.service.HolderComponentService;
  * @author Akin
  * Web service implementation for holder component.
  */
-@WebService(serviceName = "holdercomponentservice", endpointInterface = "org.greenpole.service.HolderComponentService")
+@WebService(serviceName = "holderservice", endpointInterface = "org.greenpole.service.HolderComponentService")
 public class HolderComponentServiceImpl implements HolderComponentService {
     private final HolderComponentLogic request = new HolderComponentLogic();
 
@@ -37,7 +38,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response mergeHolderAccounts_Authorise(Login login, String notificationCode) {
-        return request.mergeHolderAccounts_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.mergeHolderAccounts_Authorise(login, notificationCode);
     }
 
     @Override
@@ -47,7 +50,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response demergeHolderAccounts_Authorise(Login login, String notificationCode) {
-        return request.demergeHolderAccounts_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.demergeHolderAccounts_Authorise(login, notificationCode);
     }
 
     @Override
@@ -57,7 +62,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response transferShareUnitManual_Authorise(Login login, String notificationCode) {
-        return request.transferShareUnitManual_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.transferShareUnitManual_Authorise(login, notificationCode);
     }
 
     @Override
@@ -67,7 +74,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response transferBondUnitManual_Authorise(Login login, String notificationCode) {
-        return request.transferBondUnitManual_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.transferBondUnitManual_Authorise(login, notificationCode);
     }
 
     @Override
@@ -87,7 +96,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response createAdministrator_Authorise(Login login, String notificationCode) {
-        return request.createAdministrator_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.createAdministrator_Authorise(login, notificationCode);
     }
 
     @Override
@@ -97,7 +108,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response uploadPowerOfAttorney_Authorise(Login login, String notificationCode) {
-        return request.uploadHolderSignature_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.uploadHolderSignature_Authorise(login, notificationCode);
     }
 
     @Override
@@ -117,7 +130,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response storeShareholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
-        return request.storeShareholderNubanAccountNumber_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.storeShareholderNubanAccountNumber_Authorise(login, notificationCode);
     }
 
     @Override
@@ -127,7 +142,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response storeBondholderNubanAccountNumber_Authorise(Login login, String notificationCode) {
-        return request.storeBondholderNubanAccountNumber_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.storeBondholderNubanAccountNumber_Authorise(login, notificationCode);
     }
 
     @Override
@@ -137,7 +154,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response createShareHolder_Authorise(Login login, String notificationCode) {
-        return request.createShareHolder_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.createShareHolder_Authorise(login, notificationCode);
     }
 
     @Override
@@ -147,7 +166,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response createBondHolderAccount_Authorise(Login login, String notificationCode) {
-        return request.createBondHolderAccount_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.createBondHolderAccount_Authorise(login, notificationCode);
     }
 
     @Override
@@ -157,7 +178,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response uploadHolderSignature_Authorise(Login login, String notificationCode) {
-        return request.uploadHolderSignature_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.uploadHolderSignature_Authorise(login, notificationCode);
     }
 
     @Override
@@ -172,7 +195,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response transposeHolderName_Authorise(Login login, String notificationCode) {
-        return request.transposeHolderName_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.transposeHolderName_Authorise(login, notificationCode);
     }
 
     @Override
@@ -182,7 +207,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response editHolderDetails_Authorise(Login login, String notificationCode) {
-        return request.editHolderDetails_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.editHolderDetails_Authorise(login, notificationCode);
     }
 
     @Override
@@ -197,7 +224,9 @@ public class HolderComponentServiceImpl implements HolderComponentService {
 
     @Override
     public Response applyForBondOffer_Authorise(Login login, String notificationCode) {
-        return request.applyForBondOffer_Authorise(login, notificationCode);
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.applyForBondOffer_Authorise(login, notificationCode);
     }
     
 }
