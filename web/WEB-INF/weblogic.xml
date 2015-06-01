@@ -10,6 +10,9 @@
             <package-name>
                 org.slf4j.*
             </package-name>
+            <package-name>
+                javassist
+            </package-name>
         </prefer-application-packages>
         <prefer-application-resources>
             <resource-name>

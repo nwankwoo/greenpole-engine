@@ -43,7 +43,7 @@ public class QueueSender {
     private Queue queue;
     private MessageProducer producer;
     private MessageConsumer consumer;
-    private final int TIME_OUT = 20000;
+    private final int TIME_OUT = 60000;
     
     /**
      * Initialises queue factory and prepares queue.
@@ -129,8 +129,8 @@ public class QueueSender {
             qcon.start();
             
             logger.info("sending notification to queue");
-            //producer.send(om);
-            producer.send(om, DeliveryMode.PERSISTENT, 9, 40000);
+            producer.send(om);
+            //producer.send(om, DeliveryMode.PERSISTENT, 9, 40000);
             consumer = qsession.createConsumer(tempqueue);
             Message callback = consumer.receive(TIME_OUT);
             

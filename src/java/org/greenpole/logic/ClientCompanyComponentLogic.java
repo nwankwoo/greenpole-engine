@@ -84,10 +84,10 @@ public class ClientCompanyComponentLogic {
 
             //check if client company exists
             if (!cq.checkClientCompany(cc.getName())) {
-                if (cc.getName() == null || "".equals(cc.getName())) {
-                    desc += "\nClient company name should not be empty";
-                } else if (cc.getCode() == null || "".equals(cc.getCode())) {
+                if (cc.getCode() == null || "".equals(cc.getCode())) {
                     desc += "\nClient company code should not be empty";
+                } else if (cq.checkClientCompanyByCode(cc.getCode())) {
+                    desc += "\nClient company code is already being used by another company";
                 } else {
                     flag = true;
                 }
@@ -156,10 +156,10 @@ public class ClientCompanyComponentLogic {
 
             //check if client company exists
             if (!cq.checkClientCompany(ccModel.getName())) {
-                if (ccModel.getName() == null || "".equals(ccModel.getName())) {
-                    desc += "\nClient company name should not be empty";
-                } else if (ccModel.getCode() == null || "".equals(ccModel.getCode())) {
+                if (ccModel.getCode() == null || "".equals(ccModel.getCode())) {
                     desc += "\nClient company code should not be empty";
+                } else if (cq.checkClientCompanyByCode(ccModel.getCode())) {
+                    desc += "\nClient company code is already being used by another company";
                 } else {
                     flag = true;
                 }
@@ -229,40 +229,58 @@ public class ClientCompanyComponentLogic {
             if (cq.checkClientCompany(cc.getName())) {
                 logger.info("client company exists - [{}]: [{}]", login.getUserId(), cc.getName());
                 //if client company exists, it must be a primary client company
-                if (cq.getClientCompanyByName(cc.getName()).isClientCompanyPrimary()) {
+                if (cq.getClientCompanyByName(cc.getName()).getClientCompanyPrimary()) {
 
                     String desc = "";
                     boolean flag = false;
 
-                    if ("".equals(cc.getCode()) || cc.getCode() == null) {
+                    if (cc.getCode() == null || "".equals(cc.getCode())) {
                         desc += "\nCode should not be empty";
-                    } else if (!cc.getAddresses().isEmpty()) {
-                        for (Address addy : cc.getAddresses()) {
-                            if ("".equals(addy.getAddressLine1()) || addy.getAddressLine1() == null) {
-                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
-                            } else if ("".equals(addy.getState()) || addy.getState() == null) {
-                                desc += "\nState should not be empty. Delete entire address if you must";
-                            } else if ("".equals(addy.getCountry()) || addy.getCountry() == null) {
-                                desc += "\nCountry should not be empty. Delete entire address if you must";
-                            }
-                        }
-                    } else if (!cc.getEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : cc.getEmailAddresses()) {
-                            if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
-                                desc += "\nEmail address should not be empty. Delete email entry if you must";
-                            }
-                        }
-                    } else if (!cc.getPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : cc.getPhoneNumbers()) {
-                            if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
-                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                            }
-                        }
                     } else {
                         flag = true;
                     }
+                    
+                    if (flag && cc.getAddresses() != null && !cc.getAddresses().isEmpty()) {
+                        for (Address addy : cc.getAddresses()) {
+                            if ("".equals(addy.getAddressLine1()) || addy.getAddressLine1() == null) {
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if ("".equals(addy.getState()) || addy.getState() == null) {
+                                desc += "\nState should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if ("".equals(addy.getCountry()) || addy.getCountry() == null) {
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (flag && cc.getEmailAddresses() != null && !cc.getEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : cc.getEmailAddresses()) {
+                            if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (flag && cc.getPhoneNumbers() != null && !cc.getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : cc.getPhoneNumbers()) {
+                            if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
 
                     if (flag) {
+                        System.out.println("::::DELETED EMAIL: " + cc.getDeletedEmailAddresses().get(0).getEmailAddress());
+                        
                         wrapper = new NotificationWrapper();
                         prop = new NotifierProperties(ClientCompanyComponentLogic.class);
                         qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
@@ -282,11 +300,11 @@ public class ClientCompanyComponentLogic {
                         logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
                         resp = qSender.sendAuthorisationRequest(wrapper);
                         return resp;
-                    } else {
-                        resp.setRetn(202);
-                        resp.setDesc("Error: " + desc);
-                        logger.info("Error filing client company details - [{}]", login.getUserId());
                     }
+                    resp.setRetn(202);
+                    resp.setDesc("Error: " + desc);
+                    logger.info("Error filing client company details - [{}]", login.getUserId());
+                    return resp;
                 }
                 resp.setRetn(202);
                 resp.setDesc("Client company is not valid, so cannot be edited.");
@@ -326,21 +344,90 @@ public class ClientCompanyComponentLogic {
             List<ClientCompany> list = (List<ClientCompany>) wrapper.getModel();
             ClientCompany ccModel = list.get(0);
             
-            boolean edited = cq.updateClientCompany(retrieveClientCompanyModel(ccModel, freshCreation), retrieveAddressModel(ccModel),
-                    retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel), retrieveAddressModelForDeletion(ccModel),
-                    retrieveEmailAddressModelForDeletion(ccModel), retrievePhoneNumberModelForDeletion(ccModel));
-            
-            if (edited) {
-                notification.markAttended(notificationCode);
-                logger.info("client company edited - [{}]: [{}]", ccModel.getName(), login.getUserId());
-                resp.setRetn(0);
-                resp.setDesc("Successful");
+            //client company must exist to be edited
+            if (cq.checkClientCompany(ccModel.getName())) {
+                logger.info("client company exists - [{}]: [{}]", login.getUserId(), ccModel.getName());
+                //if client company exists, it must be a primary client company
+                if (cq.getClientCompanyByName(ccModel.getName()).getClientCompanyPrimary()) {
+
+                    String desc = "";
+                    boolean flag = false;
+
+                    if (ccModel.getCode() == null || "".equals(ccModel.getCode())) {
+                        desc += "\nCode should not be empty";
+                    } else {
+                        flag = true;
+                    }
+                    
+                    if (flag && ccModel.getAddresses() != null && !ccModel.getAddresses().isEmpty()) {
+                        for (Address addy : ccModel.getAddresses()) {
+                            if ("".equals(addy.getAddressLine1()) || addy.getAddressLine1() == null) {
+                                desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if ("".equals(addy.getState()) || addy.getState() == null) {
+                                desc += "\nState should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            } else if ("".equals(addy.getCountry()) || addy.getCountry() == null) {
+                                desc += "\nCountry should not be empty. Delete entire address if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (flag && ccModel.getEmailAddresses() != null && !ccModel.getEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : ccModel.getEmailAddresses()) {
+                            if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (flag && ccModel.getPhoneNumbers() != null && !ccModel.getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : ccModel.getPhoneNumbers()) {
+                            if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (flag) {
+                        boolean edited = cq.updateClientCompany(retrieveClientCompanyModel(ccModel, freshCreation), retrieveAddressModel(ccModel),
+                            retrieveEmailAddressModel(ccModel), retrievePhoneNumberModel(ccModel), retrieveAddressModelForDeletion(ccModel),
+                            retrieveEmailAddressModelForDeletion(ccModel), retrievePhoneNumberModelForDeletion(ccModel));
+
+                        if (edited) {
+                            notification.markAttended(notificationCode);
+                            logger.info("client company edited - [{}]: [{}]", ccModel.getName(), login.getUserId());
+                            resp.setRetn(0);
+                            resp.setDesc("Successful");
+                            return resp;
+                        }
+
+                        resp.setRetn(203);
+                        resp.setDesc("Unable to change client company from authorisation. Contact System Administrator");
+                        logger.info("unable to change client company from authorisation - [{}]", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(203);
+                    resp.setDesc("Error: " + desc);
+                    logger.info("Error filing client company details - [{}]", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(203);
+                resp.setDesc("Client company is not valid, so cannot be edited.");
+                logger.info("client company is not valid so cannot be edited - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
-            
             resp.setRetn(203);
-            resp.setDesc("Unable to change client company from authorisation. Contact System Administrator");
-            logger.info("unable to change client company from authorisation - [{}]", login.getUserId());
+            resp.setDesc("Client company does not exist, so cannot be edited.");
+            logger.info("client company does not exist so cannot be edited - [{}]: [{}]", login.getUserId(), resp.getRetn());
             return resp;
         } catch (JAXBException ex) {
             logger.info("error loading notification xml file. See error log - [{}]", login.getUserId());
@@ -373,6 +460,13 @@ public class ClientCompanyComponentLogic {
         logger.info("request to query client company, invoked by [{}]", login.getUserId());
         
         try {
+            if (queryParams.getDescriptor() == null || "".equals(queryParams.getDescriptor())) {
+                logger.info("client company query unsuccessful. Empty descriptor - [{}]", login.getUserId());
+                resp.setRetn(204);
+                resp.setDesc("Unsuccessful client company query, due to empty descriptor. Contact system administrator");
+                return resp;
+            }
+            
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
 
             if (descriptors.size() == 4) {
@@ -399,6 +493,8 @@ public class ClientCompanyComponentLogic {
                     cc_hib_search.setName(cc_model_search.getName());
                     cc_hib_search.setCeo(cc_model_search.getCeo());
                     cc_hib_search.setClientCompanyPrimary(true); //primary must be set
+                    cc_hib_search.setMerged(false); //merged must be set
+                    cc_hib_search.setValid(true); //valid must be set
                     cc_hib_search.setCode(cc_model_search.getCode());
                     cc_hib_search.setSecretary(cc_model_search.getSecretary());
 
@@ -430,7 +526,8 @@ public class ClientCompanyComponentLogic {
                 }
 
                 EmailAddress emailAddress_model_search;
-                if (queryParams.getClientCompany().getEmailAddresses() != null && queryParams.getClientCompany().getEmailAddresses().isEmpty()) {
+                if (queryParams.getClientCompany().getEmailAddresses() != null && !queryParams.getClientCompany().getEmailAddresses().isEmpty()) {
+                    
                     emailAddress_model_search = queryParams.getClientCompany().getEmailAddresses().get(0);
 
                     cc_hib_email_id_search.setEmailAddress(emailAddress_model_search.getEmailAddress());
@@ -454,7 +551,7 @@ public class ClientCompanyComponentLogic {
                     Set cc_hib_phone_set = new HashSet();
                     cc_hib_phone_set.add(cc_hib_phone_search); //put phone in set
 
-                    cc_hib_search.setClientCompanyEmailAddresses(cc_hib_phone_set); //put phone set in client company entity
+                    cc_hib_search.setClientCompanyPhoneNumbers(cc_hib_phone_set); //put phone set in client company entity
                 }
 
                 Map<String, Double> shareUnit_search;
@@ -513,7 +610,7 @@ public class ClientCompanyComponentLogic {
                         addy_model_out.setAddressLine4(addy_hib_out.getAddressLine4());
                         addy_model_out.setCity(addy_hib_out.getCity());
                         addy_model_out.setPostCode(addy_hib_out.getPostCode());
-                        addy_model_out.setPrimaryAddress(addy_hib_out.isIsPrimary());
+                        addy_model_out.setPrimaryAddress(addy_hib_out.getIsPrimary());
 
                         cc_model_addy_out.add(addy_model_out); //set address in list of addresses
                     }
@@ -525,7 +622,7 @@ public class ClientCompanyComponentLogic {
                         EmailAddress email_model_out = new EmailAddress();
 
                         email_model_out.setEmailAddress(email_id_hib_out.getEmailAddress());
-                        email_model_out.setPrimaryEmail(email_hib_out.isIsPrimary());
+                        email_model_out.setPrimaryEmail(email_hib_out.getIsPrimary());
 
                         cc_model_email_out.add(email_model_out);
                     }
@@ -537,7 +634,7 @@ public class ClientCompanyComponentLogic {
                         PhoneNumber phone_model_out = new PhoneNumber();
 
                         phone_model_out.setPhoneNumber(phone_id_hib_out.getPhoneNumber());
-                        phone_model_out.setPrimaryPhoneNumber(phone_hib_out.isIsPrimary());
+                        phone_model_out.setPrimaryPhoneNumber(phone_hib_out.getIsPrimary());
 
                         cc_model_phone_out.add(phone_model_out);
                     }
@@ -564,7 +661,7 @@ public class ClientCompanyComponentLogic {
             logger.error("error querying client company - [" + login.getUserId() + "]", ex);
             
             resp.setRetn(99);
-            resp.setDesc("General error. Unable to querying client company. Contact system administrator."
+            resp.setDesc("General error. Unable to query client company. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }
@@ -591,7 +688,7 @@ public class ClientCompanyComponentLogic {
             int pos;
             boolean exists = false;
             for (pos = 0; pos < shareQuotation.size(); pos++) {
-                exists = cq.checkClientCompany(shareQuotation.get(pos).getClientCompany().getCode());
+                exists = cq.checkClientCompanyByCode(shareQuotation.get(pos).getClientCompany().getCode());
                 if (!exists) {
                     break; //if any one company code doesn't exist, break out of loop
                 }
@@ -692,10 +789,10 @@ public class ClientCompanyComponentLogic {
         try {
             List<org.greenpole.hibernate.entity.ShareQuotation> share_q_hib_list = cq.retrieveShareUnitQuatationList();
             List<ShareQuotation> shareQuotations = new ArrayList();
-            ShareQuotation shareQuotation_model = new ShareQuotation();
             
             for (org.greenpole.hibernate.entity.ShareQuotation share_q_hib : share_q_hib_list) {
                 org.greenpole.hibernate.entity.ClientCompany cc_hib = cq.getClientCompany(share_q_hib.getClientCompany().getId());
+                ShareQuotation shareQuotation_model = new ShareQuotation();
                 ClientCompany cc_model = new ClientCompany();
                 cc_model.setName(cc_hib.getName());
                 cc_model.setCode(cc_hib.getCode());
@@ -740,6 +837,14 @@ public class ClientCompanyComponentLogic {
             if (cq.checkClientCompany(ipo.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(ipo.getClientCompanyId());
                 logger.info("client company [{}] checks out - [{}]", cc.getName(), login.getUserId());
+                
+                if (cq.clientCompanyHasIpo(ipo.getClientCompanyId())) {
+                    resp.setRetn(207);
+                    resp.setDesc("The client company - " + cc.getName() + " - already has an IPO.");
+                    logger.info("The client company - [{}] - already has an IPO - [{}]",
+                            cc.getName(), login.getUserId());
+                    return resp;
+                }
 
                 if (!cq.checkClientCompanyForShareholders(cc.getName())) {
                     logger.info("client company [{}] checks out. No shareholders found - [{}]", cc.getName(), login.getUserId());
@@ -750,7 +855,7 @@ public class ClientCompanyComponentLogic {
                     List<InitialPublicOffer> ipoList = new ArrayList();
                     ipoList.add(ipo);
                     wrapper.setCode(notification.createCode(login));
-                    wrapper.setDescription("Authenticate set up of an Initial Public Offer under the client company " + cc.getName());
+                    wrapper.setDescription("Authenticate Initial Public Offer setup under the client company " + cc.getName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
@@ -800,6 +905,14 @@ public class ClientCompanyComponentLogic {
             if (cq.checkClientCompany(ipoModel.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(ipoModel.getClientCompanyId());
                 logger.info("client company [{}] checks out - [{}]", cc.getName(), login.getUserId());
+                
+                if (cq.clientCompanyHasIpo(ipoModel.getClientCompanyId())) {
+                    resp.setRetn(207);
+                    resp.setDesc("The client company - " + cc.getName() + " - already has an IPO.");
+                    logger.info("The client company - [{}] - already has an IPO - [{}]",
+                            cc.getName(), login.getUserId());
+                    return resp;
+                }
                 
                 if (!cq.checkClientCompanyForShareholders(cc.getName())) {
                     logger.info("client company [{}] checks out. No shareholders found - [{}]", cc.getName(), login.getUserId());
@@ -924,6 +1037,7 @@ public class ClientCompanyComponentLogic {
                 
                 logger.info("Notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
                 resp = queue.sendAuthorisationRequest(wrapper);
+                return resp;
             }
             resp.setRetn(209);
             resp.setDesc("Error filing bond offer details: " + desc);
@@ -1055,15 +1169,15 @@ public class ClientCompanyComponentLogic {
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties props;
-        
-        Date date = new Date();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
 
         try {
+            Date date = new Date();
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
             boolean exits = cq.checkClientCompany(privatePlacement.getClientCompanyId());
             if (exits) {
                 org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(privatePlacement.getClientCompanyId());
-                if (cc.isValid()) {
+                if (cc.getValid()) {
                     if (date.before(formatter.parse(privatePlacement.getClosingDate()))) {
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
                             if (cq.checkOpenPrivatePlacement(cc.getId())) {
@@ -1129,10 +1243,10 @@ public class ClientCompanyComponentLogic {
         Response resp = new Response();
         Notification notification = new Notification();
         
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        Date date = new Date();
-        
         try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            Date date = new Date();
+            
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
             PrivatePlacement ppModel = pplist.get(0);
@@ -1140,7 +1254,7 @@ public class ClientCompanyComponentLogic {
             
             if (cq.checkClientCompany(ppModel.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(ppModel.getClientCompanyId());
-                if (cc.isValid()) {
+                if (cc.getValid()) {
                     if (date.before(formatter.parse(ppModel.getClosingDate()))) {
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
                             if (cq.checkOpenPrivatePlacement(cc.getId())) {
@@ -1220,21 +1334,17 @@ public class ClientCompanyComponentLogic {
         
         // instantiate required hibernate entities
         org.greenpole.hibernate.entity.BondOffer bond_main = new org.greenpole.hibernate.entity.BondOffer();
-        BondOfferPaymentPlan paymentPlan = new BondOfferPaymentPlan();
-        BondType type = new BondType();
         
-        org.greenpole.hibernate.entity.ClientCompany cc = new org.greenpole.hibernate.entity.ClientCompany();
-        
-        cc.setId(bondModel.getClientCompanyId());
-        type.setId(bondModel.getBondTypeId());
-        paymentPlan.setId(bondModel.getPaymentPlanId());
+        org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(bondModel.getClientCompanyId());
+        BondType type = cq.getBondType(bondModel.getBondTypeId());
+        BondOfferPaymentPlan paymentPlan = cq.getBondOfferPaymentPlan(bondModel.getPaymentPlanId());
         
         bond_main.setTitle(bondModel.getTitle());
         bond_main.setBondMaturity(formatter.parse(bondModel.getBondMaturity()));
         bond_main.setBondUnitPrice(bondModel.getUnitPrice());
         bond_main.setBondType(type);
         bond_main.setInterestRate(bondModel.getInterestRate());
-        bond_main.setbondOfferPaymentPlan(paymentPlan);
+        bond_main.setBondOfferPaymentPlan(paymentPlan);
         bond_main.setClientCompany(cc);
         bond_main.setValid(true);
 
@@ -1249,10 +1359,8 @@ public class ClientCompanyComponentLogic {
     private org.greenpole.hibernate.entity.InitialPublicOffer unwrapInitialPublicOfferModel(InitialPublicOffer ipoModel, Response resp, Login login) {
         SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         org.greenpole.hibernate.entity.InitialPublicOffer ipo_hib = new org.greenpole.hibernate.entity.InitialPublicOffer();
-        org.greenpole.hibernate.entity.ClientCompany cc_hib = new org.greenpole.hibernate.entity.ClientCompany();
         
-        cc_hib.setId(ipoModel.getClientCompanyId());
-        
+        org.greenpole.hibernate.entity.ClientCompany cc_hib = cq.getClientCompany(ipoModel.getClientCompanyId());
         ipo_hib.setClientCompany(cc_hib);
         ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer());
         ipo_hib.setMethodOfOffer(ipoModel.getMethodOfOffer());
@@ -1277,6 +1385,8 @@ public class ClientCompanyComponentLogic {
             resp.setDesc("Incorrect date format for closing date");
             logger.error("Incorrect date format for closing date [" + login.getUserId() + "]", ex);
         }
+        ipo_hib.setTax(ipoModel.getTax());
+        ipo_hib.setInterestRate(ipoModel.getInterestRate());
         return ipo_hib;
     }
     
@@ -1287,9 +1397,9 @@ public class ClientCompanyComponentLogic {
      */
     private List<org.greenpole.hibernate.entity.ShareQuotation> retrieveShareQuotation(List<ShareQuotation> quotationList) {
         List<org.greenpole.hibernate.entity.ShareQuotation> shareQuotations_hib = new ArrayList<>();
-        org.greenpole.hibernate.entity.ShareQuotation shareQuotation = new org.greenpole.hibernate.entity.ShareQuotation();
         if (quotationList != null) {//guard against null list, to avoid null pointer exception
             for (ShareQuotation sq : quotationList) {
+                org.greenpole.hibernate.entity.ShareQuotation shareQuotation = new org.greenpole.hibernate.entity.ShareQuotation();
                 String code = sq.getClientCompany().getCode();
                 org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(code);
                 shareQuotation.setClientCompany(cc);
@@ -1307,7 +1417,6 @@ public class ClientCompanyComponentLogic {
      * @return a list of hibernate client company phone number entity object(s)
      */
     private List<org.greenpole.hibernate.entity.ClientCompanyPhoneNumber> retrievePhoneNumberModel(ClientCompany ccModel/*, boolean freshCreation*/) {
-        org.greenpole.hibernate.entity.ClientCompanyPhoneNumber phone = new org.greenpole.hibernate.entity.ClientCompanyPhoneNumber();
         List<PhoneNumber> phoneList;
         if (ccModel.getPhoneNumbers() != null)
             phoneList = ccModel.getPhoneNumbers();
@@ -1318,11 +1427,19 @@ public class ClientCompanyComponentLogic {
         List<org.greenpole.hibernate.entity.ClientCompanyPhoneNumber> toSend = new ArrayList<>();
         
         for (PhoneNumber ph : phoneList) {
+            org.greenpole.hibernate.entity.ClientCompanyPhoneNumber phone = new org.greenpole.hibernate.entity.ClientCompanyPhoneNumber();
             ClientCompanyPhoneNumberId phoneId = new ClientCompanyPhoneNumberId();
             /*if (!freshCreation) {
                 phoneId.setClientCompanyId(ph.getEntityId());
             }*/
             phoneId.setPhoneNumber(ph.getPhoneNumber());
+            
+            //client company id will only be set during edit
+            if (ccModel.getId() > 0) {
+                phoneId.setClientCompanyId(ccModel.getId());
+                phone = cq.getClientCompanyPhoneNumber(phoneId);
+            }
+            
             //put id in phone
             phone.setId(phoneId);
             //set other phone variables
@@ -1341,7 +1458,6 @@ public class ClientCompanyComponentLogic {
      * @return a list of hibernate client company phone number entity object(s)
      */
     private List<org.greenpole.hibernate.entity.ClientCompanyPhoneNumber> retrievePhoneNumberModelForDeletion(ClientCompany ccModel/*, boolean freshCreation*/) {
-        org.greenpole.hibernate.entity.ClientCompanyPhoneNumber phone = new org.greenpole.hibernate.entity.ClientCompanyPhoneNumber();
         List<PhoneNumber> phoneList;
         if (ccModel.getDeletedPhoneNumbers() != null)
             phoneList = ccModel.getDeletedPhoneNumbers();
@@ -1352,11 +1468,19 @@ public class ClientCompanyComponentLogic {
         List<org.greenpole.hibernate.entity.ClientCompanyPhoneNumber> toSend = new ArrayList<>();
         
         for (PhoneNumber ph : phoneList) {
+            org.greenpole.hibernate.entity.ClientCompanyPhoneNumber phone = new org.greenpole.hibernate.entity.ClientCompanyPhoneNumber();
             ClientCompanyPhoneNumberId phoneId = new ClientCompanyPhoneNumberId();
             /*if (!freshCreation) {
                 phoneId.setClientCompanyId(ph.getEntityId());
             }*/
             phoneId.setPhoneNumber(ph.getPhoneNumber());
+            
+            //client company id will only be set during edit
+            if (ccModel.getId() > 0) {
+                phoneId.setClientCompanyId(ccModel.getId());
+                phone = cq.getClientCompanyPhoneNumber(phoneId);
+            }
+            
             //put id in phone
             phone.setId(phoneId);
             //set other phone variables
@@ -1375,7 +1499,6 @@ public class ClientCompanyComponentLogic {
      * @return a list of hibernate client company email address entity object(s)
      */
     private List<org.greenpole.hibernate.entity.ClientCompanyEmailAddress> retrieveEmailAddressModel(ClientCompany ccModel/*, boolean freshCreation*/) {
-        org.greenpole.hibernate.entity.ClientCompanyEmailAddress email = new org.greenpole.hibernate.entity.ClientCompanyEmailAddress();
         List<EmailAddress> emailList;
         if (ccModel.getEmailAddresses() != null)
             emailList = ccModel.getEmailAddresses();
@@ -1385,11 +1508,19 @@ public class ClientCompanyComponentLogic {
         List<org.greenpole.hibernate.entity.ClientCompanyEmailAddress> toSend = new ArrayList<>();
         
         for (EmailAddress em : emailList) {
+            org.greenpole.hibernate.entity.ClientCompanyEmailAddress email = new org.greenpole.hibernate.entity.ClientCompanyEmailAddress();
             ClientCompanyEmailAddressId emailId = new ClientCompanyEmailAddressId();
             /*if (!freshCreation) {
                 emailId.setClientCompanyId(em.getEntityId());
             }*/
             emailId.setEmailAddress(em.getEmailAddress());
+            
+            //client company id will only be set during edit
+            if (ccModel.getId() > 0) {
+                emailId.setClientCompanyId(ccModel.getId());
+                email = cq.getClientCompanyEmailAddress(emailId);
+            }
+            
             //put id in email
             email.setId(emailId);
             //set other email variables
@@ -1408,7 +1539,6 @@ public class ClientCompanyComponentLogic {
      * @return a list of hibernate client company email address entity object(s)
      */
     private List<org.greenpole.hibernate.entity.ClientCompanyEmailAddress> retrieveEmailAddressModelForDeletion(ClientCompany ccModel/*, boolean freshCreation*/) {
-        org.greenpole.hibernate.entity.ClientCompanyEmailAddress email = new org.greenpole.hibernate.entity.ClientCompanyEmailAddress();
         List<EmailAddress> emailList;
         if (ccModel.getDeletedEmailAddresses() != null)
             emailList = ccModel.getDeletedEmailAddresses();
@@ -1418,11 +1548,19 @@ public class ClientCompanyComponentLogic {
         List<org.greenpole.hibernate.entity.ClientCompanyEmailAddress> toSend = new ArrayList<>();
         
         for (EmailAddress em : emailList) {
+            org.greenpole.hibernate.entity.ClientCompanyEmailAddress email = new org.greenpole.hibernate.entity.ClientCompanyEmailAddress();
             ClientCompanyEmailAddressId emailId = new ClientCompanyEmailAddressId();
             /*if (!freshCreation) {
                 emailId.setClientCompanyId(em.getEntityId());
             }*/
             emailId.setEmailAddress(em.getEmailAddress());
+            
+            //client company id will only be set during edit
+            if (ccModel.getId() > 0) {
+                emailId.setClientCompanyId(ccModel.getId());
+                //email = cq.getClientCompanyEmailAddress(emailId);
+            }
+            
             //put id in email
             email.setId(emailId);
             //set other email variables
@@ -1441,7 +1579,6 @@ public class ClientCompanyComponentLogic {
      * @return a list of hibernate client company address entity object(s)
      */
     private List<org.greenpole.hibernate.entity.ClientCompanyAddress> retrieveAddressModel(ClientCompany ccModel/*, boolean freshCreation*/) {
-        org.greenpole.hibernate.entity.ClientCompanyAddress address = new org.greenpole.hibernate.entity.ClientCompanyAddress();
         List<Address> addressList;
         if (ccModel.getAddresses() != null)
             addressList = ccModel.getAddresses();
@@ -1451,6 +1588,7 @@ public class ClientCompanyComponentLogic {
         List<org.greenpole.hibernate.entity.ClientCompanyAddress> toSend = new ArrayList<>();
         
         for (Address addy : addressList) {
+            org.greenpole.hibernate.entity.ClientCompanyAddress address = new org.greenpole.hibernate.entity.ClientCompanyAddress();
             ClientCompanyAddressId addressId = new ClientCompanyAddressId();
             /*if (!freshCreation) {
                 addressId.setClientCompanyId(addy.getEntityId());
@@ -1458,6 +1596,13 @@ public class ClientCompanyComponentLogic {
             addressId.setAddressLine1(addy.getAddressLine1());
             addressId.setState(addy.getState());
             addressId.setCountry(addy.getCountry());
+            
+            //client company id will only be set during edit
+            if (ccModel.getId() > 0) {
+                addressId.setClientCompanyId(ccModel.getId());
+                address = cq.getClientCompanyAddress(addressId);
+            }
+            
             //put id in address
             address.setId(addressId);
             //set other address variables
@@ -1471,6 +1616,7 @@ public class ClientCompanyComponentLogic {
             //add the address to list
             toSend.add(address);
         }
+        
         return toSend;
     }
     
@@ -1481,9 +1627,8 @@ public class ClientCompanyComponentLogic {
      * @return a list of hibernate client company address entity object(s)
      */
     private List<org.greenpole.hibernate.entity.ClientCompanyAddress> retrieveAddressModelForDeletion(ClientCompany ccModel/*, boolean freshCreation*/) {
-        org.greenpole.hibernate.entity.ClientCompanyAddress address = new org.greenpole.hibernate.entity.ClientCompanyAddress();
         List<Address> addressList;
-        if (ccModel.getAddresses() != null) {
+        if (ccModel.getDeletedAddresses() != null) {
             addressList = ccModel.getDeletedAddresses();
         } else {
             addressList = new ArrayList<>();
@@ -1492,6 +1637,7 @@ public class ClientCompanyComponentLogic {
         List<org.greenpole.hibernate.entity.ClientCompanyAddress> toSend = new ArrayList<>();
         
         for (Address addy : addressList) {
+            org.greenpole.hibernate.entity.ClientCompanyAddress address = new org.greenpole.hibernate.entity.ClientCompanyAddress();
             ClientCompanyAddressId addressId = new ClientCompanyAddressId();
             //not required. Hibernate method handles the retreval of the client company id
             //and setting it in the address id. Same goes for email and phone
@@ -1501,6 +1647,13 @@ public class ClientCompanyComponentLogic {
             addressId.setAddressLine1(addy.getAddressLine1());
             addressId.setState(addy.getState());
             addressId.setCountry(addy.getCountry());
+            
+            //client company id is only set during edit
+            if (ccModel.getId() > 0) {
+                addressId.setClientCompanyId(ccModel.getId());
+                address = cq.getClientCompanyAddress(addressId);
+            }
+            
             //put id in address
             address.setId(addressId);
             //set other address variables
@@ -1542,11 +1695,16 @@ public class ClientCompanyComponentLogic {
             cc_main.setMerged(false);
             cc_main.setClientCompanyPrimary(true);
             //set depository id in object before setting object in hibernate client company object
-            depository.setId(ccModel.getDepositoryId());
-            cc_main.setDepository(depository);
+            if (ccModel.getDepositoryId() > 0) {
+                depository.setId(ccModel.getDepositoryId());
+                cc_main.setDepository(depository);
+            }
             //set nse sector id in object before setting object in hibernate client company object
-            nseSector.setId(ccModel.getNseSectorId());
-            cc_main.setNseSector(nseSector);
+            if (ccModel.getNseSectorId() > 0) {
+                nseSector.setId(ccModel.getNseSectorId());
+                cc_main.setNseSector(nseSector);
+            }
+            
         }
         return cc_main;
     }
