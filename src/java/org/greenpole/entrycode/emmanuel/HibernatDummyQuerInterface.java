@@ -21,6 +21,8 @@ import org.greenpole.hibernate.entity.HolderBondAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.InitialPublicOffer;
 import org.greenpole.hibernate.entity.IpoApplication;
+import org.greenpole.hibernate.entity.PrivatePlacement;
+import org.greenpole.hibernate.entity.PrivatePlacementApplication;
 import org.greenpole.hibernate.entity.RightsIssue;
 import org.greenpole.hibernate.entity.RightsIssueApplication;
 
@@ -146,17 +148,21 @@ public interface HibernatDummyQuerInterface {
     public boolean mergeClientCompanyAccounts(ClientCompany pryClientComp, List<ClientCompany> secClientComps, List<HolderCompanyAccount> secHolderCompAccts,
             List<HolderBondAccount> secHolderBondAccts);
 
-    public List<org.greenpole.hibernate.entity.HolderCompanyAccount> getAllClientsCompanyAccountsByClientCompanyId(int clientCompanyId);
+    public List<org.greenpole.hibernate.entity.HolderCompanyAccount> getAllHolderCompanyAccountsByClientCompanyId(int clientCompanyId);
 
     /**
      * Gets all account consolidation according to specified dates.
      *
      * @param clientCompanyId the client company whose IPO is to be retrieved
+     * @param descriptor
+     * @param startDate
+     * @param endDate
+     * @param dateFormat
      * @return the initial public offer record from hibernate
      */
-    public InitialPublicOffer getInitialPublicOfferByClientCompanyId(int clientCompanyId);
+    public List<InitialPublicOffer> getInitialPublicOfferByClientCompanyId(int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat);
 
-    public List<IpoApplication> getAllIpoApplication(int ipoId, int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat);
+    public List<IpoApplication> getAllIpoApplication(int ipoId, int clientCompanyId);
 
     public org.greenpole.hibernate.entity.ClearingHouse getClearingHouse(int clearingHouseId);
 
@@ -194,7 +200,104 @@ public interface HibernatDummyQuerInterface {
 
     public List<org.greenpole.hibernate.entity.HolderCompanyAccount> getHolderCompanyAccountsByClientCompanyId(int clientCompanyId);
 
-    public boolean addAdditionalSharesToHCA(int holderId);
+    public boolean updateHCA(int holderId, double sharesToadd);
+
     public org.greenpole.hibernate.entity.HolderCompanyAccount getOneHolderCompanyAccount(int holderId, int clientCompanyId);
+
     public org.greenpole.hibernate.entity.RightsIssueApplication getOneHolderRightApplication(int holderId, int clientCompanyId, int rightAppId);
+
+    /**
+     * retrieve the list of all applied rights under the specified client
+     * company with the id of the rights issue
+     *
+     * @param clientCompanyId the client company rights to retrieve
+     * @param rightAppId the rights issue to be retrieved
+     * @return list of rights application from hibernate
+     */
+    public List<RightsIssueApplication> getAllRightsIssueApplications(int clientCompanyId, int rightAppId);
+
+    /**
+     * retrieves rights issue setup details using the search parameters
+     *
+     * @param clientCompanyId
+     * @param descriptor
+     * @param startDate
+     * @param endDate
+     * @param dateFormat
+     * @return
+     */
+    public List<RightsIssue> getRightsIssue(int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat);
+
+    /**
+     * retrieves private placement records under the specified client company
+     *
+     * @param clientCompanyId
+     * @param ppAppId
+     * @return
+     */
+    public List<PrivatePlacementApplication> getPrivatePlacementApplication(int clientCompanyId, int ppAppId);
+
+    /**
+     *
+     * @param clientCompanyId
+     * @param descriptor
+     * @param startDate
+     * @param endDate
+     * @param dateFormat
+     * @return
+     */
+    public List<PrivatePlacement> getPrivatePlacement(int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat);
+
+    /**
+     * checks the existence of the holder company account of the specified
+     * client company
+     *
+     * @param holderId the holder to check
+     * @param clientCompanyId the client company to check against
+     * @return true if the holder has an account with the client company
+     */
+    public boolean checkHolderCompanyAccount(int holderId, int clientCompanyId);
+
+    /**
+     * creates a right issue application for a holder
+     *
+     * @param rightsIssueApplication the right issue application to create
+     */
+    public void applyForRightIssue(RightsIssueApplication rightsIssueApplication);
+
+    /**
+     * updates canceled status of a holder rights application
+     *
+     * @param clientCompanyId the client company issuing the rights
+     * @param holderId the holder application to be canceled
+     * @param rightsIssueId the right issue application to be canceled
+     * @return the status of the request
+     */
+    public boolean updateCancelleRightsApp(int clientCompanyId, int holderId, int rightsIssueId);
+
+    /**
+     * adds the subscribed shares to be canceled into the remaining shares of
+     * the client company
+     *
+     * @param clientCompanyId the client company issuing the rights
+     * @param rightsIssueId the right issue shares is to be added back into.
+     * @return
+     */
+    public boolean updateRightIssueTotalShares(int clientCompanyId, int rightsIssueId);
+
+    /**
+     *
+     * @param holderId the holder to update rights application
+     * @param clientCompanyId the issuer of the rights
+     * @param rightsIssueId the rights issue Id
+     */
+    public void updateShareholderRightsIssueApplication(int holderId, int clientCompanyId, int rightsIssueId);
+
+    public boolean uploadRightsApplicationEnmass(List<RightsIssueApplication> applicationList);
+
+    public boolean checkHolderRightsApplication(int holderId, int clientCompanyId, int rightAppId);
+
+    public boolean updateHCA(int holderId, int clientCompanyId);
+    public boolean createNewHolder(org.greenpole.hibernate.entity.Holder holder);
+    //public boolean createNewHCA()
 }

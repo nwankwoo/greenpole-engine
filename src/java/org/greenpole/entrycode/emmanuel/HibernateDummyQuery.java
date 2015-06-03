@@ -30,6 +30,8 @@ import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.entity.InitialPublicOffer;
 import org.greenpole.hibernate.entity.IpoApplication;
+import org.greenpole.hibernate.entity.PrivatePlacement;
+import org.greenpole.hibernate.entity.PrivatePlacementApplication;
 import org.greenpole.hibernate.entity.RightsIssue;
 import org.greenpole.hibernate.entity.RightsIssueApplication;
 import org.greenpole.hibernate.query.GeneralisedAbstractDao;
@@ -296,26 +298,19 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 
     @Override
-    public List<HolderCompanyAccount> getAllClientsCompanyAccountsByClientCompanyId(int clientCompanyId) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    //@Override
-    //public List<InitialPublicOffer> getAllInitialPublicOffer(String descriptor, String startDate, String endDate, String dateFormat) {
-     //   throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    //}
-
-    @Override
-    public InitialPublicOffer getInitialPublicOfferByClientCompanyId(int clientCompanyId) {
+    public List<HolderCompanyAccount> getAllHolderCompanyAccountsByClientCompanyId(int clientCompanyId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public List<IpoApplication> getAllIpoApplication(int ipoId, int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat) {
+    public List<InitialPublicOffer> getInitialPublicOfferByClientCompanyId(int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-   
+    @Override
+    public List<IpoApplication> getAllIpoApplication(int ipoId, int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 
     @Override
     public ClearingHouse getClearingHouse(int clearingHouseId) {
@@ -408,9 +403,10 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 
     @Override
-    public boolean addAdditionalSharesToHCA(int holderId) {
+    public boolean updateHCA(int holderId, double sharesToadd) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
 
     @Override
     public HolderCompanyAccount getOneHolderCompanyAccount(int holderId, int clientCompanyId) {
@@ -422,8 +418,68 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    
+    @Override
+    public List<RightsIssueApplication> getAllRightsIssueApplications(int clientCompanyId, int rightAppId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 
-    
+    @Override
+    public boolean checkHolderCompanyAccount(int holderId, int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 
+    @Override
+    public List<RightsIssue> getRightsIssue(int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<PrivatePlacementApplication> getPrivatePlacementApplication(int clientCompanyId, int ppAppId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<PrivatePlacement> getPrivatePlacement(int clientCompanyId, String descriptor, String startDate, String endDate, String dateFormat) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void applyForRightIssue(RightsIssueApplication rightsIssueApplication) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean updateCancelleRightsApp(int clientCompanyId, int holderId, int rightsIssueId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean updateRightIssueTotalShares(int clientCompanyId, int rightsIssueId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void updateShareholderRightsIssueApplication(int holderId, int clientCompanyId, int rightsIssueId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean uploadRightsApplicationEnmass(List<RightsIssueApplication> applicationList) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkHolderRightsApplication(int holderId, int clientCompanyId, int rightAppId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean updateHCA(int holderId, int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean createNewHolder(Holder holder) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 }
