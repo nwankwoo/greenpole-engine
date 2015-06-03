@@ -40,7 +40,7 @@ public class GeneralComponentLogic {
         logger.info("request to get all receiver's notification, invoked by [{}]", login.getUserId());
         
         try {
-            if (gq.checkValidUser(login.getUserId())) {
+            if (true /*gq.checkValidUser(login.getUserId())*/) {
                 List<Notification> notifi_hib_list = gq.getNotificationsForReceiver(login.getUserId());
                 List<NotificationWrapper> wrappers = new ArrayList<>();
                 
@@ -60,11 +60,20 @@ public class GeneralComponentLogic {
                         
                     }
                 }
-                resp.setRetn(0);
-                resp.setDesc("successful");
-                resp.setBody(wrappers);
-                logger.info("All notifications successfully retrieved - [{}]", login.getUserId());
-                return resp;
+                
+                if (wrappers.size() > 0) {
+                    resp.setRetn(0);
+                    resp.setDesc("successful");
+                    resp.setBody(wrappers);
+                    logger.info("All notifications successfully retrieved - [{}]", login.getUserId());
+                    return resp;
+                } else {
+                    resp.setRetn(400);
+                    resp.setDesc("User has no notifications");
+                    resp.setBody(wrappers);
+                    logger.info("User has no notifications - [{}]", login.getUserId());
+                    return resp;
+                }
             }
             resp.setRetn(400);
             resp.setDesc("Illegal user.");
