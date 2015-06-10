@@ -36,16 +36,24 @@ public class SecurityCheck {
         GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
         NotificationProperties notificationProp = new NotificationProperties(SecurityCheck.class);
         Notification notification = new Notification();
+        //notification code must exist
+        if (!gq.checkNotification(notificationCode)) {
+            resp.setRetn(900);
+            resp.setDesc("Illegal request. This notification code does not exist.");
+            logger.info("Illegal request. This notification code does not exist - [{}]", login.getUserId());
+            return true;
+        }
+        
         //notification code must have xml file and db record
         if (!notification.checkFile(notificationProp.getNotificationLocation(), notificationCode)) {
             if (gq.checkNotification(notificationCode)) {
                 notification.writeOffNotification(notificationCode);
-                resp.setRetn(301);
+                resp.setRetn(900);
                 resp.setDesc("The notification file has been tampered with. System will write off notification. Send a new request.");
                 logger.info("The notification file has been tampered with. System will write off notification. Send a new request - [{}]", login.getUserId());
                 return true;
             }
-            resp.setRetn(301);
+            resp.setRetn(900);
             resp.setDesc("Illegal notification code sent.");
             logger.info("Illegal notification code sent - [{}]", login.getUserId());
             return true;
@@ -53,7 +61,7 @@ public class SecurityCheck {
         
         //notification code must be tied to logged in user
         if (!gq.checkNotificationAgainstUser(login.getUserId(), notificationCode)) {
-            resp.setRetn(301);
+            resp.setRetn(900);
             resp.setDesc("Notification code does not belong to logged in user.");
             logger.info("Notification code does not belong to logged in user - [{}]", login.getUserId());
             return true;
@@ -61,7 +69,7 @@ public class SecurityCheck {
         
         //notification code must not be tied to both the sender and receiver
         if (gq.checkFromToSame(login.getUserId(), notificationCode)) {
-            resp.setRetn(301);
+            resp.setRetn(900);
             resp.setDesc("Illegal entry. Notification code cannot have its sender and receiver as the same user.");
             logger.info("Illegal entry. Notification code cannot have its sender and receiver as the same user - [{}]", login.getUserId());
             return true;

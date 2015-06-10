@@ -110,5 +110,15 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
         return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
                 request.setupPrivatePlacement_Authorise(login, notificationCode);
     }
+
+    @Override
+    public Response queryAllClientCompanies_Request(Login login) {
+        return request.queryAllClientCompanies_Request(login);
+    }
+
+    @Override
+    public Response queryClientCompany_Single_Request(Login login, int clientCompanyId) {
+        return request.queryClientCompany_Request(login, clientCompanyId);
+    }
     
 }
