@@ -42,6 +42,7 @@ import org.greenpole.hibernate.entity.ProcessedTransaction;
 import org.greenpole.hibernate.entity.ProcessedTransactionHolder;
 import org.greenpole.hibernate.entity.RightsIssue;
 import org.greenpole.hibernate.entity.RightsIssueApplication;
+import org.greenpole.hibernate.entity.Stockbroker;
 import org.greenpole.hibernate.entity.TransactionType;
 import org.greenpole.hibernate.query.GeneralisedAbstractDao;
 
@@ -327,10 +328,13 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 
     @Override
-    public List<Holder> queryShareholders(String descriptor, int clientCompanyId) {
+    public List<Holder> queryShareholders(String descriptor, int clientCompanyId, int startAge, int endAge) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    
+
+    
     @Override
     public List<HolderCompanyAccount> getHolderCompanyAccounts(int holderId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
@@ -563,6 +567,31 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
 
     @Override
     public List<Coupon> getCoupon(String descriptor, Coupon coupon, Map<String, Double> redemptionAmount, Map<String, Double> couponAmount) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<Stockbroker> getStockBrokers(int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<HolderBondAccount> getAllBondsAccountByClientCompanyId(int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean updateCaution(int holderId, int cautionId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkCaution(int holderId, int cautionId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean rightsIssueAppFromSetup(RightsIssueApplication right) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 

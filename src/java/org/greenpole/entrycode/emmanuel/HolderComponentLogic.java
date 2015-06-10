@@ -63,10 +63,10 @@ public class HolderComponentLogic {
         logger.info("cautioning of holder's account, invoked by [{}]", login.getUserId());
         try {
             org.greenpole.hibernate.entity.Caution caution_hib = new org.greenpole.hibernate.entity.Caution();
-            if (hq.checkHolderAccount(caution.getHolder().getHolderId())) {//checks if holder exist
-                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(caution.getHolder().getHolderId());
+            org.greenpole.hibernate.entity.Holder holder = hq.getHolder(caution.getHolderId());
+            if (hq.checkHolderAccount(holder.getChn())) {//checks if holder exist         
                 logger.info("Holder [{}] checks out by - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
-                //org.greenpole.hibernate.entity.HolderType ht = hd.getHolderType(caution.getHolderTypeId());
+                org.greenpole.hibernate.entity.HolderType ht = hd.getHolderType(holder.getId());
                 if (caution.getType() != null || !caution.getType().isEmpty()) {
                     if (caution.getTitle() != null || !caution.getTitle().isEmpty()) {
                         if (caution.getDescription() != null || !caution.getDescription().isEmpty()) {
@@ -80,10 +80,13 @@ public class HolderComponentLogic {
                                     caution_hib.setActive(true);
                                     caution_hib.setCautionDate(date_cautioned);
                                     hd.cautionShareHolderAndBondholder(caution_hib);
-                                    break;
+                                    resp.setRetn(0);
+                                    resp.setDesc("Successful");
+                                    return resp;
+
                                 case "special":
-                                    boolean holderHasCompanyAcc = hq.hasCompanyAccount(caution.getHolder().getHolderId());
-                                    boolean holderHasBondAcc = hq.hasBondAccount(caution.getHolder().getHolderId());
+                                    boolean holderHasCompanyAcc = hq.hasCompanyAccount(holder.getId());
+                                    boolean holderHasBondAcc = hq.hasBondAccount(holder.getId());
                                     if (holderHasCompanyAcc && !holderHasBondAcc) {
                                         caution_hib.setDescription(caution.getDescription());
                                         caution_hib.setTitle(caution.getTitle());
@@ -93,6 +96,9 @@ public class HolderComponentLogic {
                                         caution_hib.setActive(true);
                                         caution_hib.setCautionDate(date_cautioned);
                                         hd.cautionShareHolderAndBondholder(caution_hib);
+                                        resp.setRetn(0);
+                                        resp.setDesc("Successful");
+                                        return resp;
                                     } else if (holderHasBondAcc && !holderHasCompanyAcc) {
                                         logger.info("Caution rejected because holder account is bondholder account - [{}]", login.getUserId());
                                         resp.setRetn(328);
@@ -141,19 +147,38 @@ public class HolderComponentLogic {
         long millis = System.currentTimeMillis();
         Date date_Uncautioned = new java.sql.Date(millis);
         logger.info("uncautioning of holder's account, invoked by [{}]", login.getUserId());
+        boolean updated = false;
         try {
             org.greenpole.hibernate.entity.Caution caution_hib = new org.greenpole.hibernate.entity.Caution();
-            if (hq.checkHolderAccount(caution.getHolder().getHolderId())) {//checks if holder exist
-                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(caution.getHolder().getHolderId());
+            if (hq.checkHolderAccount(caution.getHolderId())) {//checks if holder exist
+                org.greenpole.hibernate.entity.Holder holder = hq.getHolder(caution.getHolderId());
                 logger.info("Holder [{}] checks out by - [{}]", holder.getFirstName() + " " + holder.getLastName(), login.getUserId());
-                //org.greenpole.hibernate.entity.HolderType ht = hd.getHolderType(caution.getHolderTypeId());
-                if (caution.getType() != null || !caution.getType().isEmpty()) {
-                    caution_hib.setActive(false);
-                    caution_hib.setUncautionDate(date_Uncautioned);
+                if (hd.checkCaution(holder.getId(), caution.getId())) {//checks if holder is cautioned
+                    if (caution.getType() != null || !caution.getType().isEmpty()) {
+                        caution_hib.setActive(false);
+                        caution_hib.setUncautionDate(date_Uncautioned);
+                        updated = hd.updateCaution(caution.getHolderId(), caution.getId());
+                        if (updated) {
+                            resp.setRetn(0);
+                            resp.setDesc("Successful");
+                            return resp;
+                        }
+                        if (!updated) {
+                            logger.info("Unable to uncaution holder - [{}]", login.getUserId());
+                            resp.setRetn(300);
+                            resp.setDesc("Unable to uncaution holder");
+                            return resp;
+                        }
+                    }
+                    resp.setRetn(328);
+                    resp.setDesc("Unable to uncaution holder " + holder.getFirstName() + " " + holder.getLastName() + " because caution type is not found");
+                    logger.info("Caution type should not be empty. Check error logs - [{}]", login.getUserId());
+                    return resp;
                 }
+
                 resp.setRetn(328);
-                resp.setDesc("Caution type not specified");
-                logger.info("Cautioning of holder failed because caution type is empty. Check error logs - [{}]", login.getUserId());
+                resp.setDesc("No caution record found for holder " + holder.getFirstName() + " " + holder.getLastName());
+                logger.info("No caution record found for holder. Check error logs - [{}]", login.getUserId());
                 return resp;
             }
             resp.setRetn(328);
@@ -224,40 +249,45 @@ public class HolderComponentLogic {
                         return resp;
                     }
                 }
-                List<org.greenpole.hibernate.entity.Caution> caution_hib_result = hd.queryCautionedHolders(queryParams.getDescriptor(), caution_hib, queryParams.getStart_date(), queryParams.getEnd_date());
-                logger.info("retrieved cautioned holder accounts result from query. - [{}]", login.getUserId());
+                org.greenpole.hibernate.entity.Caution caution_hib_search = new org.greenpole.hibernate.entity.Caution();
+                Caution caution_model = new Caution();
+                List<Caution> caution_list = new ArrayList<>();
                 List<Holder> return_list = new ArrayList<>();
                 TagUser tag = new TagUser();
-                List<Caution> caution_list = new ArrayList<>();
-                //unwrap returned result list
-                for (org.greenpole.hibernate.entity.Caution c : caution_hib_result) {
-                    org.greenpole.hibernate.entity.Holder h = hd.getHolder(c.getHolder().getId());
-                    org.greenpole.entity.model.holder.Holder h_model = new Holder();
-                    h_model.setHolderId(h.getId());
-                    h_model.setFirstName(h.getFirstName());
-                    h_model.setMiddleName(h.getMiddleName());
-                    h_model.setLastName(h.getLastName());
-                    Caution caution_model = new Caution();
-                    caution_model.setDescription(c.getDescription());
-                    caution_model.setTitle(c.getTitle());
-                    caution_model.setType(c.getType());
-                    caution_model.setCautionDate(formatter.format(c.getCautionDate()));
-                    caution_model.setActive(c.getActive());
-                    caution_model.setHolder(h_model);
-                    caution_list.add(caution_model);
+                if (queryParams.getCaution() != null) {
+                    caution_model = queryParams.getCaution();
+                    try {
+                        caution_hib_search.setCautionDate(formatter.parse(caution_model.getCautionDate()));
+                    } catch (ParseException ex) {
+                    }
+
+                    // }
+                    List<org.greenpole.hibernate.entity.Caution> caution_hib_result = hd.queryCautionedHolders(queryParams.getDescriptor(), caution_hib, queryParams.getStart_date(), queryParams.getEnd_date());
+                    logger.info("retrieved cautioned holder accounts result from query. - [{}]", login.getUserId());
+                    //unwrap returned result list
+                    for (org.greenpole.hibernate.entity.Caution c : caution_hib_result) {
+                        caution_model.setDescription(c.getDescription());
+                        caution_model.setTitle(c.getTitle());
+                        caution_model.setType(c.getType());
+                        caution_model.setCautionDate(formatter.format(c.getCautionDate()));
+                        caution_model.setActive(c.getActive());
+                        caution_model.setHolderId(c.getHolder().getId());
+                        caution_list.add(caution_model);
+                    }
+                    //}
+
+                    List<TagUser> tagList = new ArrayList<>();
+
+                    tag.setQueryParam(queryParams);
+                    tag.setResult(caution_list);
+                    tagList.add(tag);
+
+                    resp.setBody(tagList);
+                    resp.setDesc("Query result with search parameter");
+                    resp.setRetn(0);
+                    logger.info("Query successful - [{}]", login.getUserId());
+                    return resp;
                 }
-
-                List<TagUser> tagList = new ArrayList<>();
-
-                tag.setQueryParam(queryParams);
-                tag.setResult(caution_list);
-                tagList.add(tag);
-
-                resp.setBody(tagList);
-                resp.setDesc("Query result with search parameter");
-                resp.setRetn(0);
-                logger.info("Query successful - [{}]", login.getUserId());
-                return resp;
             }
         } catch (Exception ex) {
             logger.info("error querying cautioned holder account. See error log - [{}]", login.getUserId());

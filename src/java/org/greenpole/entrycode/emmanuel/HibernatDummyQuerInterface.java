@@ -169,7 +169,7 @@ public interface HibernatDummyQuerInterface {
 
     public org.greenpole.hibernate.entity.ClearingHouse getClearingHouse(int clearingHouseId);
 
-    public List<org.greenpole.hibernate.entity.Holder> queryShareholders(String descriptor, int clientCompanyId);
+    public List<org.greenpole.hibernate.entity.Holder> queryShareholders(String descriptor, int clientCompanyId, int startAge, int endAge);
 
     public List<org.greenpole.hibernate.entity.HolderCompanyAccount> getHolderCompanyAccounts(int holderId);
 
@@ -304,7 +304,6 @@ public interface HibernatDummyQuerInterface {
     public boolean createNewHolder(org.greenpole.hibernate.entity.Holder holder);
 
     //public boolean createNewHCA()
-
     public boolean uploadTransaction(List<ProcessedTransaction> processedTransaction);
 
     public boolean checkCSCSTransactionExistence(int cscsTransactionId);
@@ -333,4 +332,14 @@ public interface HibernatDummyQuerInterface {
     public List<org.greenpole.hibernate.entity.DividenAnnotation> getDividendAnnotations(int dividendId);
 
     public List<org.greenpole.hibernate.entity.Coupon> getCoupon(String descriptor, org.greenpole.hibernate.entity.Coupon coupon, Map<String, Double> redemptionAmount, Map<String, Double> couponAmount);
+
+    public List<org.greenpole.hibernate.entity.Stockbroker> getStockBrokers(int holderId);
+
+    public List<org.greenpole.hibernate.entity.HolderBondAccount> getAllBondsAccountByClientCompanyId(int clientCompanyId);
+
+    public boolean updateCaution(int holderId, int cautionId);
+
+    public boolean checkCaution(int holderId, int cautionId);
+
+    public boolean rightsIssueAppFromSetup(org.greenpole.hibernate.entity.RightsIssueApplication right);
 }

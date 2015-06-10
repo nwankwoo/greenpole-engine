@@ -29,13 +29,9 @@ import org.greenpole.entrycode.emmanuel.model.ProcessedTransactionHolder;
 import org.greenpole.entrycode.emmanuel.model.QueryTransaction;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.hibernate.entity.HolderEmailAddress;
-import org.greenpole.hibernate.entity.HolderEmailAddressId;
 import org.greenpole.hibernate.entity.HolderPhoneNumber;
-import org.greenpole.hibernate.entity.HolderPhoneNumberId;
 import org.greenpole.hibernate.entity.HolderPostalAddress;
-import org.greenpole.hibernate.entity.HolderPostalAddressId;
 import org.greenpole.hibernate.entity.HolderResidentialAddress;
-import org.greenpole.hibernate.entity.HolderResidentialAddressId;
 import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.entity.ProcessedTransactionHolderId;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
@@ -614,21 +610,9 @@ public class TransactionComponentLogic {
 
         for (org.greenpole.entity.model.Address rAddy : residentialAddressList) {
             org.greenpole.hibernate.entity.HolderResidentialAddress residentialAddressEntity = new org.greenpole.hibernate.entity.HolderResidentialAddress();
-            HolderResidentialAddressId rAddyId = new HolderResidentialAddressId();
-            /*if (newEntry) {
-             rAddyId.setHolderId(holdModel.getHolderId());
-             }*/
-            rAddyId.setAddressLine1(rAddy.getAddressLine1());
-            rAddyId.setState(rAddy.getState());
-            rAddyId.setCountry(rAddy.getCountry());
-
-            //holder id is only set during edit
-            if (holdModel.getHolderId() > 0) {
-                rAddyId.setHolderId(holdModel.getHolderId());
-                residentialAddressEntity = hq.getHolderResidentialAddress(rAddyId);
-            }
-
-            residentialAddressEntity.setId(rAddyId);
+            residentialAddressEntity.setAddressLine1(rAddy.getAddressLine1());
+            residentialAddressEntity.setState(rAddy.getState());
+            residentialAddressEntity.setCountry(rAddy.getCountry());
             residentialAddressEntity.setAddressLine2(rAddy.getAddressLine2());
             residentialAddressEntity.setAddressLine3(rAddy.getAddressLine3());
             residentialAddressEntity.setAddressLine4(rAddy.getAddressLine4());
@@ -661,27 +645,14 @@ public class TransactionComponentLogic {
 
         for (org.greenpole.entity.model.Address hpa : hpaddyList) {
             org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
-            HolderPostalAddressId postalAddyId = new HolderPostalAddressId();
-            /*if (newEntry) {
-             postalAddyId.setHolderId(holdModel.getHolderId());
-             }*/
-            postalAddyId.setAddressLine1(hpa.getAddressLine1());
-            postalAddyId.setState(hpa.getState());
-            postalAddyId.setCountry(hpa.getCountry());
-
-            //holder id is only set during edit
-            if (holdModel.getHolderId() > 0) {
-                postalAddyId.setHolderId(holdModel.getHolderId());
-                postalAddressEntity = hq.getHolderPostalAddress(postalAddyId);
-            }
-
-            postalAddressEntity.setId(postalAddyId);
+            postalAddressEntity.setAddressLine1(hpa.getAddressLine1());
+            postalAddressEntity.setState(hpa.getState());
+            postalAddressEntity.setCountry(hpa.getCountry());
             postalAddressEntity.setAddressLine2(hpa.getAddressLine2());
             postalAddressEntity.setAddressLine3(hpa.getAddressLine3());
             postalAddressEntity.setCity(hpa.getCity());
             postalAddressEntity.setPostCode(hpa.getPostCode());
             postalAddressEntity.setIsPrimary(hpa.isPrimaryAddress());
-
             returnHolderPostalAddress.add(postalAddressEntity);
         }
         return returnHolderPostalAddress;
@@ -707,20 +678,8 @@ public class TransactionComponentLogic {
 
         for (EmailAddress email : emailAddressList) {
             org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
-            HolderEmailAddressId emailId = new HolderEmailAddressId();
-            /*if (newEntry) {
-             emailId.setHolderId(holdModel.getHolderId());
-             }*/
-            emailId.setEmailAddress(email.getEmailAddress());
-
-            //holder id is only set during edit
-            if (holdModel.getHolderId() > 0) {
-                emailId.setHolderId(holdModel.getHolderId());
-                emailAddressEntity = hq.getHolderEmailAddress(emailId);
-            }
-
+            emailAddressEntity.setEmailAddress(email.getEmailAddress());
             emailAddressEntity.setIsPrimary(email.isPrimaryEmail());
-            emailAddressEntity.setId(emailId);
 
             returnEmailAddress.add(emailAddressEntity);
         }
@@ -748,21 +707,10 @@ public class TransactionComponentLogic {
 
         for (PhoneNumber pnList : phoneNumberList) {
             org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
-            HolderPhoneNumberId phoneNoId = new HolderPhoneNumberId();
-            /*if (newEntry) {
-             phoneNoId.setHolderId(holdModel.getHolderId());
-             }*/
-            phoneNoId.setPhoneNumber(pnList.getPhoneNumber());
-
-            //holder id is only set during edit
-            if (holdModel.getHolderId() > 0) {
-                phoneNoId.setHolderId(holdModel.getHolderId());
-                phoneNumberEntity = hq.getHolderPhoneNumber(phoneNoId);
-            }
-
+               // phoneNoId.setHolderId(holdModel.getHolderId());
+            phoneNumberEntity.setPhoneNumber(pnList.getPhoneNumber());
             phoneNumberEntity.setIsPrimary(pnList.isPrimaryPhoneNumber());
-            phoneNumberEntity.setId(phoneNoId);
-
+            phoneNumberEntity.setId(pnList.getEntityId());
             returnPhoneNumber.add(phoneNumberEntity);
         }
         return returnPhoneNumber;

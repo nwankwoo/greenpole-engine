@@ -8,6 +8,7 @@ package org.greenpole.entrycode.emmanuel;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -43,6 +44,7 @@ import org.greenpole.entrycode.emmanuel.model.QueryShareholders;
 import org.greenpole.entrycode.emmanuel.model.RightsIssue;
 import org.greenpole.entrycode.emmanuel.model.RightsIssueApplication;
 import org.greenpole.hibernate.entity.AdministratorPostalAddress;
+import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
@@ -171,9 +173,11 @@ public class ClientCompanyLogic {
             long millis = System.currentTimeMillis();
             Date current_date = new java.sql.Date(millis);
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            boolean done = false;
             org.greenpole.hibernate.entity.RightsIssue right_hib = new org.greenpole.hibernate.entity.RightsIssue();
             org.greenpole.hibernate.entity.ClientCompany clientCompany = cq.getClientCompany(right_model.getClientCompanyId());
             List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_list = hd.getAllHolderCompanyAccountsByClientCompanyId(right_model.getClientCompanyId());
+            org.greenpole.hibernate.entity.ClearingHouse chn = new org.greenpole.hibernate.entity.ClearingHouse();
             if (cq.checkClientCompany(clientCompany.getName())) {
                 //if(!hca_list.isEmpty())
                 logger.info("client company [{}] checks out - [{}]", clientCompany.getName(), login.getUserId());
@@ -205,58 +209,54 @@ public class ClientCompanyLogic {
                                                 double qualifyHolderShares, expectedPayableAmount;
                                                 int holderDueShares, unqualifyShares, sum_unqualifyShares = 0, specialRights;
                                                 List<org.greenpole.hibernate.entity.RightsIssueApplication> right_app_list = new ArrayList<>();
-                                                boolean done = true;
+
                                                 if (hca.getShareUnits() % right_model.getQualifyShareUnit() != 0) {
-                                                    qualifyHolderShares = Math.ceil((hca.getShareUnits() / right_model.getQualifyShareUnit()) * right_model.getQualifyShareUnit());
+                                                    qualifyHolderShares = Math.floor((hca.getShareUnits() / right_model.getQualifyShareUnit()) * right_model.getQualifyShareUnit());
                                                     holderDueShares = ((int) qualifyHolderShares / right_model.getQualifyShareUnit() * right_model.getAlottedUnitPerQualifyUnit());
                                                     unqualifyShares = hca.getShareUnits() % right_model.getQualifyShareUnit();
                                                     sum_unqualifyShares += unqualifyShares;
                                                     specialRights = sum_unqualifyShares / right_model.getQualifyShareUnit();//the rights allocated to the unqualify shares
+                                                    //expectedPayableAmount = holderDueShares * right_model.getIssuePrice();                                                  
+                                                    if (formatter.parse(right_model.getQualifyDate()).before(current_date) || formatter.parse(right_model.getQualifyDate()).equals(current_date)) {
+                                                        right_app_hib.setHolder(holder_hib);
+                                                        right_app_hib.setTotalHoldings(hca.getShareUnits());//total share units of shareholder before application
+                                                        right_app_hib.setAllottedRights(holderDueShares);
+                                                        //right_app_hib.set(expectedPayableAmount);//entity for expected payable amount is not present
+                                                        right_app_list.add(right_app_hib);
+                                                        done = hd.rightsIssueAppFromSetup(right_app_hib);
+                                                    }
+                                                } else if (hca.getShareUnits() % right_model.getQualifyShareUnit() == 0) {
+                                                    holderDueShares = hca.getShareUnits() / right_model.getQualifyShareUnit() * right_model.getAlottedUnitPerQualifyUnit();//get shares due to holder using set rule
                                                     expectedPayableAmount = holderDueShares * right_model.getIssuePrice();
                                                     if (formatter.parse(right_model.getQualifyDate()).before(current_date) || formatter.parse(right_model.getQualifyDate()).equals(current_date)) {
                                                         right_app_hib.setHolder(holder_hib);
                                                         right_app_hib.setTotalHoldings(hca.getShareUnits());
                                                         right_app_hib.setAllottedRights(holderDueShares);
                                                         right_app_hib.setSharesSubscribedValue(expectedPayableAmount);
-                                                        right_app_list.add(right_app_hib);
-                                                        done = hd.RightIssueApplication(right_app_list);
-
+                                                        done = hd.rightsIssueAppFromSetup(right_app_hib);
                                                     }
                                                 }
-                                                if (hca.getShareUnits() % right_model.getQualifyShareUnit() == 0) {
-                                                    holderDueShares = hca.getShareUnits() / right_model.getQualifyShareUnit() * right_model.getAlottedUnitPerQualifyUnit();
-                                                    expectedPayableAmount = holderDueShares * right_model.getIssuePrice();
-                                                    if (formatter.parse(right_model.getQualifyDate()).before(current_date) || formatter.parse(right_model.getQualifyDate()).equals(current_date)) {
-                                                        right_app_hib.setHolder(holder_hib);
-                                                        right_app_hib.setTotalHoldings(hca.getShareUnits());
-                                                        right_app_hib.setAllottedRights(holderDueShares);
-                                                        right_app_hib.setSharesSubscribedValue(expectedPayableAmount);
-                                                        right_app_list.add(right_app_hib);
-                                                        done = hd.RightIssueApplication(right_app_list);
 
-                                                    }
-                                                }
                                                 if (formatter.parse(right_model.getOpeningDate()).after(current_date) || formatter.parse(right_model.getOpeningDate()).equals(current_date)) {
                                                     right_hib.setRightsClosed(false);
                                                     hd.updateRightIssueSetup(right_model.getId());
                                                 }
-                                                /*
-                                                 if (formatter.parse(right_model.getClosingDate()).equals(current_date)) {
-                                                 right_hib.setRightsClosed(true);
-                                                 
-                                                 }
-                                                 */
-
-                                                if (done) {
-                                                    notification.markAttended(notificationCode);
-                                                    logger.info("Rights issue setup was successful - [{}]", login.getUserId());
-                                                    resp.setRetn(0);
-                                                    resp.setDesc("Successful");
-                                                    return resp;
-                                                }
                                                 //the part of the closing date is not taken into consideration for now
                                             }
 
+                                        }
+                                        if (done) {
+                                            notification.markAttended(notificationCode);
+                                            logger.info("Rights issue setup was successful - [{}]", login.getUserId());
+                                            resp.setRetn(0);
+                                            resp.setDesc("Successful");
+                                            return resp;
+                                        }
+                                        if (!done) {
+                                            logger.info("Rights issue setup was unsuccessful - [{}]", login.getUserId());
+                                            resp.setRetn(98);
+                                            resp.setDesc("Rights issue setup was unsuccessful");
+                                            return resp;
                                         }
 
                                     }
@@ -266,13 +266,13 @@ public class ClientCompanyLogic {
                                     return resp;
                                 }
                                 resp.setRetn(200);
-                                resp.setDesc("Right issue closing date is empty");
-                                logger.info("Right issue closing date is empty ", login.getUserId());
+                                resp.setDesc("Right issue closing date MUST be specified");
+                                logger.info("Right issue closing date MUST be specified ", login.getUserId());
                                 return resp;
                             }
                             resp.setRetn(200);
-                            resp.setDesc("Right issue opening date cannot be empty");
-                            logger.info("Right issue opening date is empty ", login.getUserId());
+                            resp.setDesc("Right issue opening date MUST be specified");
+                            logger.info("Right issue opening date MUST be specified ", login.getUserId());
                             return resp;
                         }
                         resp.setRetn(200);
@@ -753,21 +753,11 @@ public class ClientCompanyLogic {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(ipoApp.getClearingHouse().getId());
                         totalSharesSubscribed += ipoApp.getSharesSubscribed();
                         remaingShares = ipo.getTotalSharesOnOffer() - totalSharesSubscribed;
-                       // ipoModel.setTotalSharesSub(totalSharesSubscribed);
-                        //ipoModel.setTotalSharesRem(remaingShares);
-                        if (totalSharesSubscribed > ipo.getTotalSharesOnOffer()) {
-                            int overSubShares = totalSharesSubscribed - ipo.getTotalSharesOnOffer();
-                           // ipoModel.setTotalSharesOverSub(overSubShares);
-                        } else {
-                           // ipoModel.setTotalSharesOverSub(0);
-                        }
                         ipoApp_model.setInitialPublicOffer(ipoModel);
                         ipoApp_model.setClearingHouseName(ch_hib.getName());
                         ipoApp_model.setClearingHouseBrokerage(ipo.getTotalSharesOnOffer() * ipo.getOfferPrice() * 0.75 / 100);//total values of shares submitted to clearing house
                         ipoApp_list_out.add(ipoApp_model);
                     }
-
-                    //ipoModel.setIpoApplication(ipoApp_list_out);
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
@@ -826,7 +816,7 @@ public class ClientCompanyLogic {
                 List<org.greenpole.hibernate.entity.RightsIssue> ri_hib_list = hd.getRightsIssue(queryParams.getRightsIssue().getClientCompanyId(), queryParams.getDescriptor(), queryParams.getStart_date(), queryParams.getEnd_date(), queryParams.getDate_format());
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0, sharesDistributed = 0, totalSharesDistributed = 0;
-                int remaingShares = 0, amountOfTotalSharesPaid = 0;
+                int remaingShares = 0, amountOfTotalSharesPaid = 0, totalSharesOnOffer = 0;
                 List<RightsIssueApplication> riApp_list_out = new ArrayList<>();
                 List<RightsIssue> ri_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
@@ -834,12 +824,13 @@ public class ClientCompanyLogic {
                     RightsIssue riModel = new RightsIssue();
                     RightsIssueApplication riApp_model = new RightsIssueApplication();
                     riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
-                    List<org.greenpole.hibernate.entity.RightsIssueApplication> sizeOfShareholders = hd.getAllRightsIssueApplications(ri.getId(), queryParams.getRightsIssue().getClientCompanyId());
+                    totalSharesOnOffer = ri.getTotalSharesOnIssue();
+                    List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsIssueApp_hib_list = hd.getAllRightsIssueApplications(ri.getId(), queryParams.getRightsIssue().getClientCompanyId());
                     for (org.greenpole.hibernate.entity.RightsIssueApplication riApp : hd.getAllRightsIssueApplications(ri.getId(), queryParams.getRightsIssue().getClientCompanyId())) {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(riApp.getClearingHouse().getId());
                         totalSharesSubscribed += riApp.getSharesSubscribed();
                         totalSharesDistributed += riApp.getAllottedRights() + riApp.getAdditionalSharesGiven();//total shares given out to holders
-                        remaingShares = ri.getTotalSharesOnIssue() - totalSharesDistributed;
+                        remaingShares = totalSharesOnOffer - totalSharesDistributed;
                         amountOfTotalSharesPaid += riApp.getAmountPaid();
                         //sharesOverSub = ri.getTotalSharesOnIssue() - totalSharesSubscribed;
                         riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
@@ -854,7 +845,7 @@ public class ClientCompanyLogic {
                             if (riApp.getAdditionalSharesSubscribed() == 0) {
                                 riModel.setTotalSharesHolderOverSub(0);
                             } else if (riApp.getAdditionalSharesSubscribed() != 0) {
-                                riModel.setTotalSharesHolderOverSub(sizeOfShareholders.size());
+                                riModel.setTotalSharesHolderOverSub(rightsIssueApp_hib_list.size());
                             }
                             riApp_model.setClearingHouseName(ch_hib.getName());
                             riApp_model.setClearingHouseBrokerage(ri.getTotalSharesOnIssue() * ri.getIssuePrice() * 0.75 / 100);
@@ -865,8 +856,6 @@ public class ClientCompanyLogic {
                         }
                         riApp_model.setRightsIssueId(riModel.getId());
                     }
-
-                    //ipoModel.setIpoApplication(ipoApp_list_out);
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
@@ -926,31 +915,26 @@ public class ClientCompanyLogic {
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0;
                 int remaingShares = 0;
+                int totalSharesOnOffer = 0;
                 List<PrivatePlacementApplication> ppApp_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.PrivatePlacement pp : pp_hib_list) {
                     PrivatePlacement ppModel = new PrivatePlacement();
                     PrivatePlacementApplication ppApp_model = new PrivatePlacementApplication();
+                    totalSharesOnOffer = pp.getTotalSharesOnOffer();
                     ppModel.setTotalSharesOnOffer(pp.getTotalSharesOnOffer());
                     for (org.greenpole.hibernate.entity.PrivatePlacementApplication ppApp : hd.getPrivatePlacementApplication(pp.getId(), queryParams.getPrivatePlacement().getClientCompanyId())) {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(ppApp.getClearingHouse().getId());
                         totalSharesSubscribed += ppApp.getSharesSubscribed();
-                        remaingShares = pp.getTotalSharesOnOffer() - totalSharesSubscribed;
-                        //ppModel.setTotalSharesSub(totalSharesSubscribed);
-                        //ppModel.setTotalSharesRem(remaingShares);
-                        if (totalSharesSubscribed > pp.getTotalSharesOnOffer()) {
-                            int overSubShares = totalSharesSubscribed - pp.getTotalSharesOnOffer();
-                           // ppModel.setTotalSharesOverSub(overSubShares);
-                        } else {
-                            //ppModel.setTotalSharesOverSub(0);
-                        }
+                        remaingShares = totalSharesOnOffer - totalSharesSubscribed;
+                        ppModel.setClientCompanyId(pp.getClientCompany().getId());
                         ppApp_model.setPrivatePlacement(ppModel);
                         ppApp_model.setClearingHouseName(ch_hib.getName());
                         ppApp_model.setClearingHouseBrokerage(pp.getTotalSharesOnOffer() * pp.getOfferPrice() * 0.75 / 100);//total values of shares submitted to clearing house
                         ppApp_list_out.add(ppApp_model);
                     }
 
-                   // ppModel.setPrivatePlacementApplication(ppApp_list_out);
+                    // ppModel.setPrivatePlacementApplication(ppApp_list_out);
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
@@ -982,6 +966,7 @@ public class ClientCompanyLogic {
             List<org.greenpole.entity.model.holder.Holder> holder_model_list = new ArrayList();
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
+            int currentYear = Calendar.getInstance().get(Calendar.YEAR); //get the current year in integer format
             if (descriptors.size() == 1) {
                 org.greenpole.hibernate.entity.Holder holder_hib_search = new org.greenpole.hibernate.entity.Holder();
                 org.greenpole.hibernate.entity.Administrator holderAdmin_serach_hib = new org.greenpole.hibernate.entity.Administrator();
@@ -993,36 +978,29 @@ public class ClientCompanyLogic {
                 org.greenpole.hibernate.entity.HolderResidentialAddress holder_residential_hib = new org.greenpole.hibernate.entity.HolderResidentialAddress();
                 org.greenpole.hibernate.entity.Stockbroker broker_hib_search = new org.greenpole.hibernate.entity.Stockbroker();
                 Holder h_model_search = new Holder();
+                List<org.greenpole.hibernate.entity.Holder> holder_hib_list = hd.getHoldersByClientCompanyId(queryParams.getClientCompanyId());
+                int shareHolderAge;
                 if (queryParams.getHolder() != null) {
                     h_model_search = queryParams.getHolder();
-                    holder_hib_search.setFirstName(h_model_search.getFirstName());
-                    holder_hib_search.setMiddleName(h_model_search.getMiddleName());
-                    holder_hib_search.setLastName(h_model_search.getLastName());
                     holder_hib_search.setGender(h_model_search.getGender());
-                    try {
-                        holder_hib_search.setDob(formatter.parse(h_model_search.getDob()));
-                    } catch (ParseException ex) {
-                        logger.info("an error was thrown while checking the holder's date of birth. See error log - [{}]", login.getUserId());
-                        resp.setRetn(308);
-                        resp.setDesc("Incorrect date format for date of birth");
-                        logger.error("Incorrect date format for date of birth [" + login.getUserId() + "]", ex);
+                    if (queryParams.getStartAge() > 0 && queryParams.getEndAge() > 0) {
+                        for (org.greenpole.hibernate.entity.Holder h : holder_hib_list) {
+                            Date dob = h.getDob();
+                            shareHolderAge = currentYear - this.getBirthYear(dob);
+                            if (shareHolderAge >= queryParams.getStartAge() && shareHolderAge <= queryParams.getEndAge()) {
+                                try {
+                                    holder_hib_search.setDob(dob);
+                                } catch (Exception ex) {
+                                    logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                                    resp.setRetn(300);
+                                    resp.setDesc("Incorrect date format for date of birth");
+                                    logger.error("Incorrect date format for date of birth - [{}]", login.getUserId(), ex);
+
+                                    return resp;
+                                }
+                            }
+                        }
                     }
-                    holder_hib_search.setChn(h_model_search.getChn());
-                    holder_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
-                    holder_hib_search.setTaxExempted(h_model_search.isTaxExempted());
-                    holder_hib_search.setPryAddress(h_model_search.getPryAddress());
-                    holder_hib_search.setPryHolder(h_model_search.isPryHolder()); //must be set
-                }
-                Stockbroker broker_search;
-                if (queryParams.getHolder().getHolderStockbroker() != null) {
-                    broker_search = queryParams.getHolder().getHolderStockbroker();
-
-                    broker_hib_search.setName(broker_search.getName());
-
-                    Set broker_set = new HashSet();
-                    broker_set.add(broker_hib_search);
-
-                    holder_hib_search.setStockbrokers(broker_set);
                 }
                 Address h_resAddress_model_search = new Address();
                 if (queryParams.getHolder().getResidentialAddresses() != null && queryParams.getHolder().getResidentialAddresses().isEmpty()) {
@@ -1035,135 +1013,30 @@ public class ClientCompanyLogic {
                     holder_residential_hib.setAddressLine4(h_resAddress_model_search.getAddressLine4());
                     holder_residential_hib.setCity(h_resAddress_model_search.getCity());
                     holder_residential_hib.setPostCode(h_resAddress_model_search.getPostCode());
-                    //holder_residential_hib.setId(holder_residential_Id_hib);//put address id in address
                     Set h_resAddy_set = new HashSet();
                     h_resAddy_set.add(holder_residential_hib);
                     holder_hib_search.setHolderResidentialAddresses(h_resAddy_set);//put holder residential address set in holder entity
                 }
-                EmailAddress email_model_search = new EmailAddress();
-                if (queryParams.getHolder().getEmailAddresses() != null && !queryParams.getHolder().getEmailAddresses().isEmpty()) {
-                    email_model_search = queryParams.getHolder().getEmailAddresses().get(0);
-                    holder_email_search_hib.setEmailAddress(email_model_search.getEmailAddress());
-                    Set email_set = new HashSet();
-                    email_set.add(holder_email_search_hib);
-                    holder_hib_search.setHolderEmailAddresses(email_set);
-                }
-                PhoneNumber phone_model_search = new PhoneNumber();
-                if (queryParams.getHolder().getPhoneNumbers() != null && !queryParams.getHolder().getPhoneNumbers().isEmpty()) {
-                    phone_model_search = queryParams.getHolder().getPhoneNumbers().get(0);
-                    holder_phone_hib.setPhoneNumber(phone_model_search.getPhoneNumber());
-                    Set phone_set = new HashSet();
-                    phone_set.add(holder_phone_hib);
-                    holder_hib_search.setHolderPhoneNumbers(phone_set);
-                }
-                Address postalAddress_model_search = new Address();
-                if (queryParams.getHolder().getPostalAddresses() != null && !queryParams.getHolder().getPostalAddresses().isEmpty()) {
-                    postalAddress_model_search = queryParams.getHolder().getPostalAddresses().get(0);
-                    holder_postal_hib.setAddressLine1(postalAddress_model_search.getAddressLine1());
-                    holder_postal_hib.setCountry(postalAddress_model_search.getCountry());
-                    holder_postal_hib.setState(postalAddress_model_search.getState());
-                    holder_postal_hib.setAddressLine2(postalAddress_model_search.getAddressLine2());
-                    holder_postal_hib.setAddressLine3(postalAddress_model_search.getAddressLine3());
-                    holder_postal_hib.setAddressLine4(postalAddress_model_search.getAddressLine4());
-                    holder_postal_hib.setCity(postalAddress_model_search.getCity());
-                    holder_postal_hib.setPostCode(postalAddress_model_search.getPostCode());
-                    Set postal_set = new HashSet();
-                    postal_set.add(holder_postal_hib);
-                    holder_hib_search.setHolderPostalAddresses(postal_set);
-                }
-                HolderCompanyAccount hca_model_search = new HolderCompanyAccount();
-                if (queryParams.getHolder().getCompanyAccounts() != null && !queryParams.getHolder().getCompanyAccounts().isEmpty()) {
-                    hca_model_search = queryParams.getHolder().getCompanyAccounts().get(0);
-                    hca_Id_search_hib.setClientCompanyId(hca_model_search.getClientCompanyId());
-                    hca_search_hib.setEsop(hca_model_search.isEsop());
-                    hca_search_hib.setHolderCompAccPrimary(hca_model_search.isHolderCompAccPrimary());//always set this
-                    hca_search_hib.setMerged(hca_model_search.isMerged());//always set this
+                Stockbroker broker_search;
+                if (queryParams.getHolder().getHolderStockbroker() != null) {
+                    broker_search = queryParams.getHolder().getHolderStockbroker();
 
-                    hca_search_hib.setId(hca_Id_search_hib);
+                    broker_hib_search.setName(broker_search.getName());
 
-                    Set hca_hib_set = new HashSet();
-                    hca_hib_set.add(hca_search_hib);
+                    Set broker_set = new HashSet();
+                    broker_set.add(broker_hib_search);
 
-                    holder_hib_search.setHolderCompanyAccounts(hca_hib_set);
+                    holder_hib_search.setStockbrokers(broker_set);
                 }
-                Administrator ad_model_search = new Administrator();
-                if (queryParams.getHolder().getAdministrators() != null && !queryParams.getHolder().getAdministrators().isEmpty()) {
-                    ad_model_search = queryParams.getHolder().getAdministrators().get(0);
-                    holderAdmin_serach_hib.setFirstName(ad_model_search.getFirstName());
-                    holderAdmin_serach_hib.setMiddleName(ad_model_search.getMiddleName());
-                    holderAdmin_serach_hib.setLastName(ad_model_search.getLastName());
-                    holderAdmin_serach_hib.setPryAddress(ad_model_search.getPryAddress());
-                    holderAdmin_serach_hib.setId(ad_model_search.getId());
-                    Set a_hib_set = new HashSet();
-                    a_hib_set.add(holderAdmin_serach_hib);
-                    holder_hib_search.setAdministrators(a_hib_set);
-                }
-                List<org.greenpole.hibernate.entity.Holder> holder_hib_list = hd.queryShareholders(queryParams.getDescriptor(), queryParams.getClientCompanyId());
+                List<org.greenpole.hibernate.entity.Holder> holderhib_list = hd.queryShareholders(queryParams.getDescriptor(), queryParams.getClientCompanyId(), queryParams.getStartAge(), queryParams.getEndAge());
                 logger.info("retrieved shareholders result from query. - [{}]", login.getUserId());
                 List<Address> residential_addy_list_out = new ArrayList<>();//hold list of residential address
-                List<Address> h_model_postalAddy_out = new ArrayList<>();
                 List<PhoneNumber> h_model_phone_list_out = new ArrayList<>();
-                List<EmailAddress> h_model_email_out = new ArrayList<>();
-                List<HolderCompanyAccount> hca_list_model_out = new ArrayList();
-                List<Administrator> admin_list_model_out = new ArrayList();
-                List<Stockbroker> broker_list = new ArrayList<>();
                 for (org.greenpole.hibernate.entity.Holder holder : holder_hib_list) {
                     org.greenpole.entity.model.holder.Holder holder_model = new org.greenpole.entity.model.holder.Holder();
                     holder_model.setHolderId(holder.getId());
-                    holder_model.setHolderAcctNumber(holder.getHolderAcctNumber());
-                    holder_model.setChn(holder.getChn());
-                    holder_model.setFirstName(holder.getFirstName());
-                    holder_model.setMiddleName(holder.getMiddleName());
-                    holder_model.setLastName(holder.getLastName());
                     holder_model.setGender(holder.getGender());
                     holder_model.setDob(formatter.format(holder.getDob()));
-                    holder_model.setTaxExempted(holder.getTaxExempted());
-                    holder_model.setMerged(holder.getMerged());
-                    holder_model.setPryHolder(holder.getPryHolder());
-                    holder_model.setPryAddress(holder.getPryAddress());
-                    holder_model_list.add(holder_model);
-
-                    List<org.greenpole.hibernate.entity.HolderEmailAddress> h_hib_list = hd.getHolderEmailAddresses(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderEmailAddress he : h_hib_list) {
-                        EmailAddress email_model_out = new EmailAddress();
-                        email_model_out.setEmailAddress(he.getEmailAddress());
-                        email_model_out.setPrimaryEmail(email_model_out.isPrimaryEmail());
-                        h_model_email_out.add(email_model_out);
-                    }
-                    holder_model.setEmailAddresses(h_model_email_out);
-                    List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hd.getHolderCompanyAccounts(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_hib_list) {
-                        HolderCompanyAccount hca_model_out = new HolderCompanyAccount();
-                        hca_model_out.setNubanAccount(hca.getNubanAccount());
-                        hca_model_out.setEsop(hca.getEsop());
-                        hca_model_out.setHolderCompAccPrimary(hca.getHolderCompAccPrimary());
-                        hca_model_out.setShareUnits(hca.getShareUnits());
-                        hca_list_model_out.add(hca_model_out);
-                    }
-                    holder_model.setCompanyAccounts(hca_list_model_out);
-                    List<org.greenpole.hibernate.entity.HolderPhoneNumber> hca_phone_list = hd.getHolderPhoneNumbers(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderPhoneNumber hpn : hca_phone_list) {
-                        PhoneNumber h_phone_model_out = new PhoneNumber();
-                        h_phone_model_out.setPhoneNumber(hpn.getPhoneNumber());
-                        h_phone_model_out.setPrimaryPhoneNumber(h_phone_model_out.isPrimaryPhoneNumber());
-                        h_model_phone_list_out.add(h_phone_model_out);
-                    }
-                    holder_model.setPhoneNumbers(h_model_phone_list_out);
-                    List<org.greenpole.hibernate.entity.HolderPostalAddress> hpa_out_list = hd.getHolderPostalAddresses(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderPostalAddress hpa : hpa_out_list) {
-                        Address postal_addy_out = new Address();
-                        postal_addy_out.setAddressLine1(hpa.getAddressLine1());
-                        postal_addy_out.setState(hpa.getState());
-                        postal_addy_out.setCountry(hpa.getCountry());
-                        postal_addy_out.setAddressLine2(hpa.getAddressLine2());
-                        postal_addy_out.setAddressLine3(hpa.getAddressLine3());
-                        postal_addy_out.setAddressLine4(hpa.getAddressLine4());
-                        postal_addy_out.setCity(hpa.getCity());
-                        postal_addy_out.setPostCode(hpa.getPostCode());
-                        postal_addy_out.setPrimaryAddress(hpa.getIsPrimary());
-                        h_model_postalAddy_out.add(postal_addy_out);
-                    }
-                    holder_model.setPostalAddresses(h_model_postalAddy_out);
                     List<org.greenpole.hibernate.entity.HolderResidentialAddress> hra_out_list = hd.getHolderResidentialAddresses(holder.getId());
                     for (org.greenpole.hibernate.entity.HolderResidentialAddress hra : hra_out_list) {
                         Address residential_addy_out = new Address();
@@ -1179,64 +1052,30 @@ public class ClientCompanyLogic {
                         residential_addy_list_out.add(residential_addy_out);
                     }
                     holder_model.setResidentialAddresses(residential_addy_list_out);
-                    List<org.greenpole.hibernate.entity.Administrator> admin_out = hd.getHolderAdministrators(holder.getId());
-                    for (org.greenpole.hibernate.entity.Administrator ad : admin_out) {
-                        Administrator admin = new Administrator();
-                        admin.setFirstName(ad.getFirstName());
-                        admin.setMiddleName(ad.getMiddleName());
-                        admin.setLastName(ad.getLastName());
-                        admin.setId(ad.getId());
-                        List<EmailAddress> admin_email_model_list = new ArrayList<>();
-                        List<org.greenpole.hibernate.entity.AdministratorEmailAddress> admin_email_list = hd.getAdministratorEmail(ad.getId());
-                        for (org.greenpole.hibernate.entity.AdministratorEmailAddress admin_email : admin_email_list) {
-                            EmailAddress email_model_out = new EmailAddress();
-                            email_model_out.setEmailAddress(admin_email.getEmailAddress());
-                            email_model_out.setPrimaryEmail(email_model_out.isPrimaryEmail());
-                            admin_email_model_list.add(email_model_out);
-                        }
-                        admin.setEmailAddresses(admin_email_model_list);
-                        List<org.greenpole.hibernate.entity.AdministratorPhoneNumber> admin_phone_hib_list = hd.getAdministratorPhone(ad.getId());
-                        List<PhoneNumber> admin_phone_list_out = new ArrayList<>();
-                        for (org.greenpole.hibernate.entity.AdministratorPhoneNumber admin_phone : admin_phone_hib_list) {
-                            PhoneNumber phone_model_out = new PhoneNumber();
-                            phone_model_out.setPhoneNumber(admin_phone.getPhoneNumber());
-                            phone_model_out.setPrimaryPhoneNumber(phone_model_out.isPrimaryPhoneNumber());
-                            admin_phone_list_out.add(phone_model_out);
-                        }
-                        admin.setPhoneNumbers(admin_phone_list_out);
-                        List<org.greenpole.hibernate.entity.AdministratorResidentialAddress> admin_residential_hib_list = hd.getAdministratorResidentialAddress(ad.getId());
-                        for (org.greenpole.hibernate.entity.AdministratorResidentialAddress ar : admin_residential_hib_list) {
-                            Address admin_ad_out = new Address();
-                            admin_ad_out.setAddressLine1(ar.getAddressLine1());
-                            admin_ad_out.setState(ar.getState());
-                            admin_ad_out.setCountry(ar.getCountry());
-                            admin_ad_out.setAddressLine2(ar.getAddressLine2());
-                            admin_ad_out.setAddressLine3(ar.getAddressLine3());
-                            admin_ad_out.setAddressLine4(ar.getAddressLine4());
-                            admin_ad_out.setCity(ar.getCity());
-                            admin_ad_out.setPostCode(ar.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ar.getIsPrimary());
-                            admin.setResidentialAddress(admin_ad_out);
-                        }
-                        List<AdministratorPostalAddress> admin_postal_address_hib = hd.getAdministratorPostalAddress(ad.getId());
-                        for (org.greenpole.hibernate.entity.AdministratorPostalAddress ap : admin_postal_address_hib) {
-                            
-                            Address admin_ad_out = new Address();
-                            admin_ad_out.setAddressLine1(ap.getAddressLine1());
-                            admin_ad_out.setState(ap.getState());
-                            admin_ad_out.setCountry(ap.getCountry());
-                            admin_ad_out.setAddressLine2(ap.getAddressLine2());
-                            admin_ad_out.setAddressLine3(ap.getAddressLine3());
-                            admin_ad_out.setAddressLine4(ap.getAddressLine4());
-                            admin_ad_out.setCity(ap.getCity());
-                            admin_ad_out.setPostCode(ap.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ap.getIsPrimary());
-                            admin.setPostalAddress(admin_ad_out);
-                        }
-
-                        admin_list_model_out.add(admin);
+                    Stockbroker broke = new Stockbroker();
+                    List<Stockbroker> broke_model_list_out = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.Stockbroker> broker_hib_list = hd.getStockBrokers(holder.getId());
+                    for (org.greenpole.hibernate.entity.Stockbroker st : broker_hib_list) {
+                        broke.setName(st.getName());
+                        //broke_model_list_out.add(broke); 
                     }
-                    holder_model.setAdministrators(admin_list_model_out);
+                    holder_model.setHolderStockbroker(broke);
+                    List<HolderCompanyAccount> hca_model_list_out = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hd.getAllHolderCompanyAccountsByClientCompanyId(queryParams.getClientCompanyId());
+                    for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_hib_list) {
+                        HolderCompanyAccount hca_model = new HolderCompanyAccount();
+                        hca_model.setClientCompanyId(hca.getClientCompany().getId());
+                        hca_model.setClientCompanyName(hca.getClientCompany().getName());
+                        hca_model.setEsop(hca.getEsop());
+                        hca_model.setHolderCompAccPrimary(hca.getEsop());
+                        hca_model.setHolderId(hca.getHolder().getId());
+                        hca_model.setMerged(hca.getMerged());
+                        hca_model.setNubanAccount(hca.getNubanAccount());
+                        hca_model.setShareUnits(hca.getShareUnits());
+                        hca_model_list_out.add(hca_model);
+                    }
+                    holder_model.setCompanyAccounts(hca_model_list_out);
+                    holder_model_list.add(holder_model);
                 }
                 resp.setBody(holder_model_list);
                 resp.setDesc("Query result with search parameter");
@@ -1272,47 +1111,35 @@ public class ClientCompanyLogic {
             List<org.greenpole.entity.model.holder.Holder> holder_model_list = new ArrayList();
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
+            int currentYear = Calendar.getInstance().get(Calendar.YEAR); //get the current year in integer format
             if (descriptors.size() == 1) {
                 org.greenpole.hibernate.entity.Holder holder_hib_search = new org.greenpole.hibernate.entity.Holder();
-                org.greenpole.hibernate.entity.Administrator holderAdmin_serach_hib = new org.greenpole.hibernate.entity.Administrator();
-                org.greenpole.hibernate.entity.HolderBondAccount hba_search_hib = new org.greenpole.hibernate.entity.HolderBondAccount();
-                org.greenpole.hibernate.entity.HolderBondAccountId hba_Id_search_hib = new org.greenpole.hibernate.entity.HolderBondAccountId();
-                org.greenpole.hibernate.entity.HolderEmailAddress holder_email_search_hib = new org.greenpole.hibernate.entity.HolderEmailAddress();
-                org.greenpole.hibernate.entity.HolderPhoneNumber holder_phone_hib = new org.greenpole.hibernate.entity.HolderPhoneNumber();
-                org.greenpole.hibernate.entity.HolderPostalAddress holder_postal_hib = new org.greenpole.hibernate.entity.HolderPostalAddress();
                 org.greenpole.hibernate.entity.HolderResidentialAddress holder_residential_hib = new org.greenpole.hibernate.entity.HolderResidentialAddress();
                 org.greenpole.hibernate.entity.Stockbroker broker_hib_search = new org.greenpole.hibernate.entity.Stockbroker();
                 Holder h_model_search = new Holder();
+                List<org.greenpole.hibernate.entity.Holder> holder_hib_list = hd.getHoldersByClientCompanyId(queryParams.getClientCompanyId());
+                int shareHolderAge;
                 if (queryParams.getHolder() != null) {
                     h_model_search = queryParams.getHolder();
-                    holder_hib_search.setFirstName(h_model_search.getFirstName());
-                    holder_hib_search.setMiddleName(h_model_search.getMiddleName());
-                    holder_hib_search.setLastName(h_model_search.getLastName());
                     holder_hib_search.setGender(h_model_search.getGender());
-                    try {
-                        holder_hib_search.setDob(formatter.parse(h_model_search.getDob()));
-                    } catch (ParseException ex) {
-                        logger.info("an error was thrown while checking the holder's date of birth. See error log - [{}]", login.getUserId());
-                        resp.setRetn(308);
-                        resp.setDesc("Incorrect date format for date of birth");
-                        logger.error("Incorrect date format for date of birth [" + login.getUserId() + "]", ex);
+                    if (queryParams.getStartAge() > 0 && queryParams.getEndAge() > 0) {
+                        for (org.greenpole.hibernate.entity.Holder h : holder_hib_list) {
+                            Date dob = h.getDob();
+                            shareHolderAge = currentYear - this.getBirthYear(dob);
+                            if (shareHolderAge >= queryParams.getStartAge() && shareHolderAge <= queryParams.getEndAge()) {
+                                try {
+                                    holder_hib_search.setDob(dob);
+                                } catch (Exception ex) {
+                                    logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                                    resp.setRetn(300);
+                                    resp.setDesc("Incorrect date format for date of birth");
+                                    logger.error("Incorrect date format for date of birth - [{}]", login.getUserId(), ex);
+
+                                    return resp;
+                                }
+                            }
+                        }
                     }
-                    holder_hib_search.setChn(h_model_search.getChn());
-                    holder_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
-                    holder_hib_search.setTaxExempted(h_model_search.isTaxExempted());
-                    holder_hib_search.setPryAddress(h_model_search.getPryAddress());
-                    holder_hib_search.setPryHolder(h_model_search.isPryHolder()); //must be set
-                }
-                Stockbroker broker_search;
-                if (queryParams.getHolder().getHolderStockbroker() != null) {
-                    broker_search = queryParams.getHolder().getHolderStockbroker();
-
-                    broker_hib_search.setName(broker_search.getName());
-
-                    Set broker_set = new HashSet();
-                    broker_set.add(broker_hib_search);
-
-                    holder_hib_search.setStockbrokers(broker_set);
                 }
                 Address h_resAddress_model_search = new Address();
                 if (queryParams.getHolder().getResidentialAddresses() != null && queryParams.getHolder().getResidentialAddresses().isEmpty()) {
@@ -1329,129 +1156,26 @@ public class ClientCompanyLogic {
                     h_resAddy_set.add(holder_residential_hib);
                     holder_hib_search.setHolderResidentialAddresses(h_resAddy_set);//put holder residential address set in holder entity
                 }
-                EmailAddress email_model_search = new EmailAddress();
-                if (queryParams.getHolder().getEmailAddresses() != null && !queryParams.getHolder().getEmailAddresses().isEmpty()) {
-                    email_model_search = queryParams.getHolder().getEmailAddresses().get(0);
-                    holder_email_search_hib.setEmailAddress(email_model_search.getEmailAddress());
-                    Set email_set = new HashSet();
-                    email_set.add(holder_email_search_hib);
-                    holder_hib_search.setHolderEmailAddresses(email_set);
+                Stockbroker broker_search;
+                if (queryParams.getHolder().getHolderStockbroker() != null) {
+                    broker_search = queryParams.getHolder().getHolderStockbroker();
+
+                    broker_hib_search.setName(broker_search.getName());
+
+                    Set broker_set = new HashSet();
+                    broker_set.add(broker_hib_search);
+
+                    holder_hib_search.setStockbrokers(broker_set);
                 }
-                PhoneNumber phone_model_search = new PhoneNumber();
-                if (queryParams.getHolder().getPhoneNumbers() != null && !queryParams.getHolder().getPhoneNumbers().isEmpty()) {
-                    phone_model_search = queryParams.getHolder().getPhoneNumbers().get(0);
-                    holder_phone_hib.setPhoneNumber(phone_model_search.getPhoneNumber());
-                    Set phone_set = new HashSet();
-                    phone_set.add(holder_phone_hib);
-                    holder_hib_search.setHolderPhoneNumbers(phone_set);
-                }
-                Address postalAddress_model_search = new Address();
-                if (queryParams.getHolder().getPostalAddresses() != null && !queryParams.getHolder().getPostalAddresses().isEmpty()) {
-                    postalAddress_model_search = queryParams.getHolder().getPostalAddresses().get(0);
-                    holder_postal_hib.setAddressLine1(postalAddress_model_search.getAddressLine1());
-                    holder_postal_hib.setCountry(postalAddress_model_search.getCountry());
-                    holder_postal_hib.setState(postalAddress_model_search.getState());
-                    holder_postal_hib.setAddressLine2(postalAddress_model_search.getAddressLine2());
-                    holder_postal_hib.setAddressLine3(postalAddress_model_search.getAddressLine3());
-                    holder_postal_hib.setAddressLine4(postalAddress_model_search.getAddressLine4());
-                    holder_postal_hib.setCity(postalAddress_model_search.getCity());
-                    holder_postal_hib.setPostCode(postalAddress_model_search.getPostCode());
-                    Set postal_set = new HashSet();
-                    postal_set.add(holder_postal_hib);
-                    holder_hib_search.setHolderPostalAddresses(postal_set);
-                }
-                HolderBondAccount hba_model_search = new HolderBondAccount();
-                if (queryParams.getHolder().getBondAccounts() != null && !queryParams.getHolder().getBondAccounts().isEmpty()) {
-                    hba_model_search = queryParams.getHolder().getBondAccounts().get(0);
-                    hba_Id_search_hib.setBondOfferId(hba_model_search.getBondOfferId());
-                    hba_search_hib.setStartingPrincipalValue(hba_model_search.getStartingPrincipalValue());
-                    hba_search_hib.setRemainingPrincipalValue(hba_model_search.getRemainingPrincipalValue());
-                    hba_search_hib.setHolderBondAccount(hba_search_hib.getHolderBondAccount());
-                    hba_search_hib.setMerged(hba_model_search.isMerged());
-                    hba_search_hib.setId(hba_Id_search_hib);
-                    Set hca_hib_set = new HashSet();
-                    hca_hib_set.add(hba_search_hib);
-                    holder_hib_search.setHolderCompanyAccounts(hca_hib_set);
-                }
-                Administrator ad_model_search = new Administrator();
-                if (queryParams.getHolder().getAdministrators() != null && !queryParams.getHolder().getAdministrators().isEmpty()) {
-                    ad_model_search = queryParams.getHolder().getAdministrators().get(0);
-                    holderAdmin_serach_hib.setFirstName(ad_model_search.getFirstName());
-                    holderAdmin_serach_hib.setMiddleName(ad_model_search.getMiddleName());
-                    holderAdmin_serach_hib.setLastName(ad_model_search.getLastName());
-                    holderAdmin_serach_hib.setPryAddress(ad_model_search.getPryAddress());
-                    holderAdmin_serach_hib.setId(ad_model_search.getId());
-                    Set a_hib_set = new HashSet();
-                    a_hib_set.add(holderAdmin_serach_hib);
-                    holder_hib_search.setAdministrators(a_hib_set);
-                }
-                List<org.greenpole.hibernate.entity.Holder> holder_hib_list = hd.queryShareholders(queryParams.getDescriptor(), queryParams.getClientCompanyId());
+                List<org.greenpole.hibernate.entity.Holder> holderhib_list = hd.queryShareholders(queryParams.getDescriptor(), queryParams.getClientCompanyId(), queryParams.getStartAge(), queryParams.getEndAge());
                 logger.info("retrieved shareholders result from query. - [{}]", login.getUserId());
                 List<Address> residential_addy_list_out = new ArrayList<>();//hold list of residential address
-                List<Address> h_model_postalAddy_out = new ArrayList<>();
                 List<PhoneNumber> h_model_phone_list_out = new ArrayList<>();
-                List<EmailAddress> h_model_email_out = new ArrayList<>();
-                List<HolderBondAccount> hba_list_model_out = new ArrayList();
-                List<Administrator> admin_list_model_out = new ArrayList();
-                List<Stockbroker> broker_list = new ArrayList<>();
                 for (org.greenpole.hibernate.entity.Holder holder : holder_hib_list) {
                     org.greenpole.entity.model.holder.Holder holder_model = new org.greenpole.entity.model.holder.Holder();
                     holder_model.setHolderId(holder.getId());
-                    holder_model.setHolderAcctNumber(holder.getHolderAcctNumber());
-                    holder_model.setChn(holder.getChn());
-                    holder_model.setFirstName(holder.getFirstName());
-                    holder_model.setMiddleName(holder.getMiddleName());
-                    holder_model.setLastName(holder.getLastName());
                     holder_model.setGender(holder.getGender());
                     holder_model.setDob(formatter.format(holder.getDob()));
-                    holder_model.setTaxExempted(holder.getTaxExempted());
-                    holder_model.setMerged(holder.getMerged());
-                    holder_model.setPryHolder(holder.getPryHolder());
-                    holder_model.setPryAddress(holder.getPryAddress());
-                    holder_model_list.add(holder_model);
-
-                    List<org.greenpole.hibernate.entity.HolderEmailAddress> h_hib_list = hd.getHolderEmailAddresses(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderEmailAddress he : h_hib_list) {
-                        EmailAddress email_model_out = new EmailAddress();
-                        email_model_out.setEmailAddress(he.getEmailAddress());
-                        email_model_out.setPrimaryEmail(email_model_out.isPrimaryEmail());
-                        h_model_email_out.add(email_model_out);
-                    }
-                    holder_model.setEmailAddresses(h_model_email_out);
-                    List<org.greenpole.hibernate.entity.HolderBondAccount> hba_hib_list = hd.getHolderBondAccounts(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderBondAccount hba : hba_hib_list) {
-                        HolderBondAccount hba_model_out = new HolderBondAccount();
-                        hba_Id_search_hib = hba.getId();
-                        hba_Id_search_hib.setBondOfferId(hba_model_out.getBondOfferId());
-                        hba_model_out.setStartingPrincipalValue(hba.getStartingPrincipalValue());
-                        hba_model_out.setRemainingPrincipalValue(hba.getRemainingPrincipalValue());
-                        hba_model_out.setHolderBondAccPrimary(hba.getHolderBondAcctPrimary());
-                        hba_model_out.setMerged(hba.getMerged());
-                        hba_list_model_out.add(hba_model_out);
-                    }
-                    holder_model.setBondAccounts(hba_list_model_out);
-                    List<org.greenpole.hibernate.entity.HolderPhoneNumber> hca_phone_list = hd.getHolderPhoneNumbers(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderPhoneNumber hpn : hca_phone_list) {
-                        PhoneNumber h_phone_model_out = new PhoneNumber();
-                        h_phone_model_out.setPhoneNumber(hpn.getPhoneNumber());
-                        h_model_phone_list_out.add(h_phone_model_out);
-                    }
-                    holder_model.setPhoneNumbers(h_model_phone_list_out);
-                    List<org.greenpole.hibernate.entity.HolderPostalAddress> hpa_out_list = hd.getHolderPostalAddresses(holder.getId());
-                    for (org.greenpole.hibernate.entity.HolderPostalAddress hpa : hpa_out_list) {
-                        Address postal_addy_out = new Address();
-                        postal_addy_out.setAddressLine1(hpa.getAddressLine1());
-                        postal_addy_out.setState(hpa.getState());
-                        postal_addy_out.setCountry(hpa.getCountry());
-                        postal_addy_out.setAddressLine2(hpa.getAddressLine2());
-                        postal_addy_out.setAddressLine3(hpa.getAddressLine3());
-                        postal_addy_out.setAddressLine4(hpa.getAddressLine4());
-                        postal_addy_out.setCity(hpa.getCity());
-                        postal_addy_out.setPostCode(hpa.getPostCode());
-                        postal_addy_out.setPrimaryAddress(hpa.getIsPrimary());
-                        h_model_postalAddy_out.add(postal_addy_out);
-                    }
-                    holder_model.setPostalAddresses(h_model_postalAddy_out);
                     List<org.greenpole.hibernate.entity.HolderResidentialAddress> hra_out_list = hd.getHolderResidentialAddresses(holder.getId());
                     for (org.greenpole.hibernate.entity.HolderResidentialAddress hra : hra_out_list) {
                         Address residential_addy_out = new Address();
@@ -1467,62 +1191,31 @@ public class ClientCompanyLogic {
                         residential_addy_list_out.add(residential_addy_out);
                     }
                     holder_model.setResidentialAddresses(residential_addy_list_out);
-                    List<org.greenpole.hibernate.entity.Administrator> admin_out = hd.getHolderAdministrators(holder.getId());
-                    for (org.greenpole.hibernate.entity.Administrator ad : admin_out) {
-                        Administrator admin = new Administrator();
-                        admin.setFirstName(ad.getFirstName());
-                        admin.setMiddleName(ad.getMiddleName());
-                        admin.setLastName(ad.getLastName());
-                        admin.setId(ad.getId());
-                        List<EmailAddress> admin_email_model_list = new ArrayList<>();
-                        List<org.greenpole.hibernate.entity.AdministratorEmailAddress> admin_email_list = hd.getAdministratorEmail(ad.getId());
-                        for (org.greenpole.hibernate.entity.AdministratorEmailAddress admin_email : admin_email_list) {
-                            EmailAddress email_model_out = new EmailAddress();
-                            email_model_out.setEmailAddress(admin_email.getEmailAddress());
-                            email_model_out.setPrimaryEmail(email_model_out.isPrimaryEmail());
-                            admin_email_model_list.add(email_model_out);
-                        }
-                        admin.setEmailAddresses(admin_email_model_list);
-                        List<org.greenpole.hibernate.entity.AdministratorPhoneNumber> admin_phone_hib_list = hd.getAdministratorPhone(ad.getId());
-                        List<PhoneNumber> admin_phone_list_out = new ArrayList<>();
-                        for (org.greenpole.hibernate.entity.AdministratorPhoneNumber admin_phone : admin_phone_hib_list) {
-                            PhoneNumber phone_model_out = new PhoneNumber();
-                            phone_model_out.setPhoneNumber(admin_phone.getPhoneNumber());
-                            admin_phone_list_out.add(phone_model_out);
-                        }
-                        admin.setPhoneNumbers(admin_phone_list_out);
-                        List<org.greenpole.hibernate.entity.AdministratorResidentialAddress> admin_residential_hib_list = hd.getAdministratorResidentialAddress(ad.getId());
-                        for (org.greenpole.hibernate.entity.AdministratorResidentialAddress ar : admin_residential_hib_list) {
-                            Address admin_ad_out = new Address();
-                            admin_ad_out.setAddressLine1(ar.getAddressLine1());
-                            admin_ad_out.setState(ar.getState());
-                            admin_ad_out.setCountry(ar.getCountry());
-                            admin_ad_out.setAddressLine2(ar.getAddressLine2());
-                            admin_ad_out.setAddressLine3(ar.getAddressLine3());
-                            admin_ad_out.setAddressLine4(ar.getAddressLine4());
-                            admin_ad_out.setCity(ar.getCity());
-                            admin_ad_out.setPostCode(ar.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ar.getIsPrimary());
-                            admin.setResidentialAddress(admin_ad_out);
-                        }
-                        List<AdministratorPostalAddress> admin_postal_address_hib = hd.getAdministratorPostalAddress(ad.getId());
-                        for (org.greenpole.hibernate.entity.AdministratorPostalAddress ap : admin_postal_address_hib) {
-                            Address admin_ad_out = new Address();
-                            admin_ad_out.setAddressLine1(ap.getAddressLine1());
-                            admin_ad_out.setState(ap.getState());
-                            admin_ad_out.setCountry(ap.getCountry());
-                            admin_ad_out.setAddressLine2(ap.getAddressLine2());
-                            admin_ad_out.setAddressLine3(ap.getAddressLine3());
-                            admin_ad_out.setAddressLine4(ap.getAddressLine4());
-                            admin_ad_out.setCity(ap.getCity());
-                            admin_ad_out.setPostCode(ap.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ap.getIsPrimary());
-                            admin.setPostalAddress(admin_ad_out);
-                        }
-
-                        admin_list_model_out.add(admin);
+                    Stockbroker broke = new Stockbroker();
+                    List<Stockbroker> broke_model_list_out = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.Stockbroker> broker_hib_list = hd.getStockBrokers(holder.getId());
+                    for (org.greenpole.hibernate.entity.Stockbroker st : broker_hib_list) {
+                        broke.setName(st.getName());
+                        //broke_model_list_out.add(broke); 
                     }
-                    holder_model.setAdministrators(admin_list_model_out);
+                    holder_model.setHolderStockbroker(broke);
+                    List<HolderBondAccount> hba_model_list_out = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.HolderBondAccount> bondAcc_hib_list = hd.getAllBondsAccountByClientCompanyId(queryParams.getClientCompanyId());
+                    for (org.greenpole.hibernate.entity.HolderBondAccount hba : bondAcc_hib_list) {
+                        HolderBondAccount hba_model = new HolderBondAccount();
+                        hba_model.setBondOfferId(hba.getBondOffer().getId());
+                        hba_model.setBondOfferTitle(hba.getBondOffer().getTitle());
+                        hba_model.setBondUnits(hba.getBondUnits());
+                        hba_model.setHolderBondAccPrimary(hba.getHolderBondAcctPrimary());
+                        hba_model.setHolderId(hba.getHolder().getId());
+                        hba_model.setMerged(hba.getMerged());
+                        hba_model.setNubanAccount(hba.getNubanAccount());
+                        hba_model.setRemainingPrincipalValue(hba.getRemainingPrincipalValue());
+                        hba_model.setStartingPrincipalValue(hba.getStartingPrincipalValue());
+                        hba_model_list_out.add(hba_model);
+                    }
+                    holder_model.setBondAccounts(hba_model_list_out);
+                    holder_model_list.add(holder_model);
                 }
                 resp.setBody(holder_model_list);
                 resp.setDesc("Query result with search parameter");
@@ -1644,33 +1337,26 @@ public class ClientCompanyLogic {
                         int avg1 = 0, avg2 = 0, excess = 0;
                         int noOfShareHoldersLessThanAvg = 0, newShareholderList = 0, extraExcess = 0;
 
-                        TreeMap<Integer, Integer> HolderRightAppshares = new TreeMap<>();//in order of holderId,shares 
-                        TreeMap<Integer, Integer> HolderCompshares = new TreeMap<>();//in order of shares, holderId
-                        Map<Integer, Double> hSares = new HashMap<>();//in the order of holderId, shares, used for percentage distribution
+                       
                         double holderShares;//holds shares given to shareholders after distribution
                         long noOfDays;
                         boolean sharesAdded = false;
                         int totalSharesOnOIssue;
                         int remainingSharesAfterSub;
                         org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                        noOfHolders = rightApp_list_hib.size();
                         for (org.greenpole.hibernate.entity.RightsIssueApplication ri : rightApp_list_hib) {
                             totalSharesOnOIssue = rightsIssueSetup.getTotalSharesOnIssue();
                             totalAdditionaSharesRequested += ri.getAdditionalSharesSubscribed();
                             totalSharesSub += ri.getSharesSubscribed();
                             compRemainingRights = totalSharesOnOIssue - totalSharesSub;//get company remaing shares
-                            //HolderRightAppshares.put(ri.getHolder().getId(), ri.getAdditionalSharesSubscribed());//puts holder additional shares applied and holderId in map
-                            noOfHolders = HolderRightAppshares.size();
                             avg1 = (avg1 + compRemainingRights) / noOfHolders; //divides company remaining shares by no of shareholders
                             excess = compRemainingRights - (avg1 * noOfHolders);//get remaining shares after distribution
-                            //end here
-                            //}
                             org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightsApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                             List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_list_hib = hd.getAllHolderCompanyAccountsByClientCompanyId(rightApp_model.getClientCompanyId());
                             if (compRemainingRights > totalAdditionaSharesRequested) {//company has enough shares to give shareholders
-                                // for (org.greenpole.hibernate.entity.RightsIssueApplication ri : rightApp_list_hib) {
                                 if (!hca_list_hib.isEmpty() && ri.getAdditionalSharesSubscribed() > 0) {
                                     for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_list_hib) {
-                                        //hca_hib = hd.getOneHolderCompanyAccount(hca.getHolder().getId(), hca.getClientCompany().getId());
                                         hd.updateHCA(hca.getHolder().getId(), rightApp_model.getAdditionalSharesSubscribed());//adds shares given to holder existing shares
                                         org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightApplication = hd.getOneHolderRightApplication(hca.getHolder().getId(), hca.getClientCompany().getId(), ri.getRightsIssue().getId());
                                         oneHolderRightApplication.setAdditionalSharesGiven(rightApp_model.getAdditionalSharesSubscribed());
@@ -1691,8 +1377,6 @@ public class ClientCompanyLogic {
                                 resp.setDesc("No holder company account found under the client company");
                                 logger.info("No holder company account found under the client company");
                                 return resp;
-                                //end for loop here
-                                // }
                             } else if (compRemainingRights < totalAdditionaSharesRequested) {
                                 if (!hca_list_hib.isEmpty() && ri.getAdditionalSharesSubscribed() != 0) {
                                     for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_list_hib) {
@@ -1712,8 +1396,6 @@ public class ClientCompanyLogic {
                                                 oneHolderRightsApp_hib.setAdditionalSharesGiven(holderSharesSub);
                                                 oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderSharesSub * rightsIssueSetup.getIssuePrice());
                                                 oneHolderRightsApp_hib.setTotalValue((holderSharesSub * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getSharesSubscribed() * rightsIssueSetup.getIssuePrice()));
-
-                                                //hd.updateHCA(ri.getHolder().getId(), holderSharesSub);//adds shares to holder comp acc
                                             } else if (avg1 <= oneHolderRightsApp_hib.getAdditionalSharesSubscribed()) {//if additional shares requested is the same as shares given
                                                 avg2 = excess / newShareholderList;//get average from the excess given to holders who got more than requested shares
                                                 holderSharesSub = avg1 + avg2;
@@ -1732,24 +1414,20 @@ public class ClientCompanyLogic {
                                                 oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderSharesSub * rightsIssueSetup.getIssuePrice());
                                                 oneHolderRightsApp_hib.setTotalValue((holderSharesSub * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getAllottedRights() * rightsIssueSetup.getIssuePrice()));
                                                 oneHolderRightsApp_hib.setReturnMoney(returnMoney);
-                                                hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(),ri.getRightsIssue().getClientCompany().getId(), ri.getRightsIssue().getId());
+                                                hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId(), ri.getRightsIssue().getId());
                                                 remainingSharesAfterSub = rightIssue.getTotalSharesOnIssue() - holderSharesSub;
                                                 rightIssue.setTotalSharesOnIssue(remainingSharesAfterSub);
                                                 hd.updateRightIssueTotalShares(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId());
                                                 hd.updateHCA(hca.getHolder().getId(), holderSharesSub);//adds shares given to holder existing shares
-                                                //resp.setRetn(0);
-                                                //resp.setDesc("Successfully added additional shares to shareholders account");
-                                                //logger.info("Successfully added additional shares to shareholders account ", login.getUserId());
-                                                //return resp;
+                                                resp.setRetn(0);
+                                                resp.setDesc("Successfully added additional shares to shareholders account");
+                                                logger.info("Successfully added additional shares to shareholders account ", login.getUserId());
+                                                return resp;
                                             }
-                                            
-                                                
-                                           
 
                                         } else if (distributionType.equals("percentage")) {
                                             double sharesNotGiven, sharesNotGivenValue;
                                             for (org.greenpole.hibernate.entity.HolderCompanyAccount hc : hca_list_hib) {
-                                                hSares.put(ri.getHolder().getId(), (double) ri.getAdditionalSharesSubscribed());
                                                 org.greenpole.hibernate.entity.RightsIssueApplication ria = new org.greenpole.hibernate.entity.RightsIssueApplication();
                                                 org.greenpole.hibernate.entity.HolderCompanyAccount h = hd.getHolderCompanyAccount(hc.getHolder().getId());
                                                 oneHolderRightsApp_hib = hd.getOneHolderRightApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
@@ -1761,19 +1439,12 @@ public class ClientCompanyLogic {
                                                 //oneHolderRightsApp_hib.setTotalHoldings(noOfHolders);
                                                 oneHolderRightsApp_hib.setReturnMoney(sharesNotGivenValue);
                                                 hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
+                                                hd.updateRightIssueTotalShares(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId());
+                                                hd.updateHCA(hca.getHolder().getId(), holderSharesSub);//adds shares given to holder existing shares
                                             }
-                                            if (sharesAdded) {
-                                                resp.setRetn(0);
-                                                resp.setDesc("Success");
-                                                logger.info("Success");
-                                                return resp;
-                                            }
-                                            if (!sharesAdded) {
-                                                resp.setRetn(200);
-                                                resp.setDesc("Unable to carry out percentage distribution of additional shares requested for");
-                                                logger.info("Unable to carry out percentage distribution of additional shares requested for " + login.getUserId());
-                                                return resp;
-                                            }
+                                            resp.setRetn(0);
+                                            resp.setDesc("Successful");
+                                            return resp;
                                         }
                                     }//remove from here2
                                     //end here now
@@ -1814,5 +1485,16 @@ public class ClientCompanyLogic {
     private static long getDateDiff(Date currentDate, Date dateApplied, TimeUnit timeUnit) {
         long diffInDays = currentDate.getTime() - dateApplied.getTime();
         return timeUnit.convert(diffInDays, TimeUnit.MILLISECONDS);
+    }
+
+    public int getBirthYear(Date holderDob) {
+        String[] dates = holderDob.toString().split("-"); //split the date string around matches of the given regular "-"
+        int year = 0;
+        for (String dateToken : dates) {
+            if (dateToken.length() == 4) {      //check where the length of the figure is 4
+                year = Integer.parseInt(dateToken); //convert the string to int
+            }
+        }
+        return year;
     }
 }
