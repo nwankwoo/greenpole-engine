@@ -242,7 +242,7 @@ public class HolderComponentLogic {
                     caution_model.setTitle(c.getTitle());
                     caution_model.setType(c.getType());
                     caution_model.setCautionDate(formatter.format(c.getCautionDate()));
-                    caution_model.setActive(c.isActive());
+                    caution_model.setActive(c.getActive());
                     caution_model.setHolder(h_model);
                     caution_list.add(caution_model);
                 }
@@ -292,7 +292,7 @@ public class HolderComponentLogic {
             org.greenpole.hibernate.entity.Holder holder = hd.getHolder(rightsIssueApp.getHolder().getHolderId());
             if (hd.checkRightsIssue(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.RightsIssue ri = hd.getRightsIssueById(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId());
-                if (!ri.isRightsClosed()) {
+                if (!ri.getRightsClosed()) {
                     org.greenpole.hibernate.entity.RightsIssueApplication rightApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                     List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsApp_hib_list = hd.getAllRightsIssueApplications(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getRightsIssueId());
                     List<RightsIssueApplication> rightList = new ArrayList();
@@ -366,7 +366,7 @@ public class HolderComponentLogic {
             org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(rightsIssueApp.getClientCompanyId());
             if (hd.checkRightsIssue(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.RightsIssue ri = hd.getRightsIssueById(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId());
-                if (!ri.isRightsClosed()) {
+                if (!ri.getRightsClosed()) {
                     org.greenpole.hibernate.entity.RightsIssueApplication rightApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                     List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsApp_hib_list = hd.getAllRightsIssueApplications(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getRightsIssueId());
                     for (org.greenpole.hibernate.entity.RightsIssueApplication ra : rightsApp_hib_list) {
@@ -416,12 +416,13 @@ public class HolderComponentLogic {
         }
         return resp;
     }
-/**
- * 
- * @param login the user login details
- * @param notificationCode the notification code
- * @return response to the rights application
- */
+
+    /**
+     *
+     * @param login the user login details
+     * @param notificationCode the notification code
+     * @return response to the rights application
+     */
     public Response ApplicationForRightsIssue_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorise rights issue application, invoked by - [{}] " + login.getUserId());
@@ -435,11 +436,13 @@ public class HolderComponentLogic {
             RightsIssueApplication rightsIssueApp = riList.get(0);
             int additionalShares;
             int checkForQualifyShares;
-            int sumAppliedShares = 0, remShares = 0;
+            int sumAppliedShares = 0, remShares = 0, remClientCompanySharesAfterSub = 0;
+            int newShares = 0;
             boolean verify = false;
             if (hd.checkRightsIssue(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.RightsIssue ri = hd.getRightsIssueById(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId());
-                if (!ri.isRightsClosed() && ri.getClosingDate().before(current_date)) {
+                org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                if (!ri.getRightsClosed() && ri.getClosingDate().before(current_date) || ri.getClosingDate().equals(current_date)) {
                     org.greenpole.hibernate.entity.RightsIssueApplication rightApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                     List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsApp_hib_list = hd.getAllRightsIssueApplications(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getRightsIssueId());
                     for (org.greenpole.hibernate.entity.RightsIssueApplication ra : rightsApp_hib_list) {//should the closing brace of this loop include holders application?
@@ -451,9 +454,9 @@ public class HolderComponentLogic {
                     if (remShares > rightsIssueApp.getSharesSubscribed()) {
                         if (h_hib.getChn() != null && !"".equals(h_hib.getChn())) {
                             verify = hd.checkHolderCompanyAccount(rightsIssueApp.getHolder().getHolderId(), rightsIssueApp.getClientCompanyId());
-                            if (rightsIssueApp.getAmountPaid() == (rightsIssueApp.getSharesSubscribed() * ri.getIssuePrice())) {
+                            if (rightsIssueApp.getAmountPaid() == (rightsIssueApp.getSharesSubscribed() * ri.getIssuePrice()) + (rightsIssueApp.getAdditionalSharesSubscribed() * ri.getIssuePrice())) {
                                 if (verify) {
-                                    if (oneHolderRightsApp.getAllottedRights() > rightsIssueApp.getSharesSubscribed()) {
+                                    if (oneHolderRightsApp.getAllottedRights() >= rightsIssueApp.getSharesSubscribed()) {
                                         checkForQualifyShares = rightsIssueApp.getSharesSubscribed() % ri.getQualifyShareUnit();
                                         if (checkForQualifyShares == 0) {
                                             rightApp_hib.setSharesSubscribed(rightsIssueApp.getSharesSubscribed());
@@ -464,6 +467,13 @@ public class HolderComponentLogic {
                                             rightApp_hib.setReturnMoney(0.0);
                                             rightApp_hib.setProcessingPayment(true);
                                             hd.applyForRightIssue(rightApp_hib);//updates shareholder existing application
+                                            hca_hib = hd.getOneHolderCompanyAccount(rightsIssueApp.getHolder().getHolderId(), rightsIssueApp.getClientCompanyId());
+                                            newShares = hca_hib.getShareUnits() + rightsIssueApp.getSharesSubscribed();//adds shares subscribed to HCA
+                                            hca_hib.setShareUnits(newShares);//sets holder new share units
+                                            hd.updateHCA(hca_hib.getHolder().getId(), ri.getClientCompany().getId());//updates holder new share units value
+                                            remClientCompanySharesAfterSub = remShares - rightsIssueApp.getSharesSubscribed();
+                                            ri.setTotalSharesOnIssue(remClientCompanySharesAfterSub);//change to value after subscription
+                                            hd.updateRightIssueTotalShares(ri.getClientCompany().getId(), ri.getId());
                                             notification.markAttended(notificationCode);
                                             logger.info("Rights issue application authorised - [{}]", login.getUserId());
                                             resp.setRetn(0);
@@ -474,15 +484,22 @@ public class HolderComponentLogic {
                                         resp.setDesc("Unable to apply for rights because shareholder subscribing rights is less than alloted rights"
                                                 + " but shares to subscribe does not add up after taking into account the qualify share unit "
                                                 + "and the allowed share unit per qualify share unit.");
-                                    } else if (oneHolderRightsApp.getAllottedRights() < rightsIssueApp.getSharesSubscribed()) {
+                                    } else if (oneHolderRightsApp.getAllottedRights() <= rightsIssueApp.getSharesSubscribed() && rightsIssueApp.getAdditionalSharesSubscribed() > 0) {
                                         rightApp_hib.setSharesSubscribed(rightsIssueApp.getSharesSubscribed());
                                         rightApp_hib.setSharesSubscribedValue(rightsIssueApp.getSharesSubscribed() * ri.getIssuePrice());
-                                        rightApp_hib.setAdditionalSharesSubscribed(rightsIssueApp.getSharesSubscribed() - oneHolderRightsApp.getAllottedRights());
-                                        rightApp_hib.setAdditionalSharesSubValue((rightsIssueApp.getSharesSubscribed() - oneHolderRightsApp.getAllottedRights()) * ri.getIssuePrice());
-                                        rightApp_hib.setTotalSharesRenounced(oneHolderRightsApp.getAllottedRights() - rightsIssueApp.getSharesSubscribed());//renounced shares
+                                        rightApp_hib.setAdditionalSharesSubscribed(rightsIssueApp.getAdditionalSharesSubscribed());//assuming that shares subscribe and additional shares are entered by the user
+                                        rightApp_hib.setAdditionalSharesSubValue((rightsIssueApp.getAdditionalSharesSubscribed() * ri.getIssuePrice()));
+                                        rightApp_hib.setTotalSharesRenounced(0);
                                         rightApp_hib.setReturnMoney(0.0);
                                         rightApp_hib.setProcessingPayment(true);
                                         hd.applyForRightIssue(rightApp_hib);//updates shareholder existing application
+                                        hca_hib = hd.getOneHolderCompanyAccount(rightsIssueApp.getHolder().getHolderId(), rightsIssueApp.getClientCompanyId());
+                                        newShares = hca_hib.getShareUnits() + rightsIssueApp.getSharesSubscribed();//adds shares subscribed to HCA
+                                        hca_hib.setShareUnits(newShares);//sets holder new share units
+                                        hd.updateHCA(hca_hib.getHolder().getId(), ri.getClientCompany().getId());//updates holder new share units value
+                                        remClientCompanySharesAfterSub = remShares - rightsIssueApp.getSharesSubscribed();
+                                        ri.setTotalSharesOnIssue(remClientCompanySharesAfterSub);//change to value after subscription
+                                        hd.updateRightIssueTotalShares(ri.getClientCompany().getId(), ri.getId());
                                         notification.markAttended(notificationCode);
                                         logger.info("Rights issue application authorised - [{}]", login.getUserId());
                                         resp.setRetn(0);
@@ -556,7 +573,7 @@ public class HolderComponentLogic {
                 //boolean verify = hd.checkHolderCompanyAccount(holderRightsIssue.getHolderId(), holderRightsIssue.getClientCompanyId());
                 if (hd.checkHolderCompanyAccount(holderRightsIssue.getHolder().getHolderId(), holderRightsIssue.getClientCompanyId())) {
                     logger.info("Holder company account checks out " + login.getUserId());
-                    if (!riApp.isApproved() || !riApp.isProcessingPayment()) {//checks that application is not approved and not processed for payment also
+                    if (!riApp.getApproved() || !riApp.getProcessingPayment()) {//checks that application is not approved and not processed for payment also
                         wrapper = new NotificationWrapper();
                         prop = new NotifierProperties(HolderComponentLogic.class);
                         qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
@@ -616,28 +633,21 @@ public class HolderComponentLogic {
                 //boolean verify = hd.checkHolderCompanyAccount(holderRightsIssue.getHolderId(), holderRightsIssue.getClientCompanyId());
                 if (hd.checkHolderCompanyAccount(rightsIssueApp.getHolder().getHolderId(), rightsIssueApp.getClientCompanyId())) {
                     logger.info("Holder company account checks out " + login.getUserId());
-                    if (!riApp.isApproved() || !riApp.isProcessingPayment()) {//checks that application is not approved and not processed for payment also
+                    if (!riApp.getApproved() || !riApp.getProcessingPayment()) {//checks that application is not approved and not processed for payment also
                         int compAvailableRights = rightIssue.getTotalSharesOnIssue();//this increases every time a cancellation is done
                         org.greenpole.hibernate.entity.RightsIssue ri_hib = new org.greenpole.hibernate.entity.RightsIssue();
                         org.greenpole.hibernate.entity.RightsIssueApplication riApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                         int holderAppliedRights = riApp.getSharesSubscribed();
                         int returnRights = holderAppliedRights + compAvailableRights;
                         ri_hib.setTotalSharesOnIssue(returnRights);
-                        boolean addShares = hd.updateRightIssueTotalShares(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getRightsIssueId());
+                        hd.updateRightIssueTotalShares(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getRightsIssueId());
                         riApp_hib.setCanceled(true);
                         boolean status = hd.updateCancelleRightsApp(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getHolder().getHolderId(), rightsIssueApp.getRightsIssueId());
                         notification.markAttended(notificationCode);
-                        if (addShares && status) {
-                            logger.info("Successfully cancelled rights application for holder " + holder.getFirstName() + " " + holder.getLastName() + " invoked by " + login.getUserId());
-                            resp.setRetn(0);
-                            resp.setDesc("Successfully cancelled rights application for holder " + holder.getFirstName() + " " + holder.getLastName());
-                            return resp;
-                        }
-                        logger.info("Unable to cancel rights application for holder " + holder.getFirstName() + " " + holder.getLastName() + " invoked by " + login.getUserId());
+                        logger.info("Successfully cancelled rights application for holder " + holder.getFirstName() + " " + holder.getLastName() + " invoked by " + login.getUserId());
                         resp.setRetn(0);
-                        resp.setDesc("Unable to cancel rights application for holder " + holder.getFirstName() + " " + holder.getLastName());
+                        resp.setDesc("Successfully cancelled rights application for holder " + holder.getFirstName() + " " + holder.getLastName());
                         return resp;
-
                     }
                     resp.setRetn(200);
                     resp.setDesc("Application has already been approved or is been processed for payment");
@@ -804,7 +814,7 @@ public class HolderComponentLogic {
             org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(holdersRightApp.get(0).getClientCompanyId());
             if (hd.checkRightsIssue(holdersRightApp.get(0).getRightsIssueId(), holdersRightApp.get(0).getClientCompanyId())) {
                 org.greenpole.hibernate.entity.RightsIssue ri = hd.getRightsIssueById(holdersRightApp.get(0).getRightsIssueId(), holdersRightApp.get(0).getClientCompanyId());
-                if (!ri.isRightsClosed() && ri.getClosingDate().before(current_date)) {
+                if (!ri.getRightsClosed() && ri.getClosingDate().before(current_date)) {
                     List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsApp_hib_list = hd.getAllRightsIssueApplications(holdersRightApp.get(0).getClientCompanyId(), holdersRightApp.get(0).getRightsIssueId());
                     for (counter = 0; counter <= holdersRightApp.size(); counter++) {
                         sumOfSharesSubscribe += holdersRightApp.get(counter).getSharesSubscribed();
@@ -900,7 +910,7 @@ public class HolderComponentLogic {
             org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(rightsIssueAppList.get(0).getClientCompanyId());
             if (hd.checkRightsIssue(rightsIssueAppList.get(0).getRightsIssueId(), rightsIssueAppList.get(0).getClientCompanyId())) {
                 org.greenpole.hibernate.entity.RightsIssue ri = hd.getRightsIssueById(rightsIssueAppList.get(0).getRightsIssueId(), rightsIssueAppList.get(0).getClientCompanyId());
-                if (!ri.isRightsClosed() && ri.getClosingDate().before(current_date)) {
+                if (!ri.getRightsClosed() && ri.getClosingDate().before(current_date)) {
                     List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsApp_hib_list = hd.getAllRightsIssueApplications(rightsIssueAppList.get(0).getClientCompanyId(), rightsIssueAppList.get(0).getRightsIssueId());
                     for (counter = 0; counter <= rightsIssueAppList.size(); counter++) {
                         sumOfSharesSubscribe += rightsIssueAppList.get(counter).getSharesSubscribed();

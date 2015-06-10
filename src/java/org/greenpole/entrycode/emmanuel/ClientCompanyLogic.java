@@ -351,7 +351,7 @@ public class ClientCompanyLogic {
             if (cq.checkClientCompany(companiesToMerge.getPrimaryClientCompany().getId())) {//check that client company exist
                 if (companiesToMerge.getPrimaryClientCompany().isClientCompanyPrimary()) {//check for primary client company
                     cc_hib = cq.getClientCompany(companiesToMerge.getPrimaryClientCompany().getId());
-                    if (!cc_hib.isMerged()) {
+                    if (!cc_hib.getMerged()) {
                         primaryCheck = true;
                     }
                 }
@@ -446,7 +446,7 @@ public class ClientCompanyLogic {
             if (pryClientExists) {
                 //get the primary client company first, holders , and company / bond accounts
                 org.greenpole.hibernate.entity.ClientCompany pryClient = cq.getClientCompany(cc_merger.getPrimaryClientCompany().getId());
-                if (pryClient.isClientCompanyPrimary()) {
+                if (pryClient.getClientCompanyPrimary()) {
                     logger.info("primary client passes set rules - [{}]", login.getUserId());
                     List<org.greenpole.hibernate.entity.ClientCompany> secClients = new ArrayList<>();
                     boolean similarToActive = false;
@@ -474,7 +474,7 @@ public class ClientCompanyLogic {
                         if (secClientsExist) {
                             logger.info("selected secondary client company exists - [{}]", login.getUserId());
                             org.greenpole.hibernate.entity.ClientCompany secClients_obj = cq.getClientCompany(cc.getId());
-                            if (!secClients_obj.isClientCompanyPrimary()) {
+                            if (!secClients_obj.getClientCompanyPrimary()) {
                                 secClients.add(secClients_obj);
                                 org.greenpole.hibernate.entity.BondOffer secBondOffer = hd.getBondOfferId(cc.getId());//used to get the secondary client company
                                 org.greenpole.hibernate.entity.Holder secHolder = hd.getHolderIdFromHolderBondAccount(secBondOffer.getId());
@@ -763,13 +763,13 @@ public class ClientCompanyLogic {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(ipoApp.getClearingHouse().getId());
                         totalSharesSubscribed += ipoApp.getSharesSubscribed();
                         remaingShares = ipo.getTotalSharesOnOffer() - totalSharesSubscribed;
-                        ipoModel.setTotalSharesSub(totalSharesSubscribed);
-                        ipoModel.setTotalSharesRem(remaingShares);
+                       // ipoModel.setTotalSharesSub(totalSharesSubscribed);
+                        //ipoModel.setTotalSharesRem(remaingShares);
                         if (totalSharesSubscribed > ipo.getTotalSharesOnOffer()) {
                             int overSubShares = totalSharesSubscribed - ipo.getTotalSharesOnOffer();
-                            ipoModel.setTotalSharesOverSub(overSubShares);
+                           // ipoModel.setTotalSharesOverSub(overSubShares);
                         } else {
-                            ipoModel.setTotalSharesOverSub(0);
+                           // ipoModel.setTotalSharesOverSub(0);
                         }
                         ipoApp_model.setInitialPublicOffer(ipoModel);
                         ipoApp_model.setClearingHouseName(ch_hib.getName());
@@ -777,7 +777,7 @@ public class ClientCompanyLogic {
                         ipoApp_list_out.add(ipoApp_model);
                     }
 
-                    ipoModel.setIpoApplication(ipoApp_list_out);
+                    //ipoModel.setIpoApplication(ipoApp_list_out);
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
@@ -946,13 +946,13 @@ public class ClientCompanyLogic {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(ppApp.getClearingHouse().getId());
                         totalSharesSubscribed += ppApp.getSharesSubscribed();
                         remaingShares = pp.getTotalSharesOnOffer() - totalSharesSubscribed;
-                        ppModel.setTotalSharesSub(totalSharesSubscribed);
-                        ppModel.setTotalSharesRem(remaingShares);
+                        //ppModel.setTotalSharesSub(totalSharesSubscribed);
+                        //ppModel.setTotalSharesRem(remaingShares);
                         if (totalSharesSubscribed > pp.getTotalSharesOnOffer()) {
                             int overSubShares = totalSharesSubscribed - pp.getTotalSharesOnOffer();
-                            ppModel.setTotalSharesOverSub(overSubShares);
+                           // ppModel.setTotalSharesOverSub(overSubShares);
                         } else {
-                            ppModel.setTotalSharesOverSub(0);
+                            //ppModel.setTotalSharesOverSub(0);
                         }
                         ppApp_model.setPrivatePlacement(ppModel);
                         ppApp_model.setClearingHouseName(ch_hib.getName());
@@ -960,7 +960,7 @@ public class ClientCompanyLogic {
                         ppApp_list_out.add(ppApp_model);
                     }
 
-                    ppModel.setPrivatePlacementApplication(ppApp_list_out);
+                   // ppModel.setPrivatePlacementApplication(ppApp_list_out);
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
@@ -1134,9 +1134,9 @@ public class ClientCompanyLogic {
                     holder_model.setLastName(holder.getLastName());
                     holder_model.setGender(holder.getGender());
                     holder_model.setDob(formatter.format(holder.getDob()));
-                    holder_model.setTaxExempted(holder.isTaxExempted());
-                    holder_model.setMerged(holder.isMerged());
-                    holder_model.setPryHolder(holder.isPryHolder());
+                    holder_model.setTaxExempted(holder.getTaxExempted());
+                    holder_model.setMerged(holder.getMerged());
+                    holder_model.setPryHolder(holder.getPryHolder());
                     holder_model.setPryAddress(holder.getPryAddress());
                     holder_model_list.add(holder_model);
 
@@ -1153,8 +1153,8 @@ public class ClientCompanyLogic {
                     for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_hib_list) {
                         HolderCompanyAccount hca_model_out = new HolderCompanyAccount();
                         hca_model_out.setNubanAccount(hca.getNubanAccount());
-                        hca_model_out.setEsop(hca.isEsop());
-                        hca_model_out.setHolderCompAccPrimary(hca.isHolderCompAccPrimary());
+                        hca_model_out.setEsop(hca.getEsop());
+                        hca_model_out.setHolderCompAccPrimary(hca.getHolderCompAccPrimary());
                         hca_model_out.setShareUnits(hca.getShareUnits());
                         hca_list_model_out.add(hca_model_out);
                     }
@@ -1180,7 +1180,7 @@ public class ClientCompanyLogic {
                         postal_addy_out.setAddressLine4(hpa.getAddressLine4());
                         postal_addy_out.setCity(hpa.getCity());
                         postal_addy_out.setPostCode(hpa.getPostCode());
-                        postal_addy_out.setPrimaryAddress(hpa.isIsPrimary());
+                        postal_addy_out.setPrimaryAddress(hpa.getIsPrimary());
                         h_model_postalAddy_out.add(postal_addy_out);
                     }
                     holder_model.setPostalAddresses(h_model_postalAddy_out);
@@ -1196,7 +1196,7 @@ public class ClientCompanyLogic {
                         residential_addy_out.setAddressLine4(hra.getAddressLine4());
                         residential_addy_out.setCity(hra.getCity());
                         residential_addy_out.setPostCode(hra.getPostCode());
-                        residential_addy_out.setPrimaryAddress(hra.isIsPrimary());
+                        residential_addy_out.setPrimaryAddress(hra.getIsPrimary());
                         residential_addy_list_out.add(residential_addy_out);
                     }
                     holder_model.setResidentialAddresses(residential_addy_list_out);
@@ -1239,7 +1239,7 @@ public class ClientCompanyLogic {
                             admin_ad_out.setAddressLine4(ar.getAddressLine4());
                             admin_ad_out.setCity(ar.getCity());
                             admin_ad_out.setPostCode(ar.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ar.isIsPrimary());
+                            admin_ad_out.setPrimaryAddress(ar.getIsPrimary());
                             admin.setResidentialAddress(admin_ad_out);
                         }
                         List<AdministratorPostalAddress> admin_postal_address_hib = hd.getAdministratorPostalAddress(ad.getId());
@@ -1254,7 +1254,7 @@ public class ClientCompanyLogic {
                             admin_ad_out.setAddressLine4(ap.getAddressLine4());
                             admin_ad_out.setCity(ap.getCity());
                             admin_ad_out.setPostCode(ap.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ap.isIsPrimary());
+                            admin_ad_out.setPrimaryAddress(ap.getIsPrimary());
                             admin.setPostalAddress(admin_ad_out);
                         }
 
@@ -1436,9 +1436,9 @@ public class ClientCompanyLogic {
                     holder_model.setLastName(holder.getLastName());
                     holder_model.setGender(holder.getGender());
                     holder_model.setDob(formatter.format(holder.getDob()));
-                    holder_model.setTaxExempted(holder.isTaxExempted());
-                    holder_model.setMerged(holder.isMerged());
-                    holder_model.setPryHolder(holder.isPryHolder());
+                    holder_model.setTaxExempted(holder.getTaxExempted());
+                    holder_model.setMerged(holder.getMerged());
+                    holder_model.setPryHolder(holder.getPryHolder());
                     holder_model.setPryAddress(holder.getPryAddress());
                     holder_model_list.add(holder_model);
 
@@ -1458,8 +1458,8 @@ public class ClientCompanyLogic {
                         hba_Id_search_hib.setBondOfferId(hba_model_out.getBondOfferId());
                         hba_model_out.setStartingPrincipalValue(hba.getStartingPrincipalValue());
                         hba_model_out.setRemainingPrincipalValue(hba.getRemainingPrincipalValue());
-                        hba_model_out.setHolderBondAccPrimary(hba.isHolderBondAccPrimary());
-                        hba_model_out.setMerged(hba.isMerged());
+                        hba_model_out.setHolderBondAccPrimary(hba.getHolderBondAcctPrimary());
+                        hba_model_out.setMerged(hba.getMerged());
                         hba_list_model_out.add(hba_model_out);
                     }
                     holder_model.setBondAccounts(hba_list_model_out);
@@ -1484,7 +1484,7 @@ public class ClientCompanyLogic {
                         postal_addy_out.setAddressLine4(hpa.getAddressLine4());
                         postal_addy_out.setCity(hpa.getCity());
                         postal_addy_out.setPostCode(hpa.getPostCode());
-                        postal_addy_out.setPrimaryAddress(hpa.isIsPrimary());
+                        postal_addy_out.setPrimaryAddress(hpa.getIsPrimary());
                         h_model_postalAddy_out.add(postal_addy_out);
                     }
                     holder_model.setPostalAddresses(h_model_postalAddy_out);
@@ -1500,7 +1500,7 @@ public class ClientCompanyLogic {
                         residential_addy_out.setAddressLine4(hra.getAddressLine4());
                         residential_addy_out.setCity(hra.getCity());
                         residential_addy_out.setPostCode(hra.getPostCode());
-                        residential_addy_out.setPrimaryAddress(hra.isIsPrimary());
+                        residential_addy_out.setPrimaryAddress(hra.getIsPrimary());
                         residential_addy_list_out.add(residential_addy_out);
                     }
                     holder_model.setResidentialAddresses(residential_addy_list_out);
@@ -1543,7 +1543,7 @@ public class ClientCompanyLogic {
                             admin_ad_out.setAddressLine4(ar.getAddressLine4());
                             admin_ad_out.setCity(ar.getCity());
                             admin_ad_out.setPostCode(ar.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ar.isIsPrimary());
+                            admin_ad_out.setPrimaryAddress(ar.getIsPrimary());
                             admin.setResidentialAddress(admin_ad_out);
                         }
                         List<AdministratorPostalAddress> admin_postal_address_hib = hd.getAdministratorPostalAddress(ad.getId());
@@ -1558,7 +1558,7 @@ public class ClientCompanyLogic {
                             admin_ad_out.setAddressLine4(ap.getAddressLine4());
                             admin_ad_out.setCity(ap.getCity());
                             admin_ad_out.setPostCode(ap.getPostCode());
-                            admin_ad_out.setPrimaryAddress(ap.isIsPrimary());
+                            admin_ad_out.setPrimaryAddress(ap.getIsPrimary());
                             admin.setPostalAddress(admin_ad_out);
                         }
 
@@ -1612,7 +1612,7 @@ public class ClientCompanyLogic {
             if (rightsIssueExist) {
                 logger.info("rights issue exist for client company [{}], invoked by [{}]", cc.getName(), login.getUserId());
                 org.greenpole.hibernate.entity.RightsIssue rightIssue = hd.getRightsIssueById(rightApp.getRightsIssueId(), rightApp.getClientCompanyId());
-                if (rightIssue.isRightsClosed() && rightIssue.getClosingDate().before(current_date)) {
+                if (rightIssue.getRightsClosed() && rightIssue.getClosingDate().before(current_date)) {
                     wrapper = new NotificationWrapper();
                     prop = new NotifierProperties(ClientCompanyLogic.class);
                     qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
@@ -1669,107 +1669,124 @@ public class ClientCompanyLogic {
             if (rightsIssueExist) {
                 logger.info("rights issue exist for client company [{}], invoked by [{}]", cc.getName(), login.getUserId());
                 org.greenpole.hibernate.entity.RightsIssue rightIssue = hd.getRightsIssueById(rightApp_model.getRightsIssueId(), rightApp_model.getClientCompanyId());
-                if (rightIssue.getClosingDate().equals(current_date)) {//remove from here
+                if (rightIssue.getClosingDate().equals(current_date) || rightIssue.getClosingDate().after(current_date)) {//remove from here
                     if (!rightApp_list_hib.isEmpty()) {
-                        int sumHoldersSubShares = 0, sumOfSharesGivenToHolder;
+                        int totalAdditionaSharesRequested = 0, sumOfSharesGivenToHolder;
                         int holderUnallottedRights;
                         double valueOfHolderUnallotedRights, interest, taxRate, returnMoney;
                         int sunHoldersAllottedRights = 0;
-                        int totalAdditionalShares = 0;
+                        int totalSharesSub = 0;
                         int sumHolderAdditionalShares = 0;
-                        int compRemainingRights;
+                        int compRemainingRights = 0;
                         int lowestAdditionalShares;
                         int sumTotalAdditionalShares = 0;
-                        int eachHolderShares, noOfHolders;
+                        int eachHolderShares, noOfHolders = 0;
                         int holderId;
-                        TreeMap<Integer, Integer> HolderRightAppshares = new TreeMap<>();//in order of shares, holderId
+                        int holderSharesSub = 0, holderSharesSubCompare = 0;
+                        int avg1 = 0, avg2 = 0, excess = 0;
+                        int noOfShareHoldersLessThanAvg = 0, newShareholderList = 0, extraExcess = 0;
+
+                        TreeMap<Integer, Integer> HolderRightAppshares = new TreeMap<>();//in order of holderId,shares 
                         TreeMap<Integer, Integer> HolderCompshares = new TreeMap<>();//in order of shares, holderId
                         Map<Integer, Double> hSares = new HashMap<>();//in the order of holderId, shares, used for percentage distribution
                         double holderShares;//holds shares given to shareholders after distribution
                         long noOfDays;
                         boolean sharesAdded = false;
+                        int totalSharesOnOIssue;
+                        int remainingSharesAfterSub;
+                        org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
                         for (org.greenpole.hibernate.entity.RightsIssueApplication ri : rightApp_list_hib) {
-                            int totalSharesOnOIssue = rightsIssueSetup.getTotalSharesOnIssue();
-                            sumHoldersSubShares += ri.getAdditionalSharesSubscribed();
-                            totalAdditionalShares += ri.getAdditionalSharesSubscribed();
-                            compRemainingRights = totalSharesOnOIssue - sumHoldersSubShares;//get company remaing shares
-                            HolderRightAppshares.put(ri.getAdditionalSharesSubscribed(), ri.getHolder().getId());//puts holder additional shares applied and holderId in map
+                            totalSharesOnOIssue = rightsIssueSetup.getTotalSharesOnIssue();
+                            totalAdditionaSharesRequested += ri.getAdditionalSharesSubscribed();
+                            totalSharesSub += ri.getSharesSubscribed();
+                            compRemainingRights = totalSharesOnOIssue - totalSharesSub;//get company remaing shares
+                            //HolderRightAppshares.put(ri.getHolder().getId(), ri.getAdditionalSharesSubscribed());//puts holder additional shares applied and holderId in map
                             noOfHolders = HolderRightAppshares.size();
+                            avg1 = (avg1 + compRemainingRights) / noOfHolders; //divides company remaining shares by no of shareholders
+                            excess = compRemainingRights - (avg1 * noOfHolders);//get remaining shares after distribution
+                            //end here
+                            //}
+                            org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightsApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                             List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_list_hib = hd.getAllHolderCompanyAccountsByClientCompanyId(rightApp_model.getClientCompanyId());
-                            if (compRemainingRights > sumHoldersSubShares) {
+                            if (compRemainingRights > totalAdditionaSharesRequested) {//company has enough shares to give shareholders
+                                // for (org.greenpole.hibernate.entity.RightsIssueApplication ri : rightApp_list_hib) {
                                 if (!hca_list_hib.isEmpty() && ri.getAdditionalSharesSubscribed() > 0) {
                                     for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_list_hib) {
-                                        org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = hd.getOneHolderCompanyAccount(hca.getHolder().getId(), hca.getClientCompany().getId());
-                                        sharesAdded = hd.updateHCA(hca.getHolder().getId(), rightApp_model.getSharesSubscribed());
-                                        org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightApplication = hd.getOneHolderRightApplication(hca_hib.getHolder().getId(), hca_hib.getClientCompany().getId(), ri.getRightsIssue().getId());
-                                        oneHolderRightApplication.setAdditionalSharesGiven(rightApp_model.getSharesSubscribed() - oneHolderRightApplication.getAllottedRights());
-                                        oneHolderRightApplication.setAdditionalSharesGivenValue((rightApp_model.getSharesSubscribed() - oneHolderRightApplication.getAllottedRights()) * rightIssue.getIssuePrice());
-                                        hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId(), ri.getRightsIssue().getId());
+                                        //hca_hib = hd.getOneHolderCompanyAccount(hca.getHolder().getId(), hca.getClientCompany().getId());
+                                        hd.updateHCA(hca.getHolder().getId(), rightApp_model.getAdditionalSharesSubscribed());//adds shares given to holder existing shares
+                                        org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightApplication = hd.getOneHolderRightApplication(hca.getHolder().getId(), hca.getClientCompany().getId(), ri.getRightsIssue().getId());
+                                        oneHolderRightApplication.setAdditionalSharesGiven(rightApp_model.getAdditionalSharesSubscribed());
+                                        oneHolderRightApplication.setAdditionalSharesGivenValue(rightApp_model.getAdditionalSharesSubscribed() * rightIssue.getIssuePrice());
+                                        oneHolderRightApplication.setReturnMoney(0.0);
+                                        hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
+                                        remainingSharesAfterSub = rightIssue.getTotalSharesOnIssue() - ri.getAdditionalSharesSubscribed();
+                                        rightIssue.setTotalSharesOnIssue(remainingSharesAfterSub);
+                                        hd.updateRightIssueTotalShares(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId());
                                     }
-                                    if (sharesAdded) {
-                                        resp.setRetn(0);
-                                        resp.setDesc("Successfully added additional shares to shareholders account");
-                                        logger.info("Successfully added additional shares to shareholders account ", login.getUserId());
-                                        return resp;
-                                    }
-                                    if (!sharesAdded) {
-                                        resp.setRetn(200);
-                                        resp.setDesc("Unable to add additional shares to shareholders account due to error");
-                                        logger.info("Unable to add additional shares to shareholders account due to error ", login.getUserId());
-                                        return resp;
-                                    }
+                                    notification.markAttended(notificationCode);
+                                    resp.setRetn(0);
+                                    resp.setDesc("Successfully added additional shares to shareholders account");
+                                    logger.info("Successfully added additional shares to shareholders account ", login.getUserId());
+                                    return resp;
                                 }
                                 resp.setRetn(200);
                                 resp.setDesc("No holder company account found under the client company");
                                 logger.info("No holder company account found under the client company");
                                 return resp;
-                            } else if (compRemainingRights < sumHoldersSubShares) {
+                                //end for loop here
+                                // }
+                            } else if (compRemainingRights < totalAdditionaSharesRequested) {
                                 if (!hca_list_hib.isEmpty() && ri.getAdditionalSharesSubscribed() != 0) {
                                     for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_list_hib) {
+                                        hca_hib = hd.getOneHolderCompanyAccount(hca.getHolder().getId(), hca.getClientCompany().getId());
+                                        //}
                                         String distributionType = "";
                                         if (distributionType.equals("even")) {
-                                            org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = hd.getOneHolderCompanyAccount(hca.getHolder().getId(), hca.getClientCompany().getId());
-                                            HolderCompshares.put(hca_hib.getShareUnits(), hca_hib.getHolder().getId());//holds holder id and holder original shares
-                                            //lowestAdditionalShares = HolderRiga htAppshares.firstEntry().getKey();
-                                            Iterator<Map.Entry<Integer, Integer>> HRAshares = HolderRightAppshares.entrySet().iterator();//to get the shares applied for
-                                            //Iterator entries = map.entrySet().iterator(); same as abouve but without generic type
-                                            while (HRAshares.hasNext()) {
-                                                Map.Entry<Integer, Integer> HRAvalues = HRAshares.next();
-                                                
-                                                eachHolderShares = (int) Math.ceil(compRemainingRights / noOfHolders);//divides shares starting with the smallest share unit applied
-                                                //HolderCompshares.put(HRAvalues.getKey(), HRAvalues.getValue());
-                                                org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightsApp_hib = hd.getOneHolderRightApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
-                                                //sharesAdded = hd.addAdditionalSharesToHCA(values.getKey(), eachHolderShares);
-                                                oneHolderRightsApp_hib.setAdditionalSharesGiven(eachHolderShares);
-                                                if (oneHolderRightsApp_hib.getAdditionalSharesSubscribed() > eachHolderShares) {//process return money here
-                                                    holderUnallottedRights = (oneHolderRightsApp_hib.getAdditionalSharesSubscribed() - eachHolderShares);
-                                                    valueOfHolderUnallotedRights = holderUnallottedRights * rightsIssueSetup.getIssuePrice();
-                                                    noOfDays = getDateDiff(current_date, oneHolderRightsApp_hib.getDateApplied(), TimeUnit.DAYS);
-                                                    interest = (valueOfHolderUnallotedRights * rightApp_model.getRate() * noOfDays) / 100;
-                                                    taxRate = rightApp_model.getTaxRate() * interest;
-                                                    returnMoney = valueOfHolderUnallotedRights + (interest - taxRate);
-                                                    oneHolderRightsApp_hib.setReturnMoney(returnMoney);
-                                                    HolderCompshares.put(hca_hib.getShareUnits(), hca_hib.getHolder().getId());
-                                                    oneHolderRightsApp_hib.setAdditionalSharesGiven(eachHolderShares);
-                                                    oneHolderRightsApp_hib.setAdditionalSharesGivenValue(eachHolderShares * rightsIssueSetup.getIssuePrice());
-                                                    oneHolderRightsApp_hib.setTotalValue((eachHolderShares * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getAllottedRights() * rightsIssueSetup.getIssuePrice()));
-                                                } else if (oneHolderRightsApp_hib.getAdditionalSharesSubscribed() == eachHolderShares) {//if additional shares requested is the same as shares given
-                                                    oneHolderRightsApp_hib.setReturnMoney(0.00);
+                                            holderSharesSub = ri.getAdditionalSharesSubscribed();
+                                            holderSharesSubCompare = ri.getAdditionalSharesSubscribed();
+                                            oneHolderRightsApp_hib = hd.getOneHolderRightApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
+                                            if (avg1 >= oneHolderRightsApp_hib.getAdditionalSharesSubscribed()) {//compare additional shares requested with average
+                                                holderSharesSub = holderSharesSubCompare;
+                                                excess = excess + (avg1 - holderSharesSubCompare);
+                                                holderSharesSubCompare = 0;
+                                                noOfShareHoldersLessThanAvg++;//number of holders that get this average
+                                                newShareholderList = noOfHolders - noOfShareHoldersLessThanAvg;
+                                                oneHolderRightsApp_hib.setAdditionalSharesGiven(holderSharesSub);
+                                                oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderSharesSub * rightsIssueSetup.getIssuePrice());
+                                                oneHolderRightsApp_hib.setTotalValue((holderSharesSub * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getSharesSubscribed() * rightsIssueSetup.getIssuePrice()));
+
+                                                //hd.updateHCA(ri.getHolder().getId(), holderSharesSub);//adds shares to holder comp acc
+                                            } else if (avg1 <= oneHolderRightsApp_hib.getAdditionalSharesSubscribed()) {//if additional shares requested is the same as shares given
+                                                avg2 = excess / newShareholderList;//get average from the excess given to holders who got more than requested shares
+                                                holderSharesSub = avg1 + avg2;
+                                                if (holderSharesSub > holderSharesSubCompare) {
+                                                    extraExcess = holderSharesSub - holderSharesSubCompare;
+                                                    holderSharesSub = holderSharesSubCompare;
                                                 }
-                                                sharesAdded = hd.updateHCA(HRAvalues.getValue(), eachHolderShares);//adds shares to holder comp acc
-                                                if (sharesAdded) {
-                                                    resp.setRetn(0);
-                                                    resp.setDesc("Successfully added additional shares to shareholders account");
-                                                    logger.info("Successfully added additional shares to shareholders account ", login.getUserId());
-                                                    return resp;
-                                                }
-                                                if (!sharesAdded) {
-                                                    resp.setRetn(200);
-                                                    resp.setDesc("Unable to add additional shares to shareholders account due to error");
-                                                    logger.info("Unable to add additional shares to shareholders account due to error ", login.getUserId());
-                                                    return resp;
-                                                }
+                                                holderSharesSubCompare = holderSharesSubCompare - holderSharesSub;
+                                                holderUnallottedRights = (oneHolderRightsApp_hib.getAdditionalSharesSubscribed() - holderSharesSub);
+                                                valueOfHolderUnallotedRights = holderUnallottedRights * rightsIssueSetup.getIssuePrice();
+                                                noOfDays = getDateDiff(current_date, oneHolderRightsApp_hib.getDateApplied(), TimeUnit.DAYS);
+                                                interest = (valueOfHolderUnallotedRights * rightApp_model.getRate() * noOfDays) / 100;
+                                                taxRate = rightApp_model.getTaxRate() * interest;
+                                                returnMoney = valueOfHolderUnallotedRights + (interest - taxRate);
+                                                oneHolderRightsApp_hib.setAdditionalSharesGiven(holderSharesSub);
+                                                oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderSharesSub * rightsIssueSetup.getIssuePrice());
+                                                oneHolderRightsApp_hib.setTotalValue((holderSharesSub * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getAllottedRights() * rightsIssueSetup.getIssuePrice()));
+                                                oneHolderRightsApp_hib.setReturnMoney(returnMoney);
+                                                hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(),ri.getRightsIssue().getClientCompany().getId(), ri.getRightsIssue().getId());
+                                                remainingSharesAfterSub = rightIssue.getTotalSharesOnIssue() - holderSharesSub;
+                                                rightIssue.setTotalSharesOnIssue(remainingSharesAfterSub);
+                                                hd.updateRightIssueTotalShares(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId());
+                                                hd.updateHCA(hca.getHolder().getId(), holderSharesSub);//adds shares given to holder existing shares
+                                                //resp.setRetn(0);
+                                                //resp.setDesc("Successfully added additional shares to shareholders account");
+                                                //logger.info("Successfully added additional shares to shareholders account ", login.getUserId());
+                                                //return resp;
                                             }
+                                            
+                                                
+                                           
 
                                         } else if (distributionType.equals("percentage")) {
                                             double sharesNotGiven, sharesNotGivenValue;
@@ -1777,22 +1794,15 @@ public class ClientCompanyLogic {
                                                 hSares.put(ri.getHolder().getId(), (double) ri.getAdditionalSharesSubscribed());
                                                 org.greenpole.hibernate.entity.RightsIssueApplication ria = new org.greenpole.hibernate.entity.RightsIssueApplication();
                                                 org.greenpole.hibernate.entity.HolderCompanyAccount h = hd.getHolderCompanyAccount(hc.getHolder().getId());
-                                                org.greenpole.hibernate.entity.RightsIssueApplication oneHolderRightsApp_hib = hd.getOneHolderRightApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
-                                                Iterator<Map.Entry<Integer, Double>> Hshares = hSares.entrySet().iterator();//to get the shares applied for
-                                                while (Hshares.hasNext()) {
-                                                    Map.Entry<Integer, Double> map = Hshares.next();
-                                                    sumTotalAdditionalShares += map.getValue();
-                                                    holderShares = Math.round((double) ((map.getValue() * 100) / totalAdditionalShares) * (rightsIssueSetup.getTotalSharesOnIssue() / 100));
-                                                    holderId = map.getKey();
-                                                    sharesNotGiven = map.getValue() - holderShares;
-                                                    sharesNotGivenValue = sharesNotGiven * rightsIssueSetup.getIssuePrice();
-                                                    //h.setShareUnits((int) holderShares);
-                                                    sharesAdded = hd.updateHCA(holderId, holderShares);//change method name to update HCA
-                                                    oneHolderRightsApp_hib.setAdditionalSharesGiven((int) holderShares);
-                                                    oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderShares * rightsIssueSetup.getIssuePrice());
-                                                    oneHolderRightsApp_hib.setReturnMoney(sharesNotGivenValue);
-                                                    hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(), ri.getRightsIssue().getClientCompany().getId(), ri.getRightsIssue().getId());
-                                                }
+                                                oneHolderRightsApp_hib = hd.getOneHolderRightApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
+                                                holderShares = Math.floor((double) ((ri.getAdditionalSharesSubscribed() * 100) / totalAdditionaSharesRequested) * (compRemainingRights / 100));
+                                                sharesNotGiven = ri.getAdditionalSharesSubscribed() - holderShares;
+                                                sharesNotGivenValue = sharesNotGiven * rightsIssueSetup.getIssuePrice();
+                                                oneHolderRightsApp_hib.setAdditionalSharesGiven((int) holderShares);
+                                                oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderShares * rightsIssueSetup.getIssuePrice());
+                                                //oneHolderRightsApp_hib.setTotalHoldings(noOfHolders);
+                                                oneHolderRightsApp_hib.setReturnMoney(sharesNotGivenValue);
+                                                hd.updateShareholderRightsIssueApplication(ri.getHolder().getId(), rightIssue.getClientCompany().getId(), rightIssue.getId());
                                             }
                                             if (sharesAdded) {
                                                 resp.setRetn(0);
@@ -1807,7 +1817,8 @@ public class ClientCompanyLogic {
                                                 return resp;
                                             }
                                         }
-                                    }
+                                    }//remove from here2
+                                    //end here now
                                 }
                                 resp.setRetn(200);
                                 resp.setDesc("No holder company account found for this client company or no additional shares requested");
@@ -1815,7 +1826,7 @@ public class ClientCompanyLogic {
                                 return resp;
                             }
 
-                        }//end of first for loop
+                        }//end of first for loop //remove from here
                     }
                     resp.setRetn(200);
                     resp.setDesc("No subscribers found for this rights issue");

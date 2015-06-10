@@ -7,6 +7,7 @@ package org.greenpole.entrycode.emmanuel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.entity.model.holder.PowerOfAttorney;
@@ -17,10 +18,15 @@ import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorPostalAddress;
 import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
 import org.greenpole.hibernate.entity.BondOffer;
+import org.greenpole.hibernate.entity.BondType;
 import org.greenpole.hibernate.entity.Caution;
 import org.greenpole.hibernate.entity.ClearingHouse;
 import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
+import org.greenpole.hibernate.entity.Coupon;
+import org.greenpole.hibernate.entity.DividenAnnotation;
+import org.greenpole.hibernate.entity.Dividend;
+import org.greenpole.hibernate.entity.DividendIssueType;
 import org.greenpole.hibernate.entity.HolderBondAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderEmailAddress;
@@ -32,8 +38,11 @@ import org.greenpole.hibernate.entity.InitialPublicOffer;
 import org.greenpole.hibernate.entity.IpoApplication;
 import org.greenpole.hibernate.entity.PrivatePlacement;
 import org.greenpole.hibernate.entity.PrivatePlacementApplication;
+import org.greenpole.hibernate.entity.ProcessedTransaction;
+import org.greenpole.hibernate.entity.ProcessedTransactionHolder;
 import org.greenpole.hibernate.entity.RightsIssue;
 import org.greenpole.hibernate.entity.RightsIssueApplication;
+import org.greenpole.hibernate.entity.TransactionType;
 import org.greenpole.hibernate.query.GeneralisedAbstractDao;
 
 /**
@@ -454,9 +463,11 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 
     @Override
-    public boolean updateRightIssueTotalShares(int clientCompanyId, int rightsIssueId) {
+    public void updateRightIssueTotalShares(int clientCompanyId, int rightsIssueId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+   
 
     @Override
     public void updateShareholderRightsIssueApplication(int holderId, int clientCompanyId, int rightsIssueId) {
@@ -474,12 +485,86 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 
     @Override
-    public boolean updateHCA(int holderId, int clientCompanyId) {
+    public void updateHCA(int holderId, int clientCompanyId) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
 
     @Override
     public boolean createNewHolder(Holder holder) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+    @Override
+    public boolean uploadTransaction(List<ProcessedTransaction> processedTransaction) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkCSCSTransactionExistence(int cscsTransactionId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkCertExistince(String certNumber) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public ProcessedTransaction getProcessedTransaction(int processedTransactionId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public TransactionType getTransactionType(int transactionId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<ProcessedTransaction> queryTransaction(String descriptor, ProcessedTransaction pth, String start_date, String end_date, Map<String, Integer> shareUnitSoldCriteria, Map<String, Integer> shareUnitBoughtCriteria, Map<String, Integer> bondUnitSoldCriteria, Map<String, Integer> bondUnitBoughtCriteria) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    
+    @Override
+    public List<ProcessedTransactionHolder> getProcessedTransactionHolder(int procesedTransactionId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean configureDividendType(DividendIssueType diviType) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean configureCouponType(BondType couponType) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public Dividend getDividendAnnotation(int dividendId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void createDividendAnnotation(DividenAnnotation divi) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<Dividend> queryDividend(String descriptor, Dividend divi, Map<String, Double> grossAmount, Map<String, Double> tax, Map<String, Double> payableAmount) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<DividenAnnotation> getDividendAnnotations(int dividendId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<Coupon> getCoupon(String descriptor, Coupon coupon, Map<String, Double> redemptionAmount, Map<String, Double> couponAmount) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    
 }

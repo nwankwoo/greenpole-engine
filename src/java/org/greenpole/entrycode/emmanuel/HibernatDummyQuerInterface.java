@@ -6,6 +6,7 @@
 package org.greenpole.entrycode.emmanuel;
 
 import java.util.List;
+import java.util.Map;
 import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.entity.model.holder.PowerOfAttorney;
@@ -23,6 +24,8 @@ import org.greenpole.hibernate.entity.InitialPublicOffer;
 import org.greenpole.hibernate.entity.IpoApplication;
 import org.greenpole.hibernate.entity.PrivatePlacement;
 import org.greenpole.hibernate.entity.PrivatePlacementApplication;
+import org.greenpole.hibernate.entity.ProcessedTransaction;
+import org.greenpole.hibernate.entity.ProcessedTransactionHolder;
 import org.greenpole.hibernate.entity.RightsIssue;
 import org.greenpole.hibernate.entity.RightsIssueApplication;
 
@@ -281,9 +284,8 @@ public interface HibernatDummyQuerInterface {
      *
      * @param clientCompanyId the client company issuing the rights
      * @param rightsIssueId the right issue shares is to be added back into.
-     * @return
      */
-    public boolean updateRightIssueTotalShares(int clientCompanyId, int rightsIssueId);
+    public void updateRightIssueTotalShares(int clientCompanyId, int rightsIssueId);
 
     /**
      *
@@ -297,7 +299,38 @@ public interface HibernatDummyQuerInterface {
 
     public boolean checkHolderRightsApplication(int holderId, int clientCompanyId, int rightAppId);
 
-    public boolean updateHCA(int holderId, int clientCompanyId);
+    public void updateHCA(int holderId, int clientCompanyId);
+
     public boolean createNewHolder(org.greenpole.hibernate.entity.Holder holder);
+
     //public boolean createNewHCA()
+
+    public boolean uploadTransaction(List<ProcessedTransaction> processedTransaction);
+
+    public boolean checkCSCSTransactionExistence(int cscsTransactionId);
+
+    public boolean checkCertExistince(String certNumber);
+
+    public org.greenpole.hibernate.entity.ProcessedTransaction getProcessedTransaction(int processedTransactionId);
+
+    public org.greenpole.hibernate.entity.TransactionType getTransactionType(int transactionId);
+
+    public List<org.greenpole.hibernate.entity.ProcessedTransaction> queryTransaction(String descriptor, org.greenpole.hibernate.entity.ProcessedTransaction pth, String start_date, String end_date, Map<String, Integer> shareUnitSoldCriteria,
+            Map<String, Integer> shareUnitBoughtCriteria, Map<String, Integer> bondUnitSoldCriteria, Map<String, Integer> bondUnitBoughtCriteria);
+
+    public List<org.greenpole.hibernate.entity.ProcessedTransactionHolder> getProcessedTransactionHolder(int procesedTransactionId);
+
+    public boolean configureDividendType(org.greenpole.hibernate.entity.DividendIssueType diviType);
+
+    public boolean configureCouponType(org.greenpole.hibernate.entity.BondType couponType);
+
+    public org.greenpole.hibernate.entity.Dividend getDividendAnnotation(int dividendId);
+
+    public void createDividendAnnotation(org.greenpole.hibernate.entity.DividenAnnotation divi);
+
+    public List<org.greenpole.hibernate.entity.Dividend> queryDividend(String descriptor, org.greenpole.hibernate.entity.Dividend divi, Map<String, Double> grossAmount, Map<String, Double> tax, Map<String, Double> payableAmount);
+
+    public List<org.greenpole.hibernate.entity.DividenAnnotation> getDividendAnnotations(int dividendId);
+
+    public List<org.greenpole.hibernate.entity.Coupon> getCoupon(String descriptor, org.greenpole.hibernate.entity.Coupon coupon, Map<String, Double> redemptionAmount, Map<String, Double> couponAmount);
 }
