@@ -110,7 +110,7 @@ public class HolderComponentServiceImpl implements HolderComponentService {
     public Response uploadPowerOfAttorney_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
-                request.uploadHolderSignature_Authorise(login, notificationCode);
+                request.uploadPowerOfAttorney_Authorise(login, notificationCode);
     }
 
     @Override

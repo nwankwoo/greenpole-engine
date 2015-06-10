@@ -781,11 +781,13 @@ public class ClientCompanyComponentLogic {
                 //unwrap result and set in client company front-end model
                 List<ClientCompany> cc_model_out = new ArrayList<>();
 
-                List<Address> cc_model_addy_out = new ArrayList<>();
-                List<PhoneNumber> cc_model_phone_out = new ArrayList<>();
-                List<EmailAddress> cc_model_email_out = new ArrayList<>();
+                
 
                 for (org.greenpole.hibernate.entity.ClientCompany cc_hib_out : cc_search_result) {
+                    List<Address> cc_model_addy_out = new ArrayList<>();
+                    List<PhoneNumber> cc_model_phone_out = new ArrayList<>();
+                    List<EmailAddress> cc_model_email_out = new ArrayList<>();
+                    
                     ClientCompany c = new ClientCompany();
 
                     c.setDepositoryId(cc_hib_out.getDepository().getId());

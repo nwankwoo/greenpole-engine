@@ -41,6 +41,7 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entity.model.holder.QueryHolderConsolidation;
+import org.greenpole.entity.notification.NotificationType;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorPostalAddress;
@@ -104,6 +105,13 @@ public class HolderComponentLogic {
             
             org.greenpole.hibernate.entity.Holder h_hib;
             List<org.greenpole.hibernate.entity.Holder> h_hib_list = new ArrayList<>();
+            
+            if (accountsToMerge.getPrimaryHolder() == null) {
+                resp.setRetn(300);
+                resp.setDesc("Primary holder not set.");
+                logger.info("Primary holder not set - [{}]", login.getUserId());
+                return resp;
+            }
             
             if (!hq.checkHolderAccount(accountsToMerge.getPrimaryHolder().getHolderId())) {
                 resp.setRetn(300);
@@ -459,29 +467,36 @@ public class HolderComponentLogic {
             
             org.greenpole.hibernate.entity.Holder h_hib;
             
+            if (accountsToDemerge.getPrimaryHolder() == null) {
+                resp.setRetn(302);
+                resp.setDesc("Primary holder not set.");
+                logger.info("Primary holder not set - [{}]", login.getUserId());
+                return resp;
+            }
+            
             if (!hq.checkHolderAccount(accountsToDemerge.getPrimaryHolder().getHolderId())) {
-                resp.setRetn(300);
+                resp.setRetn(302);
                 resp.setDesc("The chosen primary holder account has does not exist.");
                 logger.info("The chosen primary holder account has does not exist - [{}]", login.getUserId());
                 return resp;
             }
             
             if (!hq.hasCompanyAccount(accountsToDemerge.getPrimaryHolder().getHolderId())) {
-                resp.setRetn(300);
+                resp.setRetn(302);
                 resp.setDesc("The chosen primary holder account has no company account.");
                 logger.info("The chosen primary holder account has no company account - [{}]", login.getUserId());
                 return resp;
             }
             
             if (!hq.checkSecondaryHolders(accountsToDemerge.getPrimaryHolder().getHolderId())) {
-                resp.setRetn(300);
+                resp.setRetn(302);
                 resp.setDesc("The chosen primary holder account has no secondary holder accounts merged to it.");
                 logger.info("The chosen primary holder account has no secondary holder accounts merged to it - [{}]", login.getUserId());
                 return resp;
             }
             
             if (hq.holderHasEsopAccount(accountsToDemerge.getPrimaryHolder().getHolderId())) {
-                resp.setRetn(300);
+                resp.setRetn(302);
                 resp.setDesc("The chosen primary holder account has an ESOP account. Merge not allowed.");
                 logger.info("The chosen primary holder account has an ESOP account. Merge not allowed - [{}]", login.getUserId());
                 return resp;
@@ -725,10 +740,10 @@ public class HolderComponentLogic {
                             if (senderHolderChnExists) {//check if sender has chn in their accounts
                                 logger.info("sender holder has CHN - [{}]", login.getUserId());
                                 boolean senderHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
-                                org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
 
                                 if (senderHolderCompAcctExists) {//check if sender account has chn
                                     logger.info("sender holder has company account - [{}]", login.getUserId());
+                                    org.greenpole.hibernate.entity.HolderCompanyAccount senderCompAcct = hq.getHolderCompanyAccount(unitTransfer.getHolderIdFrom(), unitTransfer.getClientCompanyId());
                                     
                                     if (unitTransfer.getHolderIdFrom() != unitTransfer.getHolderIdTo()) {//cannot transfer between same accounts
                                         
@@ -910,6 +925,7 @@ public class HolderComponentLogic {
                                         HolderCompanyAccountId receiverCompAcctId = new HolderCompanyAccountId(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
                                         receiverCompAcct.setId(receiverCompAcctId);
                                         receiverCompAcct.setEsop(false);
+                                        receiverCompAcct.setShareUnits(0);
                                         receiverCompAcct.setHolderCompAccPrimary(true);
                                         receiverCompAcct.setMerged(false);
                                         hq.createUpdateHolderCompanyAccount(receiverCompAcct);
@@ -1071,8 +1087,8 @@ public class HolderComponentLogic {
                                                 if (!receiverHolderBondAcctExists) {//if receiver has no bond account, inform user
                                                     String originalMsg = resp.getDesc();
                                                     resp.setDesc(originalMsg + "\nHolder - " + receiverName
-                                                            + " - has no active account with the company. One will be created for them upon authorisation.");
-                                                    logger.info("Holder - [{}] - has no active account with the company. "
+                                                            + " - has no active bond account for the offer. One will be created for them upon authorisation.");
+                                                    logger.info("Holder - [{}] - has no active bond account for the offer. "
                                                             + "One will be created for them upon authorisation - [{}]", receiverName, login.getUserId());
                                                 }
 
@@ -1097,8 +1113,8 @@ public class HolderComponentLogic {
                                     return resp;
                                 }
                                 resp.setRetn(306);
-                                resp.setDesc("The holder - " + senderName + " - has no share company account to send any units from.");
-                                logger.info("The holder - [{}] - has no share company account to send any units from - [{}]",
+                                resp.setDesc("The holder - " + senderName + " - has no bond account to send any units from.");
+                                logger.info("The holder - [{}] - has no bond account to send any units from - [{}]",
                                         senderName, login.getUserId());
                                 return resp;
                             }
@@ -1198,6 +1214,7 @@ public class HolderComponentLogic {
                                     HolderBondAccountId receiverBondAcctId = new HolderBondAccountId(unitTransfer.getHolderIdTo(), unitTransfer.getBondOfferId());
                                     receiverBondAcct.setId(receiverBondAcctId);
                                     receiverBondAcct.setStartingPrincipalValue(0.00);
+                                    receiverBondAcct.setBondUnits(0);
                                     receiverBondAcct.setDateApplied(new Date());
                                     receiverBondAcct.setMerged(false);
                                     receiverBondAcct.setHolderBondAcctPrimary(true);
@@ -1358,7 +1375,7 @@ public class HolderComponentLogic {
 
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
             org.greenpole.hibernate.entity.HolderChanges changes_hib = new org.greenpole.hibernate.entity.HolderChanges();
-            HolderChangeType change_type_hib = new HolderChangeType();
+            HolderChangeType change_type_hib;
 
             if (descriptors.size() == 1) {
                 //check that start date is properly formatted
@@ -1398,8 +1415,22 @@ public class HolderComponentLogic {
                         return resp;
                     }
                 }
+                
+                if (queryParams.getHolderChanges() == null || queryParams.getHolderChanges().getChangeTypeId() <= 0) {
+                    logger.info("Holder change type not properly set - [{}]", login.getUserId());
+                    resp.setRetn(308);
+                    resp.setDesc("Holder change type not properly set.");
+                    return resp;
+                }
+                
+                if (!hq.checkChangeType(queryParams.getHolderChanges().getChangeTypeId())) {
+                    logger.info("Invalid change type - [{}]", login.getUserId());
+                    resp.setRetn(308);
+                    resp.setDesc("Invalid change type.");
+                    return resp;
+                }
 
-                change_type_hib.setId(queryParams.getHolderChanges().getChangeTypeId());
+                change_type_hib = hq.getChangeType(queryParams.getHolderChanges().getChangeTypeId());
                 changes_hib.setHolderChangeType(change_type_hib);
 
                 List<org.greenpole.hibernate.entity.HolderChanges> changes_hib_result = hq.queryHolderChanges(queryParams.getDescriptor(), changes_hib,
@@ -1408,6 +1439,7 @@ public class HolderComponentLogic {
                 List<Holder> return_list = new ArrayList<>();
 
                 //unwrap returned result list
+                List<HolderChanges> change_list = new ArrayList<>();
                 for (org.greenpole.hibernate.entity.HolderChanges hc : changes_hib_result) {
                     org.greenpole.hibernate.entity.Holder holder_hib = hq.getHolder(hc.getHolder().getId()); //all variables of holder
                     HolderChanges hc_model = new HolderChanges();
@@ -1419,8 +1451,9 @@ public class HolderComponentLogic {
 
                     hc_model.setCurrentForm(hc.getCurrentForm());
                     hc_model.setInitialForm(hc.getInitialForm());
+                    hc_model.setChangeDate(formatter.format(hc.getChangeDate()));
                     hc_model.setChangeTypeId(hc.getHolderChangeType().getId());
-                    List<HolderChanges> change_list = new ArrayList<>();
+                    
                     change_list.add(hc_model);
                     
                     holder_model.setChanges(change_list);
@@ -1498,7 +1531,8 @@ public class HolderComponentLogic {
                     h_hib_search.setChn(h_model_search.getChn());
                     if (h_model_search.getHolderAcctNumber() > 0)
                         h_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
-                    //h_hib_search.setTaxExempted(h_model_search.isTaxExempted());
+                    if (h_model_search.isTaxExempted())
+                        h_hib_search.setTaxExempted(h_model_search.isTaxExempted());
                     h_hib_search.setPryAddress(h_model_search.getPryAddress());
                     h_hib_search.setHolderType(h_type_hib_search);
                     h_hib_search.setPryHolder(true); //must be set
@@ -1561,7 +1595,6 @@ public class HolderComponentLogic {
                         h_email_model_search = queryParams.getHolder().getEmailAddresses().get(0);
 
                         h_email_hib_search.setEmailAddress(h_email_model_search.getEmailAddress());
-                        //h_email_hib_search.setIsPrimary(h_email_model_search.isPrimaryEmail());
 
                         h_email_hib_set.add(h_email_hib_search);
 
@@ -1574,7 +1607,6 @@ public class HolderComponentLogic {
                         h_phone_model_search = queryParams.getHolder().getPhoneNumbers().get(0);
 
                         h_phone_hib_search.setPhoneNumber(h_phone_model_search.getPhoneNumber());
-                        //h_phone_hib_search.setIsPrimary(h_phone_model_search.isPrimaryPhoneNumber());
 
                         h_phone_hib_set.add(h_phone_hib_search);
 
@@ -1645,15 +1677,15 @@ public class HolderComponentLogic {
                 
                 //unwrap result and set in holder front-end model
                 List<Holder> h_model_out = new ArrayList<>();
-
-                List<Address> h_res_out = new ArrayList<>();
-                List<Address> h_pos_out = new ArrayList<>();
-                List<PhoneNumber> h_phone_out = new ArrayList<>();
-                List<EmailAddress> h_email_out = new ArrayList<>();
-                List<HolderCompanyAccount> hca_out = new ArrayList<>();
-                List<HolderBondAccount> hba_out = new ArrayList<>();
-
+                
                 for (org.greenpole.hibernate.entity.Holder h_hib_out : h_search_result) {
+                    List<Address> h_res_out = new ArrayList<>();
+                    List<Address> h_pos_out = new ArrayList<>();
+                    List<PhoneNumber> h_phone_out = new ArrayList<>();
+                    List<EmailAddress> h_email_out = new ArrayList<>();
+                    List<HolderCompanyAccount> hca_out = new ArrayList<>();
+                    List<HolderBondAccount> hba_out = new ArrayList<>();
+                    
                     Holder h = new Holder();
 
                     h.setHolderId(h_hib_out.getId());
@@ -1692,6 +1724,8 @@ public class HolderComponentLogic {
                                 addy_model.setEntityId(res_hib_out.getHolder().getId());
                                 
                                 h.setAddressPrimary(addy_model);
+                                
+                                break;
                             }
                         }
                     } else if ("postal".equalsIgnoreCase(h_hib_out.getPryAddress())) {
@@ -1713,6 +1747,8 @@ public class HolderComponentLogic {
                                 addy_model.setEntityId(pos_hib_out.getHolder().getId());
                                 
                                 h.setAddressPrimary(addy_model);
+                                
+                                break;
                             }
                         }
                     }
@@ -1781,49 +1817,65 @@ public class HolderComponentLogic {
                         h_phone_out.add(phone_model_out);
                     }
                     h.setPhoneNumbers(h_phone_out);
-
-                    h_model_out.add(h);
                     
                     List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hq.getAllHolderCompanyAccounts(h_hib_out.getId());
                     for (org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib_out : hca_hib_list) {
                         HolderCompanyAccount hca_model_out = new HolderCompanyAccount();
+                        ClientCompany cc = cq.getClientCompany(hca_hib_out.getId().getClientCompanyId());
                         
                         hca_model_out.setHolderId(hca_hib_out.getId().getHolderId());
                         hca_model_out.setClientCompanyId(hca_hib_out.getId().getClientCompanyId());
+                        hca_model_out.setClientCompanyName(cc.getName());
                         hca_model_out.setShareUnits(hca_hib_out.getShareUnits());
                         hca_model_out.setEsop(hca_hib_out.getEsop());
                         hca_model_out.setHolderCompAccPrimary(hca_hib_out.getHolderCompAccPrimary());
-                        //hca_model_out.setMerged(hca_hib_out.getMerged());
+                        hca_model_out.setMerged(hca_hib_out.getMerged());
                         hca_model_out.setNubanAccount(hca_hib_out.getNubanAccount());
                         
-                        Bank bank_hib = hq.getBankDetails(hca_hib_out.getBank().getId());
-                        org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
-                        bank_model_out.setId(bank_hib.getId());
-                        bank_model_out.setBankName(bank_hib.getBankName());
-                        bank_model_out.setBankCode(bank_hib.getBankCode());
+                        if (hca_hib_out.getBank() != null){
+                            Bank bank_hib = hq.getBankDetails(hca_hib_out.getBank().getId());
+                            org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
+                            bank_model_out.setId(bank_hib.getId());
+                            bank_model_out.setBankName(bank_hib.getBankName());
+                            bank_model_out.setBankCode(bank_hib.getBankCode());
+                            
+                            hca_model_out.setBank(bank_model_out);
+                        }
                         
-                        hca_model_out.setBank(bank_model_out);
+                        hca_out.add(hca_model_out);
                     }
+                    h.setCompanyAccounts(hca_out);
                     
                     List<org.greenpole.hibernate.entity.HolderBondAccount> hba_hib_list = hq.getAllHolderBondAccounts(h_hib_out.getId());
                     for (org.greenpole.hibernate.entity.HolderBondAccount hba_hib_out : hba_hib_list) {
                         HolderBondAccount hba_model_out = new HolderBondAccount();
+                        BondOffer bo = cq.getBondOffer(hba_hib_out.getId().getBondOfferId());
                         
                         hba_model_out.setHolderId(hba_hib_out.getId().getHolderId());
                         hba_model_out.setBondOfferId(hba_hib_out.getId().getBondOfferId());
+                        hba_model_out.setBondOfferTitle(bo.getTitle());
                         hba_model_out.setBondUnits(hba_hib_out.getBondUnits());
                         hba_model_out.setStartingPrincipalValue(hba_hib_out.getStartingPrincipalValue());
                         hba_model_out.setRemainingPrincipalValue(hba_hib_out.getRemainingPrincipalValue());
+                        hba_model_out.setMerged(hba_hib_out.getMerged());
+                        hba_model_out.setHolderBondAccPrimary(hba_hib_out.getHolderBondAcctPrimary());
                         hba_model_out.setNubanAccount(hba_hib_out.getNubanAccount());
                         
-                        Bank bank_hib = hq.getBankDetails(hba_hib_out.getBank().getId());
-                        org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
-                        bank_model_out.setId(bank_hib.getId());
-                        bank_model_out.setBankName(bank_hib.getBankName());
-                        bank_model_out.setBankCode(bank_hib.getBankCode());
+                        if (hba_hib_out.getBank() != null){
+                            Bank bank_hib = hq.getBankDetails(hba_hib_out.getBank().getId());
+                            org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
+                            bank_model_out.setId(bank_hib.getId());
+                            bank_model_out.setBankName(bank_hib.getBankName());
+                            bank_model_out.setBankCode(bank_hib.getBankCode());
+                            
+                            hba_model_out.setBank(bank_model_out);
+                        }
                         
-                        hba_model_out.setBank(bank_model_out);
+                        hba_out.add(hba_model_out);
                     }
+                    h.setBondAccounts(hba_out);
+                    
+                    h_model_out.add(h);
                 }
 
                 logger.info("holder query successful - [{}]", login.getUserId());
@@ -2288,7 +2340,8 @@ public class HolderComponentLogic {
                             poa_hib.setTitle(poaModel.getTitle());
                             poa_hib.setType(poaModel.getType());
                             poa_hib.setStartDate(formatter.parse(poaModel.getStartDate()));
-                            poa_hib.setEndDate(formatter.parse(poaModel.getEndDate()));
+                            if (poaModel.getEndDate() != null && !"".equals(poaModel.getEndDate()))
+                                poa_hib.setEndDate(formatter.parse(poaModel.getEndDate()));
                             poa_hib.setFilePath(filepath);
                             
                             poa_hib.setPowerOfAttorneyPrimary(true);
@@ -2606,8 +2659,7 @@ public class HolderComponentLogic {
                         if (compAcct.getBank() != null && compAcct.getBank().getId() != 0) {
                             
                             if (hq.checkBank(compAcct.getBank().getId())) {
-                                Bank bank = new Bank();
-                                bank.setId(compAcct.getBank().getId());
+                                Bank bank = hq.getBankDetails(compAcct.getBank().getId());
                                 
                                 compAcct_hib.setId(compAcct_hib.getId());
                                 compAcct_hib.setNubanAccount(compAcct.getNubanAccount());
@@ -2776,8 +2828,7 @@ public class HolderComponentLogic {
                         if (bondAcct.getBank() != null && bondAcct.getBank().getId() != 0) {
                             
                             if (hq.checkBank(bondAcct.getBank().getId())) {
-                                Bank bank = new Bank();
-                                bank.setId(bondAcct.getBank().getId());
+                                Bank bank = hq.getBankDetails(bondAcct.getBank().getId());
                                 
                                 bondAcct_hib.setId(bondAcct_hib.getId());
                                 bondAcct_hib.setNubanAccount(bondAcct.getNubanAccount());
@@ -3121,6 +3172,7 @@ public class HolderComponentLogic {
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
                 holdEntity.setPryAddress(holder.getPryAddress());
+                holdEntity.setTaxExempted(holder.isTaxExempted());
                 holdEntity.setPryHolder(true);
                 holdEntity.setMerged(false);
                 
@@ -3450,6 +3502,7 @@ public class HolderComponentLogic {
                 holdEntity.setDob(formatter.parse(holder.getDob()));
                 holdEntity.setChn(holder.getChn());
                 holdEntity.setPryAddress(holder.getPryAddress());
+                holdEntity.setTaxExempted(holder.isTaxExempted());
                 holdEntity.setPryHolder(true);
                 holdEntity.setMerged(false);
 
@@ -3774,6 +3827,7 @@ public class HolderComponentLogic {
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate transpose request for holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setNotificationType(NotificationType.Transpose.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(holdList);
@@ -4235,9 +4289,7 @@ public class HolderComponentLogic {
                         
                         boolean updated = hq.updateHolderAccount(holderEntity, retrieveHolderResidentialAddress(holder),
                                 retrieveHolderPostalAddress(holder), retrieveHolderPhoneNumber(holder),
-                                retrieveHolderEmailAddress(holder), retrieveHolderResidentialAddressForDeletion(holder),
-                                retrieveHolderPostalAddressForDeletion(holder), retrieveHolderPhoneNumberForDeletion(holder),
-                                retrieveHolderEmailAddressForDeletion(holder), holderChangesList);
+                                retrieveHolderEmailAddress(holder), holderChangesList);
                         
                         if (updated) {
                             notification.markAttended(notificationCode);
@@ -4340,25 +4392,37 @@ public class HolderComponentLogic {
                     acctConsolModel.setHolderName(ac.getHolderName());
                     acctConsolModel.setMergedToHolderId(ac.getMergedToHolderId());
                     acctConsolModel.setMergedToHolderName(ac.getMergedToHolderName());
-                    acctConsolModel.setMergeDate(ac.getMergeDate().toString());
-                    acctConsolModel.setDemerge(ac.getDemerge());
+                    if (ac.getMergeDate() != null)
+                        acctConsolModel.setMergeDate(formatter.format(ac.getMergeDate()));
                     acctConsolModel.setAdditionalChanges(ac.getAdditionalChanges());
-                    acctConsolModel.setDemergeDate(ac.getDemergeDate().toString());
+                    if (ac.getDemerge() != null)
+                        acctConsolModel.setDemerge(ac.getDemerge());
+                    if (ac.getDemergeDate() != null)
+                        acctConsolModel.setDemergeDate(formatter.format(ac.getDemergeDate()));
 
                     List<org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation> cacList = new ArrayList<>();
-                    for (org.greenpole.hibernate.entity.CompanyAccountConsolidation cac : hq.getCompAcctConsolidation(ac.getId())) {
+                    for (org.greenpole.hibernate.entity.CompanyAccountConsolidation cac : hq.getCompAcctConsolidationIgnoreDemerge(ac.getId())) {
                         org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation compAcctConsolModel = new org.greenpole.entity.model.holder.merge.CompanyAccountConsolidation();
-                        compAcctConsolModel.setForCompanyId(cac.getForCompanyId());
+                        if (cac.getForCompanyId() != null)
+                            compAcctConsolModel.setForCompanyId(cac.getForCompanyId());
+                        if (cac.getForBondOfferId() != null)
+                            compAcctConsolModel.setForBondOfferId(cac.getForBondOfferId());
+                        System.out.println(":::company consolidation reached!!::");
                         compAcctConsolModel.setTiedToInitialHolderId(cac.getTiedToCurrentHolderId());
                         compAcctConsolModel.setTiedToCurrentHolderId(cac.getTiedToCurrentHolderId());
                         compAcctConsolModel.setInitialChn(cac.getInitialChn());
                         compAcctConsolModel.setCurrentChn(cac.getCurrentChn());
                         compAcctConsolModel.setBondShareUnit(cac.getBondShareUnit());
                         compAcctConsolModel.setTransfer(cac.getTransfer());
-                        compAcctConsolModel.setReceiverUnitState(cac.getReceiverUnitState());
-                        compAcctConsolModel.setReceiverStartUnit(cac.getReceiverStartUnit());
-                        compAcctConsolModel.setUnitAfterTransfer(cac.getUnitAfterTransfer());
-                        compAcctConsolModel.setMergeDate(formatter.format(cac.getMergeDate()));
+                        if (cac.getReceiverUnitState() != null)
+                            compAcctConsolModel.setReceiverUnitState(cac.getReceiverUnitState());
+                        if (cac.getReceiverStartUnit() != null)
+                            compAcctConsolModel.setReceiverStartUnit(cac.getReceiverStartUnit());
+                        if (cac.getUnitAfterTransfer() != null)
+                            compAcctConsolModel.setUnitAfterTransfer(cac.getUnitAfterTransfer());
+                        if (cac.getMergeDate() != null)
+                            compAcctConsolModel.setMergeDate(formatter.format(cac.getMergeDate()));
+                        
                         cacList.add(compAcctConsolModel);
                     }
                     acctConsolModel.setCompanyAccountConsolidation(cacList);
@@ -4371,7 +4435,7 @@ public class HolderComponentLogic {
                 tagList.add(tag);
 
                 resp.setBody(tagList);
-                resp.setDesc("Query result with search parameter");
+                resp.setDesc("Query Successful");
                 resp.setRetn(0);
                 logger.info("Query successful - [{}]", login.getUserId());
                 return resp;
