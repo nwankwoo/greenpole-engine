@@ -241,6 +241,7 @@ public class HolderComponentLogic {
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription(descMsg);
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.merge_accounts.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holderMerger);
@@ -529,6 +530,7 @@ public class HolderComponentLogic {
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Demerge accounts from " + pryName);
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.demerge_accounts.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holderMerger);
@@ -769,6 +771,7 @@ public class HolderComponentLogic {
                                                 wrapper.setCode(notification.createCode(login));
                                                 wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
                                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                                wrapper.setNotificationType(NotificationType.transfer_shares.toString());
                                                 wrapper.setFrom(login.getUserId());
                                                 wrapper.setTo(authenticator);
                                                 wrapper.setModel(transferList);
@@ -1075,6 +1078,7 @@ public class HolderComponentLogic {
                                                 wrapper.setCode(notification.createCode(login));
                                                 wrapper.setDescription("Authenticate unit transfer between " + senderName + " and " + receiverName);
                                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                                wrapper.setNotificationType(NotificationType.transfer_bonds.toString());
                                                 wrapper.setFrom(login.getUserId());
                                                 wrapper.setTo(authenticator);
                                                 wrapper.setModel(transferList);
@@ -2011,6 +2015,7 @@ public class HolderComponentLogic {
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate creation of administrator(s) for holder " + holder.getFirstName() + " " + holder.getLastName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setNotificationType(NotificationType.create_administrator.toString());
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(holderList);
@@ -2248,6 +2253,7 @@ public class HolderComponentLogic {
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate power of attorney for " + holder.getFirstName() + " " + holder.getLastName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setNotificationType(NotificationType.upload_power_of_attorney.toString());
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(powerList);
@@ -2587,6 +2593,7 @@ public class HolderComponentLogic {
                                 wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Authenticate storage of NUBAN account number for holder - " + holder.getFirstName() + " " + holder.getLastName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                wrapper.setNotificationType(NotificationType.store_nuban.toString());
                                 wrapper.setFrom(login.getUserId());
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(compAcctList);
@@ -2756,6 +2763,7 @@ public class HolderComponentLogic {
                                 wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Authenticate storage of NUBAN account number for holder - " + holder.getFirstName() + " " + holder.getLastName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                wrapper.setNotificationType(NotificationType.store_nuban.toString());
                                 wrapper.setFrom(login.getUserId());
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(bondAcctList);
@@ -3019,6 +3027,7 @@ public class HolderComponentLogic {
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate holder account creation for " + holder.getFirstName() + " " + holder.getLastName());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.create_shareholder.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holdList);
@@ -3353,6 +3362,7 @@ public class HolderComponentLogic {
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate bond holder account, " + holder.getFirstName() + " " + holder.getLastName());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.create_bondholder.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(holdList);
@@ -3596,6 +3606,7 @@ public class HolderComponentLogic {
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate creation of holder signature for holder " + holder.getFirstName() + " " + holder.getLastName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setNotificationType(NotificationType.upload_holder_signature.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(holderListSignature);
@@ -3827,7 +3838,7 @@ public class HolderComponentLogic {
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate transpose request for holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                    wrapper.setNotificationType(NotificationType.Transpose.toString());
+                    wrapper.setNotificationType(NotificationType.transpose.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(holdList);
@@ -4082,6 +4093,7 @@ public class HolderComponentLogic {
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate edit of holder account, " + holder.getFirstName() + " " + holder.getLastName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setNotificationType(NotificationType.edit_holder.toString());
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(holdList);
@@ -4490,6 +4502,7 @@ public class HolderComponentLogic {
                     wrapper.setDescription("Authenticate holder, " + holder_hib.getFirstName() + " " + holder_hib.getLastName() + 
                             "'s application for the bond offer - " + bond.getTitle());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setNotificationType(NotificationType.apply_for_bond_offer.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(acctList);

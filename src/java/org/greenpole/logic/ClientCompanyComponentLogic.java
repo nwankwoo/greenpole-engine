@@ -29,6 +29,7 @@ import org.greenpole.entity.security.Login;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.entity.notification.NotificationMessageTag;
+import org.greenpole.entity.notification.NotificationType;
 import org.greenpole.entity.response.Response;
 import org.greenpole.hibernate.entity.BondOfferPaymentPlan;
 import org.greenpole.hibernate.entity.BondType;
@@ -176,6 +177,7 @@ public class ClientCompanyComponentLogic {
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate creation of the client company, " + cc.getName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setNotificationType(NotificationType.create_client_company.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(cclist);
@@ -468,6 +470,7 @@ public class ClientCompanyComponentLogic {
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate change to client company, " + cc.getName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setNotificationType(NotificationType.edit_client_company.toString());
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(cclist);
@@ -916,6 +919,7 @@ public class ClientCompanyComponentLogic {
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Upload of share-unit quotations");
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.upload_unit_quotations.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(shareQuotation);
@@ -1067,6 +1071,7 @@ public class ClientCompanyComponentLogic {
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate Initial Public Offer setup under the client company " + cc.getName());
                     wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                    wrapper.setNotificationType(NotificationType.setup_ipo.toString());
                     wrapper.setFrom(login.getUserId());
                     wrapper.setTo(authenticator);
                     wrapper.setModel(ipoList);
@@ -1241,6 +1246,7 @@ public class ClientCompanyComponentLogic {
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate Bond Setup - " + bond.getTitle());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.setup_bond_offer.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(bc);
@@ -1400,6 +1406,7 @@ public class ClientCompanyComponentLogic {
                                 wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Create Private Placement for " + cc.getName());
                                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+                                wrapper.setNotificationType(NotificationType.setup_private_placement.toString());
                                 wrapper.setFrom(login.getUserId());
                                 wrapper.setTo(authenticator);
                                 wrapper.setModel(ppc);
