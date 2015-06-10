@@ -4591,6 +4591,470 @@ public class HolderComponentLogic {
             return resp;
         }
     }
+    
+    /**
+     * Searches for all primary holders in the database, whether bond or shareholders.
+     * @param login the user's login details
+     * @param isShareholder whether the search is for shareholders or bond-holders
+     * @return the response to the query all holders request
+     */
+    public Response queryAllHolders_Request(Login login, boolean isShareholder) {
+        logger.info("request to query all holders, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            List<Holder> h_model_out = new ArrayList<>();
+            List<org.greenpole.hibernate.entity.Holder> h_hiblist = hq.getAllHolders(isShareholder);
+            
+            for (org.greenpole.hibernate.entity.Holder h_hib_out : h_hiblist) {
+                List<Address> h_res_out = new ArrayList<>();
+                List<Address> h_pos_out = new ArrayList<>();
+                List<PhoneNumber> h_phone_out = new ArrayList<>();
+                List<EmailAddress> h_email_out = new ArrayList<>();
+                List<HolderCompanyAccount> hca_out = new ArrayList<>();
+                List<HolderBondAccount> hba_out = new ArrayList<>();
+
+                Holder h = new Holder();
+
+                h.setHolderId(h_hib_out.getId());
+                if (h_hib_out.getHolderAcctNumber() != null) {
+                    h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
+                }
+                h.setFirstName(h_hib_out.getFirstName());
+                h.setMiddleName(h_hib_out.getMiddleName());
+                h.setLastName(h_hib_out.getLastName());
+                h.setGender(h_hib_out.getGender());
+                h.setDob(formatter.format(h_hib_out.getDob()));
+                h.setChn(h_hib_out.getChn());
+                if (h_hib_out.getHolderAcctNumber() != null) {
+                    h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
+                }
+                h.setTaxExempted(h_hib_out.getTaxExempted());
+                h.setPryAddress(h_hib_out.getPryAddress());
+                h.setTypeId(h_hib_out.getHolderType().getId());
+                h.setPryHolder(h_hib_out.getPryHolder());
+
+                //set prymary address separately
+                if ("residential".equalsIgnoreCase(h_hib_out.getPryAddress())) {
+                    List<HolderResidentialAddress> res_hib_list = hq.getHolderResidentialAddresses(h_hib_out.getId());
+                    for (HolderResidentialAddress res_hib_out : res_hib_list) {
+                        if (res_hib_out.getIsPrimary() != null && res_hib_out.getIsPrimary()) {
+                            Address addy_model = new Address();
+
+                            addy_model.setId(res_hib_out.getId());
+                            addy_model.setAddressLine1(res_hib_out.getAddressLine1());
+                            addy_model.setState(res_hib_out.getState());
+                            addy_model.setCountry(res_hib_out.getCountry());
+                            addy_model.setAddressLine2(res_hib_out.getAddressLine2());
+                            addy_model.setAddressLine3(res_hib_out.getAddressLine3());
+                            addy_model.setAddressLine4(res_hib_out.getAddressLine4());
+                            addy_model.setPostCode(res_hib_out.getPostCode());
+                            addy_model.setCity(res_hib_out.getCity());
+                            addy_model.setPrimaryAddress(res_hib_out.getIsPrimary());
+                            addy_model.setEntityId(res_hib_out.getHolder().getId());
+
+                            h.setAddressPrimary(addy_model);
+
+                            break;
+                        }
+                    }
+                } else if ("postal".equalsIgnoreCase(h_hib_out.getPryAddress())) {
+                    List<HolderPostalAddress> pos_hib_list = hq.getHolderPostalAddresses(h_hib_out.getId());
+                    for (HolderPostalAddress pos_hib_out : pos_hib_list) {
+                        if (pos_hib_out.getIsPrimary() != null && pos_hib_out.getIsPrimary()) {
+                            Address addy_model = new Address();
+
+                            addy_model.setId(pos_hib_out.getId());
+                            addy_model.setAddressLine1(pos_hib_out.getAddressLine1());
+                            addy_model.setState(pos_hib_out.getState());
+                            addy_model.setCountry(pos_hib_out.getCountry());
+                            addy_model.setAddressLine2(pos_hib_out.getAddressLine2());
+                            addy_model.setAddressLine3(pos_hib_out.getAddressLine3());
+                            addy_model.setAddressLine4(pos_hib_out.getAddressLine4());
+                            addy_model.setPostCode(pos_hib_out.getPostCode());
+                            addy_model.setCity(pos_hib_out.getCity());
+                            addy_model.setPrimaryAddress(pos_hib_out.getIsPrimary());
+                            addy_model.setEntityId(pos_hib_out.getHolder().getId());
+
+                            h.setAddressPrimary(addy_model);
+
+                            break;
+                        }
+                    }
+                }
+
+                //get all available addresses, email addresses and phone numbers
+                List<HolderResidentialAddress> res_hib_list = hq.getHolderResidentialAddresses(h_hib_out.getId());
+                for (HolderResidentialAddress res_hib_out : res_hib_list) {
+                    Address addy_model = new Address();
+
+                    addy_model.setId(res_hib_out.getId());
+                    addy_model.setAddressLine1(res_hib_out.getAddressLine1());
+                    addy_model.setState(res_hib_out.getState());
+                    addy_model.setCountry(res_hib_out.getCountry());
+                    addy_model.setAddressLine2(res_hib_out.getAddressLine2());
+                    addy_model.setAddressLine3(res_hib_out.getAddressLine3());
+                    addy_model.setAddressLine4(res_hib_out.getAddressLine4());
+                    addy_model.setPostCode(res_hib_out.getPostCode());
+                    addy_model.setCity(res_hib_out.getCity());
+                    addy_model.setPrimaryAddress(res_hib_out.getIsPrimary());
+                    addy_model.setEntityId(res_hib_out.getHolder().getId());
+
+                    h_res_out.add(addy_model);
+                }
+                h.setResidentialAddresses(h_res_out);
+
+                List<HolderPostalAddress> pos_hib_list = hq.getHolderPostalAddresses(h_hib_out.getId());
+                for (HolderPostalAddress pos_hib_out : pos_hib_list) {
+                    Address addy_model = new Address();
+
+                    addy_model.setId(pos_hib_out.getId());
+                    addy_model.setAddressLine1(pos_hib_out.getAddressLine1());
+                    addy_model.setState(pos_hib_out.getState());
+                    addy_model.setCountry(pos_hib_out.getCountry());
+                    addy_model.setAddressLine2(pos_hib_out.getAddressLine2());
+                    addy_model.setAddressLine3(pos_hib_out.getAddressLine3());
+                    addy_model.setAddressLine4(pos_hib_out.getAddressLine4());
+                    addy_model.setPostCode(pos_hib_out.getPostCode());
+                    addy_model.setCity(pos_hib_out.getCity());
+                    addy_model.setPrimaryAddress(pos_hib_out.getIsPrimary());
+                    addy_model.setEntityId(pos_hib_out.getHolder().getId());
+
+                    h_pos_out.add(addy_model);
+                }
+                h.setPostalAddresses(h_pos_out);
+
+                List<HolderEmailAddress> email_hib_list = hq.getHolderEmailAddresses(h_hib_out.getId());
+                for (HolderEmailAddress email_hib_out : email_hib_list) {
+                    EmailAddress email_model_out = new EmailAddress();
+
+                    email_model_out.setEmailAddress(email_hib_out.getEmailAddress());
+                    email_model_out.setPrimaryEmail(email_hib_out.getIsPrimary());
+
+                    h_email_out.add(email_model_out);
+                }
+                h.setEmailAddresses(h_email_out);
+
+                List<HolderPhoneNumber> phone_hib_list = hq.getHolderPhoneNumbers(h_hib_out.getId());
+                for (HolderPhoneNumber phone_hib_out : phone_hib_list) {
+                    PhoneNumber phone_model_out = new PhoneNumber();
+
+                    phone_model_out.setId(phone_hib_out.getId());
+                    phone_model_out.setPhoneNumber(phone_hib_out.getPhoneNumber());
+                    phone_model_out.setPrimaryPhoneNumber(phone_hib_out.getIsPrimary());
+                    phone_model_out.setEntityId(phone_hib_out.getHolder().getId());
+
+                    h_phone_out.add(phone_model_out);
+                }
+                h.setPhoneNumbers(h_phone_out);
+
+                List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hq.getAllHolderCompanyAccounts(h_hib_out.getId());
+                for (org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib_out : hca_hib_list) {
+                    HolderCompanyAccount hca_model_out = new HolderCompanyAccount();
+                    ClientCompany cc = cq.getClientCompany(hca_hib_out.getId().getClientCompanyId());
+
+                    hca_model_out.setHolderId(hca_hib_out.getId().getHolderId());
+                    hca_model_out.setClientCompanyId(hca_hib_out.getId().getClientCompanyId());
+                    hca_model_out.setClientCompanyName(cc.getName());
+                    hca_model_out.setShareUnits(hca_hib_out.getShareUnits());
+                    hca_model_out.setEsop(hca_hib_out.getEsop());
+                    hca_model_out.setHolderCompAccPrimary(hca_hib_out.getHolderCompAccPrimary());
+                    hca_model_out.setMerged(hca_hib_out.getMerged());
+                    hca_model_out.setNubanAccount(hca_hib_out.getNubanAccount());
+
+                    if (hca_hib_out.getBank() != null) {
+                        Bank bank_hib = hq.getBankDetails(hca_hib_out.getBank().getId());
+                        org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
+                        bank_model_out.setId(bank_hib.getId());
+                        bank_model_out.setBankName(bank_hib.getBankName());
+                        bank_model_out.setBankCode(bank_hib.getBankCode());
+
+                        hca_model_out.setBank(bank_model_out);
+                    }
+
+                    hca_out.add(hca_model_out);
+                }
+                h.setCompanyAccounts(hca_out);
+
+                List<org.greenpole.hibernate.entity.HolderBondAccount> hba_hib_list = hq.getAllHolderBondAccounts(h_hib_out.getId());
+                for (org.greenpole.hibernate.entity.HolderBondAccount hba_hib_out : hba_hib_list) {
+                    HolderBondAccount hba_model_out = new HolderBondAccount();
+                    BondOffer bo = cq.getBondOffer(hba_hib_out.getId().getBondOfferId());
+
+                    hba_model_out.setHolderId(hba_hib_out.getId().getHolderId());
+                    hba_model_out.setBondOfferId(hba_hib_out.getId().getBondOfferId());
+                    hba_model_out.setBondOfferTitle(bo.getTitle());
+                    hba_model_out.setBondUnits(hba_hib_out.getBondUnits());
+                    hba_model_out.setStartingPrincipalValue(hba_hib_out.getStartingPrincipalValue());
+                    hba_model_out.setRemainingPrincipalValue(hba_hib_out.getRemainingPrincipalValue());
+                    hba_model_out.setMerged(hba_hib_out.getMerged());
+                    hba_model_out.setHolderBondAccPrimary(hba_hib_out.getHolderBondAcctPrimary());
+                    hba_model_out.setNubanAccount(hba_hib_out.getNubanAccount());
+
+                    if (hba_hib_out.getBank() != null) {
+                        Bank bank_hib = hq.getBankDetails(hba_hib_out.getBank().getId());
+                        org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
+                        bank_model_out.setId(bank_hib.getId());
+                        bank_model_out.setBankName(bank_hib.getBankName());
+                        bank_model_out.setBankCode(bank_hib.getBankCode());
+
+                        hba_model_out.setBank(bank_model_out);
+                    }
+
+                    hba_out.add(hba_model_out);
+                }
+                h.setBondAccounts(hba_out);
+
+                h_model_out.add(h);
+            }
+            resp.setRetn(0);
+            resp.setDesc("Successful");
+            resp.setBody(h_model_out);
+            logger.info("All shareholders queried successfully - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error querying all shareholders. See error log - [{}]", login.getUserId());
+            logger.error("error querying all shareholders - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to query all shareholders. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Searches for a specified holder.
+     * @param login the user's login details
+     * @param holderId the holder's id
+     * @return the response to the query holder request
+     */
+    public Response queryHolder_Request(Login login, int holderId) {
+        logger.info("request to query holder, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
+            List<Holder> h_model_out = new ArrayList<>();
+            org.greenpole.hibernate.entity.Holder h_hib_out = hq.getHolder(holderId);
+            
+            List<Address> h_res_out = new ArrayList<>();
+            List<Address> h_pos_out = new ArrayList<>();
+            List<PhoneNumber> h_phone_out = new ArrayList<>();
+            List<EmailAddress> h_email_out = new ArrayList<>();
+            List<HolderCompanyAccount> hca_out = new ArrayList<>();
+            List<HolderBondAccount> hba_out = new ArrayList<>();
+
+            Holder h = new Holder();
+
+            h.setHolderId(h_hib_out.getId());
+            if (h_hib_out.getHolderAcctNumber() != null) {
+                h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
+            }
+            h.setFirstName(h_hib_out.getFirstName());
+            h.setMiddleName(h_hib_out.getMiddleName());
+            h.setLastName(h_hib_out.getLastName());
+            h.setGender(h_hib_out.getGender());
+            h.setDob(formatter.format(h_hib_out.getDob()));
+            h.setChn(h_hib_out.getChn());
+            if (h_hib_out.getHolderAcctNumber() != null) {
+                h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
+            }
+            h.setTaxExempted(h_hib_out.getTaxExempted());
+            h.setPryAddress(h_hib_out.getPryAddress());
+            h.setTypeId(h_hib_out.getHolderType().getId());
+            h.setPryHolder(h_hib_out.getPryHolder());
+
+            //set prymary address separately
+            if ("residential".equalsIgnoreCase(h_hib_out.getPryAddress())) {
+                List<HolderResidentialAddress> res_hib_list = hq.getHolderResidentialAddresses(h_hib_out.getId());
+                for (HolderResidentialAddress res_hib_out : res_hib_list) {
+                    if (res_hib_out.getIsPrimary() != null && res_hib_out.getIsPrimary()) {
+                        Address addy_model = new Address();
+
+                        addy_model.setId(res_hib_out.getId());
+                        addy_model.setAddressLine1(res_hib_out.getAddressLine1());
+                        addy_model.setState(res_hib_out.getState());
+                        addy_model.setCountry(res_hib_out.getCountry());
+                        addy_model.setAddressLine2(res_hib_out.getAddressLine2());
+                        addy_model.setAddressLine3(res_hib_out.getAddressLine3());
+                        addy_model.setAddressLine4(res_hib_out.getAddressLine4());
+                        addy_model.setPostCode(res_hib_out.getPostCode());
+                        addy_model.setCity(res_hib_out.getCity());
+                        addy_model.setPrimaryAddress(res_hib_out.getIsPrimary());
+                        addy_model.setEntityId(res_hib_out.getHolder().getId());
+
+                        h.setAddressPrimary(addy_model);
+
+                        break;
+                    }
+                }
+            } else if ("postal".equalsIgnoreCase(h_hib_out.getPryAddress())) {
+                List<HolderPostalAddress> pos_hib_list = hq.getHolderPostalAddresses(h_hib_out.getId());
+                for (HolderPostalAddress pos_hib_out : pos_hib_list) {
+                    if (pos_hib_out.getIsPrimary() != null && pos_hib_out.getIsPrimary()) {
+                        Address addy_model = new Address();
+
+                        addy_model.setId(pos_hib_out.getId());
+                        addy_model.setAddressLine1(pos_hib_out.getAddressLine1());
+                        addy_model.setState(pos_hib_out.getState());
+                        addy_model.setCountry(pos_hib_out.getCountry());
+                        addy_model.setAddressLine2(pos_hib_out.getAddressLine2());
+                        addy_model.setAddressLine3(pos_hib_out.getAddressLine3());
+                        addy_model.setAddressLine4(pos_hib_out.getAddressLine4());
+                        addy_model.setPostCode(pos_hib_out.getPostCode());
+                        addy_model.setCity(pos_hib_out.getCity());
+                        addy_model.setPrimaryAddress(pos_hib_out.getIsPrimary());
+                        addy_model.setEntityId(pos_hib_out.getHolder().getId());
+
+                        h.setAddressPrimary(addy_model);
+
+                        break;
+                    }
+                }
+            }
+
+            //get all available addresses, email addresses and phone numbers
+            List<HolderResidentialAddress> res_hib_list = hq.getHolderResidentialAddresses(h_hib_out.getId());
+            for (HolderResidentialAddress res_hib_out : res_hib_list) {
+                Address addy_model = new Address();
+
+                addy_model.setId(res_hib_out.getId());
+                addy_model.setAddressLine1(res_hib_out.getAddressLine1());
+                addy_model.setState(res_hib_out.getState());
+                addy_model.setCountry(res_hib_out.getCountry());
+                addy_model.setAddressLine2(res_hib_out.getAddressLine2());
+                addy_model.setAddressLine3(res_hib_out.getAddressLine3());
+                addy_model.setAddressLine4(res_hib_out.getAddressLine4());
+                addy_model.setPostCode(res_hib_out.getPostCode());
+                addy_model.setCity(res_hib_out.getCity());
+                addy_model.setPrimaryAddress(res_hib_out.getIsPrimary());
+                addy_model.setEntityId(res_hib_out.getHolder().getId());
+
+                h_res_out.add(addy_model);
+            }
+            h.setResidentialAddresses(h_res_out);
+
+            List<HolderPostalAddress> pos_hib_list = hq.getHolderPostalAddresses(h_hib_out.getId());
+            for (HolderPostalAddress pos_hib_out : pos_hib_list) {
+                Address addy_model = new Address();
+
+                addy_model.setId(pos_hib_out.getId());
+                addy_model.setAddressLine1(pos_hib_out.getAddressLine1());
+                addy_model.setState(pos_hib_out.getState());
+                addy_model.setCountry(pos_hib_out.getCountry());
+                addy_model.setAddressLine2(pos_hib_out.getAddressLine2());
+                addy_model.setAddressLine3(pos_hib_out.getAddressLine3());
+                addy_model.setAddressLine4(pos_hib_out.getAddressLine4());
+                addy_model.setPostCode(pos_hib_out.getPostCode());
+                addy_model.setCity(pos_hib_out.getCity());
+                addy_model.setPrimaryAddress(pos_hib_out.getIsPrimary());
+                addy_model.setEntityId(pos_hib_out.getHolder().getId());
+
+                h_pos_out.add(addy_model);
+            }
+            h.setPostalAddresses(h_pos_out);
+
+            List<HolderEmailAddress> email_hib_list = hq.getHolderEmailAddresses(h_hib_out.getId());
+            for (HolderEmailAddress email_hib_out : email_hib_list) {
+                EmailAddress email_model_out = new EmailAddress();
+
+                email_model_out.setEmailAddress(email_hib_out.getEmailAddress());
+                email_model_out.setPrimaryEmail(email_hib_out.getIsPrimary());
+
+                h_email_out.add(email_model_out);
+            }
+            h.setEmailAddresses(h_email_out);
+
+            List<HolderPhoneNumber> phone_hib_list = hq.getHolderPhoneNumbers(h_hib_out.getId());
+            for (HolderPhoneNumber phone_hib_out : phone_hib_list) {
+                PhoneNumber phone_model_out = new PhoneNumber();
+
+                phone_model_out.setId(phone_hib_out.getId());
+                phone_model_out.setPhoneNumber(phone_hib_out.getPhoneNumber());
+                phone_model_out.setPrimaryPhoneNumber(phone_hib_out.getIsPrimary());
+                phone_model_out.setEntityId(phone_hib_out.getHolder().getId());
+
+                h_phone_out.add(phone_model_out);
+            }
+            h.setPhoneNumbers(h_phone_out);
+
+            List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hq.getAllHolderCompanyAccounts(h_hib_out.getId());
+            for (org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib_out : hca_hib_list) {
+                HolderCompanyAccount hca_model_out = new HolderCompanyAccount();
+                ClientCompany cc = cq.getClientCompany(hca_hib_out.getId().getClientCompanyId());
+
+                hca_model_out.setHolderId(hca_hib_out.getId().getHolderId());
+                hca_model_out.setClientCompanyId(hca_hib_out.getId().getClientCompanyId());
+                hca_model_out.setClientCompanyName(cc.getName());
+                hca_model_out.setShareUnits(hca_hib_out.getShareUnits());
+                hca_model_out.setEsop(hca_hib_out.getEsop());
+                hca_model_out.setHolderCompAccPrimary(hca_hib_out.getHolderCompAccPrimary());
+                hca_model_out.setMerged(hca_hib_out.getMerged());
+                hca_model_out.setNubanAccount(hca_hib_out.getNubanAccount());
+
+                if (hca_hib_out.getBank() != null) {
+                    Bank bank_hib = hq.getBankDetails(hca_hib_out.getBank().getId());
+                    org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
+                    bank_model_out.setId(bank_hib.getId());
+                    bank_model_out.setBankName(bank_hib.getBankName());
+                    bank_model_out.setBankCode(bank_hib.getBankCode());
+
+                    hca_model_out.setBank(bank_model_out);
+                }
+
+                hca_out.add(hca_model_out);
+            }
+            h.setCompanyAccounts(hca_out);
+
+            List<org.greenpole.hibernate.entity.HolderBondAccount> hba_hib_list = hq.getAllHolderBondAccounts(h_hib_out.getId());
+            for (org.greenpole.hibernate.entity.HolderBondAccount hba_hib_out : hba_hib_list) {
+                HolderBondAccount hba_model_out = new HolderBondAccount();
+                BondOffer bo = cq.getBondOffer(hba_hib_out.getId().getBondOfferId());
+
+                hba_model_out.setHolderId(hba_hib_out.getId().getHolderId());
+                hba_model_out.setBondOfferId(hba_hib_out.getId().getBondOfferId());
+                hba_model_out.setBondOfferTitle(bo.getTitle());
+                hba_model_out.setBondUnits(hba_hib_out.getBondUnits());
+                hba_model_out.setStartingPrincipalValue(hba_hib_out.getStartingPrincipalValue());
+                hba_model_out.setRemainingPrincipalValue(hba_hib_out.getRemainingPrincipalValue());
+                hba_model_out.setMerged(hba_hib_out.getMerged());
+                hba_model_out.setHolderBondAccPrimary(hba_hib_out.getHolderBondAcctPrimary());
+                hba_model_out.setNubanAccount(hba_hib_out.getNubanAccount());
+
+                if (hba_hib_out.getBank() != null) {
+                    Bank bank_hib = hq.getBankDetails(hba_hib_out.getBank().getId());
+                    org.greenpole.entity.model.clientcompany.Bank bank_model_out = new org.greenpole.entity.model.clientcompany.Bank();
+                    bank_model_out.setId(bank_hib.getId());
+                    bank_model_out.setBankName(bank_hib.getBankName());
+                    bank_model_out.setBankCode(bank_hib.getBankCode());
+
+                    hba_model_out.setBank(bank_model_out);
+                }
+
+                hba_out.add(hba_model_out);
+            }
+            h.setBondAccounts(hba_out);
+            
+            h_model_out.add(h);
+            
+            logger.info("shareholder query successful - [{}]", login.getUserId());
+            resp.setRetn(0);
+            resp.setDesc("Successful");
+            resp.setBody(h_model_out);
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error querying holder. See error log - [{}]", login.getUserId());
+            logger.error("error querying holder - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to query holder. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
 
     /**
      * Unwraps the holder model to create the administrator hibernate entity model.
@@ -5006,6 +5470,7 @@ public class HolderComponentLogic {
         
         companyAccountEntity.setId(compAcctId);
         companyAccountEntity.setEsop(compAcct.isEsop());
+        companyAccountEntity.setShareUnits(0);
         companyAccountEntity.setHolderCompAccPrimary(true);
         companyAccountEntity.setMerged(false);
         
@@ -5026,6 +5491,7 @@ public class HolderComponentLogic {
         bondAcctId.setBondOfferId(bondAcct.getBondOfferId());
         
         bondAccountEntity.setId(bondAcctId);
+        bondAccountEntity.setBondUnits(0);
         bondAccountEntity.setStartingPrincipalValue(bondAcct.getStartingPrincipalValue());
         bondAccountEntity.setRemainingPrincipalValue(0.00);
         bondAccountEntity.setHolderBondAcctPrimary(true);

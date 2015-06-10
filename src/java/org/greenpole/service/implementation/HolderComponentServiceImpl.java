@@ -228,5 +228,15 @@ public class HolderComponentServiceImpl implements HolderComponentService {
         return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
                 request.applyForBondOffer_Authorise(login, notificationCode);
     }
+
+    @Override
+    public Response queryAllHolders_Request(Login login, boolean isShareholder) {
+        return request.queryAllHolders_Request(login, isShareholder);
+    }
+
+    @Override
+    public Response queryHolder_Single_Request(Login login, int holderId) {
+        return request.queryHolder_Request(login, holderId);
+    }
     
 }
