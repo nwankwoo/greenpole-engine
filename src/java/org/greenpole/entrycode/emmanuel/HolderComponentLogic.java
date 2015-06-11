@@ -320,6 +320,7 @@ public class HolderComponentLogic {
             int sumAppliedShares = 0, remShares;
             //if (cq.checkClientCompany(rightsIssueApp.getClientCompanyId())) {
             org.greenpole.hibernate.entity.Holder holder = hd.getHolder(rightsIssueApp.getHolder().getHolderId());
+            RightsIssueApplication confirmRight = new RightsIssueApplication();
             if (hd.checkRightsIssue(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId())) {
                 org.greenpole.hibernate.entity.RightsIssue ri = hd.getRightsIssueById(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId());
                 if (!ri.getRightsClosed()) {
@@ -334,18 +335,18 @@ public class HolderComponentLogic {
                             if (rightsIssueApp.getSharesSubscribed() > ra.getAllottedRights()) {
 
                                 additionalShares = rightsIssueApp.getSharesSubscribed() - ra.getAllottedRights();
-                                rightApp_hib.setAdditionalSharesSubscribed(additionalShares);
-                                rightApp_hib.setAmountPaid(rightsIssueApp.getAmountPaid());
-                                rightApp_hib.setIssuer(rightsIssueApp.getIssuer());
-                                rightApp_hib.setAdditionalSharesSubValue((rightsIssueApp.getSharesSubscribed() - ra.getAllottedRights()) * ri.getIssuePrice());
+                                confirmRight.setAdditionalSharesSubscribed(additionalShares);
+                                confirmRight.setAmountPaid(rightsIssueApp.getAmountPaid());
+                                confirmRight.setIssuer(rightsIssueApp.getIssuer());
+                                confirmRight.setAdditionalSharesSubValue((rightsIssueApp.getSharesSubscribed() - ra.getAllottedRights()) * ri.getIssuePrice());
                                 rightList.add(rightsIssueApp);
                                 resp.setBody(rightList);
                                 return resp;
                             } else {
-                                rightApp_hib.setAdditionalSharesSubscribed(0);
-                                rightApp_hib.setAdditionalSharesSubValue(0.0);
-                                rightApp_hib.setAmountPaid(rightsIssueApp.getAmountPaid());
-                                rightApp_hib.setIssuer(rightsIssueApp.getIssuer());
+                                confirmRight.setAdditionalSharesSubscribed(0);
+                                confirmRight.setAdditionalSharesSubValue(0.0);
+                                confirmRight.setAmountPaid(rightsIssueApp.getAmountPaid());
+                                confirmRight.setIssuer(rightsIssueApp.getIssuer());
                                 rightList.add(rightsIssueApp);
                                 resp.setBody(rightList);
                                 return resp;
