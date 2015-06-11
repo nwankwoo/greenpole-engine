@@ -9,23 +9,17 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
-import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.InitialPublicOffer;
 import org.greenpole.entity.model.clientcompany.PrivatePlacement;
-import org.greenpole.entity.model.holder.Administrator;
 import org.greenpole.entity.model.holder.Holder;
 import org.greenpole.entity.model.holder.HolderBondAccount;
 import org.greenpole.entity.model.holder.HolderCompanyAccount;
@@ -35,7 +29,7 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
-import org.greenpole.entrycode.emmanuel.model.ClientCompany;
+import org.greenpole.entity.model.clientcompany.ClientCompany;
 import org.greenpole.entrycode.emmanuel.model.ClientCompanyMerger;
 import org.greenpole.entrycode.emmanuel.model.IpoApplication;
 import org.greenpole.entrycode.emmanuel.model.PrivatePlacementApplication;
@@ -43,8 +37,6 @@ import org.greenpole.entrycode.emmanuel.model.QueryIPORightsIssuePrivatePlacemen
 import org.greenpole.entrycode.emmanuel.model.QueryShareholders;
 import org.greenpole.entrycode.emmanuel.model.RightsIssue;
 import org.greenpole.entrycode.emmanuel.model.RightsIssueApplication;
-import org.greenpole.hibernate.entity.AdministratorPostalAddress;
-import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
@@ -647,12 +639,11 @@ public class ClientCompanyLogic {
         logger.info("request to invalidate client company, invoked by: [{}] ", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
-        NotifierProperties prop;
         NotificationProperties noteProps = new NotificationProperties(ClientCompanyLogic.class);
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProps.getNotificationLocation(), notificationCode);
-            List<ClientCompany> cc_List = (List<ClientCompany>) wrapper.getModel();
-            ClientCompany cc_model = cc_List.get(0);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<ClientCompany> cc_list = (List<ClientCompany>) wrapper.getModel();
+            ClientCompany cc_model = cc_list.get(0);
             if (cq.checkClientCompany(cc_model.getName())) {
                 logger.info("client company [{}] checks out - [{}]", cc_model.getName(), login.getUserId());
                 if (!cq.checkClientCompanyForShareholders(cc_model.getName())) {
