@@ -35,7 +35,7 @@ import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
-import org.greenpole.entrycode.emmanuel.model.ClientCompany;
+import org.greenpole.entity.model.clientcompany.ClientCompany;
 import org.greenpole.entrycode.emmanuel.model.ClientCompanyMerger;
 import org.greenpole.entrycode.emmanuel.model.IpoApplication;
 import org.greenpole.entrycode.emmanuel.model.PrivatePlacementApplication;
