@@ -793,8 +793,17 @@ public class ClientCompanyComponentLogic {
                     
                     ClientCompany c = new ClientCompany();
 
-                    c.setDepositoryId(cc_hib_out.getDepository().getId());
-                    c.setNseSectorId(cc_hib_out.getNseSector().getId());
+                    if (cc_hib_out.getDepository() != null) {
+                        Depository d = cq.getDepository(cc_hib_out.getDepository().getId());
+                        c.setDepositoryId(d.getId());
+                        c.setDepositoryName(d.getName());
+                    }
+                    
+                    if (cc_hib_out.getNseSector() != null) {
+                        NseSector n = cq.getNseSector(cc_hib_out.getNseSector().getId());
+                        c.setNseSectorId(n.getId());
+                        c.setNseSectorName(n.getName());
+                    }
                     
                     c.setId(cc_hib_out.getId());
                     c.setName(cc_hib_out.getName());
@@ -1585,10 +1594,17 @@ public class ClientCompanyComponentLogic {
      * @return Response to the create private placement request
      */
     public Response queryClientCompany_Request(Login login, int clientCompanyId) {
-        logger.info("request to query specific client company of id [{}], invoked by [{}]", clientCompanyId, login.getUserId());
+        logger.info("request to query specific client company [{}], invoked by [{}]", clientCompanyId, login.getUserId());
         Response resp = new Response();
         
         try {
+            if (!cq.checkClientCompany(clientCompanyId)) {
+                resp.setRetn(213);
+                resp.setDesc("Client company is not valid or does not exist");
+                logger.info("Client company is not valid or does not exist - [{}]", login.getUserId());
+                return resp;
+            }
+            
             List<ClientCompany> cc_list = new ArrayList<>();
             
             org.greenpole.hibernate.entity.ClientCompany cc_hib = cq.getClientCompany(clientCompanyId);
@@ -1668,10 +1684,82 @@ public class ClientCompanyComponentLogic {
             return resp;
         } catch (Exception ex) {            
             resp.setRetn(99);
-            resp.setDesc("General error. Unable to create private placement. Contact system administrator."
+            resp.setDesc("General error. Unable to query client company. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
-            logger.info("Error creating private placement. See error log - [{}]", login.getUserId());
-            logger.error("Error creating private placement - [" + login.getUserId() + "]", ex);
+            logger.info("Error querying client company. See error log - [{}]", login.getUserId());
+            logger.error("Error querying client company - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+    
+    /**
+     * Searches for a specified bond offer.
+     * @param login the user's login details
+     * @param bondOfferId bond offer id
+     * @return the response to the query bond offer request
+     */
+    public Response queryBondOffer_Request(Login login, int bondOfferId) {
+        logger.info("request to query specific bond offer, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
+            if (!cq.checkBondOffer(bondOfferId)) {
+                resp.setRetn(214);
+                resp.setDesc("Bond offer does not exist");
+                logger.info("Bond offer does not exist - [{}]", login.getUserId());
+                return resp;
+            }
+            
+            List<BondOffer> bo_list = new ArrayList<>();
+            org.greenpole.hibernate.entity.BondOffer bo_hib = cq.getBondOffer(bondOfferId);
+            
+            BondOffer bo = new BondOffer();
+            
+            bo.setId(bo_hib.getId());
+            bo.setTitle(bo_hib.getTitle());
+            
+            if (bo_hib.getBondUnitPrice() != null)
+                bo.setUnitPrice(bo_hib.getBondUnitPrice());
+            
+            if (bo_hib.getBondMaturity() != null)
+                bo.setBondMaturity(formatter.format(bo_hib.getBondMaturity()));
+            
+            if (bo_hib.getBondType() != null) {
+                BondType type = cq.getBondType(bo_hib.getBondType().getId());
+                bo.setBondType(type.getType());
+                bo.setBondTypeId(type.getId());
+            }
+            
+            if (bo_hib.getClientCompany() != null) {
+                org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(bo_hib.getClientCompany().getId());
+                bo.setClientCompanyId(cc.getId());
+                bo.setClientCompanyName(cc.getName());
+            }
+            
+            if (bo_hib.getInterestRate() != null)
+                bo.setInterestRate(bo_hib.getInterestRate());
+            
+            if (bo_hib.getBondOfferPaymentPlan() != null) {
+                BondOfferPaymentPlan plan = cq.getBondOfferPaymentPlan(bo_hib.getBondOfferPaymentPlan().getId());
+                bo.setPaymentPlan(plan.getPaymentPlan());
+                bo.setPaymentPlanId(plan.getId());
+            }
+            
+            bo_list.add(bo);
+            
+            resp.setRetn(0);
+            resp.setDesc("Successful");
+            resp.setBody(bo_list);
+            logger.info("Bond offer queried successfully - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to query bond offer. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            logger.info("Error querying bond offer. See error log - [{}]", login.getUserId());
+            logger.error("Error querying bond offer - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -1739,6 +1827,9 @@ public class ClientCompanyComponentLogic {
             for (ShareQuotation sq : quotationList) {
                 org.greenpole.hibernate.entity.ShareQuotation shareQuotation = new org.greenpole.hibernate.entity.ShareQuotation();
                 String code = sq.getClientCompany().getCode();
+                if (cq.companyHasShareQuotation(code)) {
+                    shareQuotation = cq.getShareQuotation(code);
+                }
                 org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(code);
                 shareQuotation.setClientCompany(cc);
                 shareQuotation.setUnitPrice(sq.getUnitPrice());

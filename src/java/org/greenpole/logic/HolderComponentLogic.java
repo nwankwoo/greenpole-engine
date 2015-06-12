@@ -4835,6 +4835,13 @@ public class HolderComponentLogic {
         Response resp = new Response();
         
         try {
+            if (!hq.checkHolderAccount(holderId)) {
+                resp.setRetn(334);
+                resp.setDesc("The holder is not a valid holder or does not exist.");
+                logger.info("The holder is not a valid holder or does not exist - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             
             List<Holder> h_model_out = new ArrayList<>();
@@ -5040,7 +5047,7 @@ public class HolderComponentLogic {
             
             h_model_out.add(h);
             
-            logger.info("shareholder query successful - [{}]", login.getUserId());
+            logger.info("holder query successful - [{}]", login.getUserId());
             resp.setRetn(0);
             resp.setDesc("Successful");
             resp.setBody(h_model_out);
