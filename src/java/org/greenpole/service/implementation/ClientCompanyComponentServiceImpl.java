@@ -120,5 +120,10 @@ public class ClientCompanyComponentServiceImpl implements ClientCompanyComponent
     public Response queryClientCompany_Single_Request(Login login, int clientCompanyId) {
         return request.queryClientCompany_Request(login, clientCompanyId);
     }
+
+    @Override
+    public Response queryBondOffer_Request(Login login, int bondOfferId) {
+        return request.queryBondOffer_Request(login, bondOfferId);
+    }
     
 }
