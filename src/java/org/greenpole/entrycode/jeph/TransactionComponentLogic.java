@@ -90,8 +90,8 @@ public class TransactionComponentLogic {
                             return resp;
                         }
                         resp.setRetn(200);
-                        resp.setDesc("Suspended transaction is not selected for reconciliation");
-                        logger.info("Suspended transaction is not selected for reconciliation - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                        resp.setDesc("Suspended transaction does not have CHN");
+                        logger.info("Suspended transaction does not have CHN - [{}]: [{}]", login.getUserId(), resp.getRetn());
                         return resp;
                     }
                     wrapper = new NotificationWrapper();
@@ -190,7 +190,15 @@ public class TransactionComponentLogic {
                     suspendedTransaction.setReconciled(true);
                     suspendedTransEntity.setReconciled(suspendedTransaction.isReconciled());
 
-                    // boolean = persist processTransEntity, suspendedTransEntity
+                    boolean status = false;
+                    // status = hq.createUpdateTransactions(processTransEntity, suspendedTransEntity);
+                    if (!status) {
+                        resp.setRetn(0);
+                        resp.setDesc("Authorise reconciliation of suspended transaction failed");
+                        logger.info("Authorise reconciliation of suspended transaction failed - [{}]", login.getUserId());
+                        // send SMS and/or Email notification
+                        return resp;
+                    }
                     resp.setRetn(0);
                     resp.setDesc("Authorise reconciliation of suspended transaction successful");
                     logger.info("Authorise reconciliation of suspended transaction successful - [{}]", login.getUserId());
@@ -227,101 +235,16 @@ public class TransactionComponentLogic {
      *
      * @param login
      * @param authenticator
-     * @param transQueryReport
+     * @param processedTrans
      * @return
      */
-    public Response viewTransactionReport_Request(Login login, String authenticator, TransactionQueryReport transQueryReport) {
+    public Response viewTransactionReport_Request(Login login, String authenticator, ProcessedTransaction processedTrans) {
         logger.info("Request to view transaction report, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        Descriptor descriptorUtil = new Descriptor();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
 
-        //descriptor must be comapany:none / comapany:name / comapany:code
-        //descriptor must be shareholder:none / shareholder:from / shareholder:to
-        //descriptor must be bondholder:none / bondholder:from / bondholder:to
-        //descriptor must be sharessold:none / sharessold:approximate / sharessold:range / sharessold:exact
-        //descriptor must be sharesbought:none / sharesbought:approximate / sharesbought:range / sharesbought:exact
-        //descriptor must be bondsold:none / bondsold:approximate / bondsold:range / bondsold:exact
-        //descriptor must be bondbought:none / bondbought:approximate / bondbought:range / bondbought:exact
-        //descriptor must be date:none / date:between / date:before / date:after
         try {
-            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(transQueryReport.getDescriptor());
-
-            if (descriptors.size() == 8) {
-                // String descriptor = transQueryReport.getDescriptor();
-                if (descriptors.get("company").equalsIgnoreCase("none")) {
-                }
-                if (descriptors.get("company").equalsIgnoreCase("name")) {
-                }
-                if (descriptors.get("company").equalsIgnoreCase("code")) {
-                }
-
-                if (descriptors.get("shareholder").equalsIgnoreCase("none")) {
-                }
-                if (descriptors.get("shareholder").equalsIgnoreCase("from")) {
-                }
-                if (descriptors.get("shareholder").equalsIgnoreCase("to")) {
-                }
-
-                if (descriptors.get("bondholder").equalsIgnoreCase("none")) {
-                }
-                if (descriptors.get("bondholder").equalsIgnoreCase("from")) {
-                }
-                if (descriptors.get("bondholder").equalsIgnoreCase("to")) {
-                }
-
-                if (descriptors.get("sharessold").equalsIgnoreCase("approximate")) {
-                }
-                if (descriptors.get("sharessold").equalsIgnoreCase("range")) {
-                }
-                if (descriptors.get("sharessold").equalsIgnoreCase("exact")) {
-                }
-
-                if (descriptors.get("sharesbought").equalsIgnoreCase("approximate")) {
-                }
-                if (descriptors.get("sharesbought").equalsIgnoreCase("range")) {
-                }
-                if (descriptors.get("sharesbought").equalsIgnoreCase("exact")) {
-                }
-
-                if (descriptors.get("bondsold").equalsIgnoreCase("approximate")) {
-                }
-                if (descriptors.get("bondsold").equalsIgnoreCase("range")) {
-                }
-                if (descriptors.get("bondsold").equalsIgnoreCase("exact")) {
-                }
-
-                if (descriptors.get("bondbought").equalsIgnoreCase("approximate")) {
-                }
-                if (descriptors.get("bondbought").equalsIgnoreCase("range")) {
-                }
-                if (descriptors.get("bondbought").equalsIgnoreCase("exact")) {
-                }
-
-                //check start date is properly formatted
-                if (descriptors.get("date").equalsIgnoreCase("none")) {
-                    try {
-                        formatter.parse(transQueryReport.getStartDate());
-                    } catch (ParseException ex) {
-                        resp.setRetn(300);
-                        resp.setDesc("Incorrect date format for start date");
-                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
-                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
-                    }
-                }
-                //check end date is properly formatted
-                if (descriptors.get("date").equalsIgnoreCase("between")) {
-                    try {
-                        formatter.parse(transQueryReport.getEndDate());
-                    } catch (ParseException ex) {
-                        resp.setRetn(300);
-                        resp.setDesc("Incorrect date format for end date");
-                        logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
-                        logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
-
-                        return resp;
-                    }
-                }
+            if (processedTrans.getCscsTransactionId() > 0 || processedTrans.getTransactionTypeId() > 0) {                
+                // List<org.greenpole.hibernate.entity.ProcessedTransaction> processTransList = hq.getProcessedTranactions(processedTrans.getCscsTransactionId()); // to be replaced by appropriate query
                 List<org.greenpole.hibernate.entity.ProcessedTransaction> processTransList = new ArrayList<>(); // to be replaced by appropriate query
                 List<ProcessedTransaction> processedTransModelList = new ArrayList<>();
                 TagUser tag = new TagUser();
@@ -329,7 +252,6 @@ public class TransactionComponentLogic {
                     ProcessedTransaction processedTransModel = new ProcessedTransaction();
                     processedTransModel.setCscsTransactionId(pt.getCscsTransactionId());
                     processedTransModel.setCompanyName(pt.getCompanyName());
-                    processedTransModel.setClientCompanyId(pt.getClientCompany().getId());
                     processedTransModel.setTransactionTypeId(pt.getTransactionType().getId());
                     // processedTransModel.setClientCompany(pt.getClientCompany());
 
@@ -351,26 +273,25 @@ public class TransactionComponentLogic {
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
-                tag.setQueryParam(transQueryReport);
+                tag.setQueryParam(processedTrans);
                 tag.setResult(processedTransModelList);
                 tagList.add(tag);
 
                 resp.setBody(tagList);
-                resp.setDesc("Transaction Report with search parameter");
+                resp.setDesc("Transaction Report");
                 resp.setRetn(0);
                 logger.info("Query successful - [{}]", login.getUserId());
                 return resp;
-
             }
             resp.setRetn(330);
-            resp.setDesc("descriptor length does not match expected required length");
-            logger.info("descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setDesc("Error: Transaction type ID or CSCS transaction ID not specified");
+            logger.info("Error: Transaction type ID or CSCS transaction ID not specified - [{}]", login.getUserId());
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
-            resp.setDesc("General error. Unable to query holder changes. Contact system administrator.");
-            logger.info("error querying holder changes. See error log - [{}]", login.getUserId());
-            logger.error("error querying holder changes - [" + login.getUserId() + "]", ex);
+            resp.setDesc("General error. Unable to generate transaction report. Contact system administrator.");
+            logger.info("Error generating transaction report. See error log - [{}]", login.getUserId());
+            logger.error("Error generating transaction report - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }

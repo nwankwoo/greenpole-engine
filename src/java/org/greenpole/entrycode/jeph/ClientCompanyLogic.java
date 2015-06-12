@@ -5,10 +5,9 @@
  */
 package org.greenpole.entrycode.jeph;
 
-import org.greenpole.entirycode.jeph.model.BondOfferReport;
 import org.greenpole.entirycode.jeph.model.Dividend;
 import org.greenpole.entirycode.jeph.model.Reconstruction;
-import org.greenpole.entirycode.jeph.model.HolderBondAccount;
+import org.greenpole.entity.model.holder.HolderBondAccount;
 import org.greenpole.entirycode.jeph.model.ConfirmationDetails;
 import org.greenpole.entirycode.jeph.model.ShareBonus;
 import org.greenpole.entirycode.jeph.model.DividendDeclared;
@@ -19,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import javax.xml.bind.JAXBException;
+import org.greenpole.entirycode.jeph.model.BondOfferReport;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
@@ -32,7 +32,6 @@ import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.hibernate.entity.HolderEmailAddress;
-;
 import org.greenpole.hibernate.entity.HolderPhoneNumber;
 import org.greenpole.hibernate.entity.HolderPostalAddress;
 import org.greenpole.hibernate.entity.HolderResidentialAddress;
@@ -51,8 +50,6 @@ import org.slf4j.LoggerFactory;
  *
  * @author Jephthah Sadare
  */
-
-
 public class ClientCompanyLogic {
 
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
@@ -951,6 +948,7 @@ public class ClientCompanyLogic {
 
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
                 return res;
             }
             List<DividendDeclared> dividendDeclaredList = new ArrayList<>();
@@ -980,6 +978,12 @@ public class ClientCompanyLogic {
         }
     }
 
+    /**
+     *
+     * @param login
+     * @param notificationCode
+     * @return
+     */
     public Response declaredDividend_Authorise(Login login, String notificationCode) {
         logger.info("Authorise declare dividend process, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
@@ -992,23 +996,27 @@ public class ClientCompanyLogic {
 
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
                 return res;
             }
             boolean status = false;
+            int returnStatus = 0;
             // status = cq.createClientCompanyDividend(dividendDeclared);
-            if (!status) {// error creating dividend
-                resp.setRetn(200);
-                resp.setDesc("Unable to process dividend creation request.");
-                logger.info("Unable to process dividend creation request - [{}]", login.getUserId());
-                return resp;
+            if (status) {// create dividend
+                returnStatus = createDividend(login, dividendDeclared).getRetn();
+                if (returnStatus == 0) {
+                    resp.setRetn(0);
+                    resp.setDesc("Declare dividend authorisation process successful");
+                    logger.info("Declare dividend authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                    wrapper.setAttendedTo(true);
+                    notification.markAttended(notificationCode);
+                    // send SMS and/or Email notification
+                    return resp;
+                }
             }
-            // create dividend
-            resp.setRetn(0);
-            resp.setDesc("Declare dividend authorisation process successful");
-            logger.info("Declare dividend authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
-            wrapper.setAttendedTo(true);
-            notification.markAttended(notificationCode);
-            // send SMS and/or Email notification
+            resp.setRetn(200);
+            resp.setDesc("Unable to process dividend creation request.");
+            logger.info("Unable to process dividend creation request - [{}]", login.getUserId());
             return resp;
         } catch (JAXBException ex) {
             resp.setRetn(98);
@@ -1042,6 +1050,117 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         return resp;
+    }
+
+    /**
+     *
+     * @param login
+     * @param authenticator
+     * @param dividend
+     * @return
+     */
+    public Response cancelDividend_Request(Login login, String authenticator, Dividend dividend) {
+        logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
+
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties props;
+
+            Response res = checkDividendStatus(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                return res;
+            }
+            // set cancelled to true - authorise
+            // set cancelledDate to present date - authorise
+            List<Dividend> dividendList = new ArrayList<>();
+            dividendList.add(dividend);
+
+            wrapper = new NotificationWrapper();
+            props = new NotifierProperties(ClientCompanyLogic.class);
+            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate cancel dividend process for " + dividend.getClientCompanyId());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(dividendList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process client company dividend declaration. Contact system administrator.");
+            logger.info("Error processing client company creation. See error log - [{}]", login.getUserId());
+            logger.error("Error processing client company creation - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+
+    }
+
+    /**
+     * 
+     * @param login
+     * @param notificationCode
+     * @return 
+     */
+    public Response cancelDividend_Authorise(Login login, String notificationCode) {
+        logger.info("Authorise cancel dividend process, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
+            Dividend dividend = dividendList.get(0);
+
+            Response res = checkDividendStatus(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                return res;
+            }
+            dividend.setCancelled(true);
+            dividend.setCanelledDate(date.toString());
+            // org.greenpole.hibernate.entity.Dividend dividendEntity = hq.getShareHolderDividend(dividend.getHolderCompanyAccountId());
+            org.greenpole.hibernate.entity.Dividend dividendEntity = new org.greenpole.hibernate.entity.Dividend();
+            dividendEntity.setCancelled(dividend.isCancelled());
+            dividendEntity.setCanelledDate(formatter.parse(dividend.getCanelledDate()));
+
+            boolean status = false;
+            // status = hq.updateShareholderDividend(dividendEntity);
+            if (status) {
+                resp.setRetn(0);
+                resp.setDesc("Cancel dividend authorisation process successful");
+                logger.info("Cancel dividend authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                wrapper.setAttendedTo(true);
+                notification.markAttended(notificationCode);
+                // send SMS and/or Email notification
+                return resp;
+            }
+            resp.setRetn(200);
+            resp.setDesc("Unable to process dividend cancellation authorisation.");
+            logger.info("Unable to process dividend cancellation authorisation - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("Unable to process 'cancel dividend' authorisation request. Contact System Administrator");
+            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process 'cancel dividend' authorisation request. Contact system administrator.");
+            logger.info("Error processing 'cancel dividend' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error processing 'cancel dividend' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
     /**
@@ -1176,7 +1295,8 @@ public class ClientCompanyLogic {
     private Response createDividend(Login login, DividendDeclared dividendDeclared) {
         Response resp = new Response();
         List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
-        // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders();
+        // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders(dividendDeclared.getClientCompanyId());
+        List<org.greenpole.hibernate.entity.Dividend> dividendList = new ArrayList<>();
         try {
             for (org.greenpole.hibernate.entity.Holder holder : holderList) {
                 org.greenpole.hibernate.entity.Dividend dividend = new org.greenpole.hibernate.entity.Dividend();
@@ -1194,16 +1314,12 @@ public class ClientCompanyLogic {
                 if (!holder.getTaxExempted()) {
                     if (holder.getHolderType().getId() == 1) {
                         dividend.setWithldingTaxRate(dividendDeclared.getWithholdingTaxRateInd());
-                        // Gross amount [rate * company account holdings]
                         dividend.setGrossAmount(dividendDeclared.getRate() * dividend.getCompAccHoldings());
-                        // Tax [gross amount * withholding tax rate]
                         dividend.setTax(dividend.getGrossAmount() * dividend.getWithldingTaxRate());
                         dividend.setPayableAmount(dividend.getGrossAmount() - dividend.getTax());
                     } else if (holder.getHolderType().getId() == 2) {
                         dividend.setWithldingTaxRate(dividendDeclared.getWithholdingTaxRateCorp());
-                        // Gross amount [rate * company account holdings]
                         dividend.setGrossAmount(dividendDeclared.getRate() * dividend.getCompAccHoldings());
-                        // Tax [gross amount * withholding tax rate]
                         dividend.setTax(dividend.getGrossAmount() * dividend.getWithldingTaxRate());
                         dividend.setPayableAmount(dividend.getGrossAmount() - dividend.getTax());
                     }
@@ -1217,11 +1333,25 @@ public class ClientCompanyLogic {
                     }
                 }
                 dividend.setPayableDate(formatter.parse(dividendDeclared.getDatePayable()));
-
+                dividendList.add(dividend);
             }
-
+            boolean status = false;
+            // status hq.createShareholderDividend(dividendList);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Dividends for shareholders NOT successful");
+                logger.info("Dividends for shareholders NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Dividends for shareholders successful");
+            logger.info("Dividends for shareholders successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
             return resp;
         } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend creation for shareholders. Contact system administrator.");
+            logger.info("Error processing dividend creation for shareholders. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend creation for shareholders - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -1449,7 +1579,6 @@ public class ClientCompanyLogic {
                                         if (dividendDeclared.getIssueType() != null && !"".equals(dividendDeclared.getIssueType())) {// check if issue type is set
                                             if (dividendDeclared.getYearType() != null && !"".equals(dividendDeclared.getYearType())) {// check if year type (interim/final) is set
                                                 resp.setRetn(0);
-                                                // send SMS and/or Email notification
                                                 return resp;
                                             }// year type (interim/final) is not specified
                                             resp.setRetn(200);
@@ -1503,6 +1632,36 @@ public class ClientCompanyLogic {
             logger.error("Error processing client company creation - [" + login.getUserId() + "]", ex);
             return resp;
         }
+    }
+
+    /**
+     * 
+     * @param login
+     * @param dividend
+     * @return 
+     */
+    private Response checkDividendStatus(Login login, Dividend dividend) {
+        Response resp = new Response();
+        if (dividend.getPaid()) {// check if dividend has been NOT paid
+            if (dividend.isCancelled()) {// check if it has not been cancelled already
+                if (dividend.getClientCompanyId() <= 0) {// check if client company id is present
+                    resp.setRetn(0);
+                    return resp;
+                }// client company id needed for search should be specified
+                resp.setRetn(200);
+                resp.setDesc("Client company id needed for search should be specified");
+                logger.info("Client company id needed for search should be specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// dividend has being previously cancelled
+            resp.setRetn(200);
+            resp.setDesc("Dividend has previously being cancelled");
+            logger.info("Dividend has previously being cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        }// dividend has been paid for and so cannot be cancelled
+        resp.setRetn(200);
+        resp.setDesc("Dividend has been paid for and so cannot be cancelled");
+        logger.info("Dividend has been paid for and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+        return resp;
     }
 
 }
