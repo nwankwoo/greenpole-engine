@@ -631,7 +631,7 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
     }
 
     @Override
-    public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, int warrantNumber) {
+    public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, long warrantNumber) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
