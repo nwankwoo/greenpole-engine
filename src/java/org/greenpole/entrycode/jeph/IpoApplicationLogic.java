@@ -59,23 +59,18 @@ public class IpoApplicationLogic {
     // SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ipoApply
-     * @return
+     * Processes request to validate IPO application before creation
+     * @param login the user's login details
+     * @param ipoApply the IPO application object to be validated
+     * @return response object to IPO application validation request
      */
-    public Response ipoApplication_Request(Login login, String authenticator, IpoApplication ipoApply) {
+    public Response ipoApplication_Request(Login login, IpoApplication ipoApply) {
         logger.info("Request to create Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
         Response resp = new Response();
         SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper;
-            QueueSender queue;
-            NotifierProperties props;
-
             List<IpoApplication> iAppList = new ArrayList<>();
 
             int remainingSharesNotBought = 0;
@@ -183,11 +178,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ipoApply
-     * @return
+     * Processes request to create IPO application on confirmation
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the notification
+     * @param ipoApply the IPO application object to be created
+     * @return response object to for creation of IPO application
      */
     public Response ipoApplicationConfirmation_Request(Login login, String authenticator, IpoApplication ipoApply) {
         logger.info("Request to confirm Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
@@ -302,10 +297,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to create IPO application that has already been saved
+     * as a notification file, according to the specified notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the IPO application creation request
      */
     public Response ipoApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorise Initial Public Offer application, invoked by [{}]", login.getUserId());
@@ -449,11 +445,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ipoApply
-     * @return
+     * Processes request to cancel a shareholder's IPO application 
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param ipoApply the object of IPO application to be canceled
+     * @return response object to the cancel IPO application request
      */
     public Response cancelIpoApplication_Request(Login login, String authenticator, IpoApplication ipoApply) {
         logger.info("Request to cancel Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
@@ -500,10 +496,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to cancel a shareholder's IPO request that has been saved
+     * as a notification file, according to the specified notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the cancel IPO application request
      */
     public Response cancelIpoApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorise Initial Public Offer Application cancellation, invoked by [{}]", login.getUserId());
@@ -551,11 +548,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ipoApply
-     * @return
+     * Processes request to add share units to a shareholder's company account
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification code
+     * @param ipoApply IPO application object
+     * @return response object to the Add share unit request
      */
     public Response addShareUnit_Request(Login login, String authenticator, IpoApplication ipoApply) {
         logger.info("Request to add share units [{}], invoked by", login.getUserId());
@@ -600,10 +597,12 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to add share units to a shareholder's company account
+     * that has been saved as a notification file, according to the specified 
+     * notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the Add Share Unit request
      */
     public Response addShareUnit_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation request to add share unit [{}], invoked by", login.getUserId());
@@ -859,11 +858,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ipoApplyList
-     * @return
+     * Processes request to upload IPO application en-mass
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification code
+     * @param ipoApplyList a list of IPO applications
+     * @return response object to the upload IPO application
      */
     public Response uploadIpoApplicationEnmass_Request(Login login, String authenticator, List<IpoApplication> ipoApplyList) {
         logger.info("Request to upload list of Initial Public Offer application, invoked by [{}]", login.getUserId());
@@ -915,10 +914,11 @@ public class IpoApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to upload shareholders IPO application en-mass that has been
+     * saved as a notification file
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the Upload IPO application en-mass
      */
     public Response uploadIpoApplicationEnmass_Authorise(Login login, String notificationCode) {
         logger.info("Authorise uploaded list of Initial Public Offer application, invoked by [{}]", login.getUserId());

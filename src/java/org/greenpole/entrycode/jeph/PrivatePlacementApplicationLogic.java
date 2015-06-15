@@ -56,13 +56,13 @@ public class PrivatePlacementApplicationLogic {
     SimpleDateFormat formatter = new SimpleDateFormat();
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ppApply
-     * @return
+     * Processes request to validate Private Placement application before
+     * creation
+     * @param login the user's login details
+     * @param ppApply the Private Placement application object to be validated
+     * @return response object to the Private Placement validation request
      */
-    public Response privatePlacementApplication_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
+    public Response privatePlacementApplication_Request(Login login, PrivatePlacementApplication ppApply) {
         logger.info("Request to create Private Placement application of [{}] for [{}], invoked by [{}]", ppApply.getIssuer(), ppApply.getHolderId(), login.getUserId());
         Response resp = new Response();
         Date date = new Date();
@@ -79,17 +79,10 @@ public class PrivatePlacementApplicationLogic {
         List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
 
         try {
-            NotificationWrapper wrapper;
-            QueueSender queue;
-            NotifierProperties props;
-
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {
-                // check if holder has company account with a particular client company
-                if (true) {
-                    // check if there is open private placement
-                    // cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {
-                        // checks if private placement is still opened
+            if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
+                if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
+                    // booleand openPP = cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
+                    if (true) {// checks if private placement is still opened 
                         // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
                         PrivatePlacement pp = new PrivatePlacement();
                         if (date.before(pp.getClosingDate())) {
@@ -187,11 +180,14 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
+     * Processes request to create Private Placement on confirmation
      *
-     * @param login
-     * @param authenticator
-     * @param ppApply
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator user meant to receive the
+     * notification
+     * @param ppApply the Private Placement application object to be created
+     * @return response object to the Private Placement application creation
+     * request
      */
     public Response privatePlacementApplicationConfirmation_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("request to confirm private placement application [{}], invoked by", login.getUserId());
@@ -215,14 +211,11 @@ public class PrivatePlacementApplicationLogic {
             QueueSender queue;
             NotifierProperties props;
 
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {
-                // check if holder has company account with a particular client company
-                if (true) {
-                    // check if there is open private placement
-                    // cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {
-                        // checks if private placement is still opened
-                        // PrivatePlacement pp = hcq.getPrivatePlacement();
+            if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
+                if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
+                    // booleand openPP = cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
+                    if (true) {// checks if private placement is still opened                        
+                        // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
                         PrivatePlacement pp = new PrivatePlacement();
                         if (date.before(pp.getClosingDate())) {
                             if (ppApply.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
@@ -312,10 +305,11 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to create Private Placement application that has been 
+     * saved in a notification file, according to the specified notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the Private Placement application creation request
      */
     public Response privatePlacementApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation request to private placement application, invoked by [{}]", login.getUserId());
@@ -334,14 +328,11 @@ public class PrivatePlacementApplicationLogic {
             NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
             PrivatePlacementApplication ppApply = ppApplicationList.get(0);
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {
-                // check holder company account with a particular client company
-                if (true) {
-                    // check if there is private placement
-                    // cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {
-                        // checks if private placement is still opened
-                        // PrivatePlacement pp = hcq.getPrivatePlacement();
+            if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
+                if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
+                    // booleand openPP = cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
+                    if (true) {// checks if private placement is still opened                        
+                        // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
                         PrivatePlacement pp = new PrivatePlacement();
                         if (date.before(pp.getClosingDate())) {
                             if (ppApply.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
@@ -455,11 +446,11 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ppApply
-     * @return
+     * Processes request to cancel a shareholder's Private Placement application
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param ppApply the Private Placement application object to be canceled
+     * @return response object to the Private Placement application cancel request
      */
     public Response cancelPrivatePlacementApplication_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("Request to cancel Private Placement application [{}], invoked by", login.getUserId());
@@ -505,10 +496,11 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to cancel a shareholder's Private Placement application that
+     * has been saved as a notification file, according to the specified notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return the response object to the cancel Private Placement application request
      */
     public Response cancelPrivatePlacementApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation to cancel Private Placement Application, invoked by [{}]", login.getUserId());
@@ -555,11 +547,11 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ppApply
-     * @return
+     * Processes request to add share units to a shareholder's company account
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param ppApply Private Placement object
+     * @return response object to the Add Share Unit request
      */
     public Response addShareUnit_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("Request to add share units [{}], invoked by", login.getUserId());
@@ -603,10 +595,12 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to add share units to a shareholder's company account
+     * that has been saved as a notification file, according to the specified
+     * notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the Add Share Unit request
      */
     public Response addShareUnit_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation request to add share unit [{}], invoked by", login.getUserId());
@@ -656,11 +650,11 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param ppApply
-     * @return
+     * Processes request to adjust share units to be added to shareholder's company account
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param ppApply Private Placement Application object
+     * @return response to the Adjust Share Unit request
      */
     public Response adjustShareUnit_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("Request to adjust share units [{}], invoked by", login.getUserId());
@@ -717,7 +711,8 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
+     * Processes request to adjust share units to be added to shareholder's company account
+     * 
      * @param login
      * @param authenticator
      * @param ppApply
@@ -858,6 +853,13 @@ public class PrivatePlacementApplicationLogic {
         }
     }
 
+    /**
+     * Processes request to upload shareholders Private Placement application en-mass
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification code
+     * @param ppApplyList the list of Private Placement applications
+     * @return response object to the Private Placement Application list
+     */
     public Response uploadPPAEnmass_Request(Login login, String authenticator,
             List<PrivatePlacementApplication> ppApplyList) {
         logger.info("Request to upload list of Private Placement application, invoked by [{}]", login.getUserId());
@@ -907,6 +909,13 @@ public class PrivatePlacementApplicationLogic {
         }
     }
 
+    /**
+     * Processes request to upload shareholders Private Placement application en-mass
+     * that has been saved as a notification file, according to the specified notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the Upload Private Placement application en-mass
+     */
     public Response uploadPPAEnmass_Authorise(Login login, String notificationCode) {
         logger.info("Authorise uploaded list of Private Placement application, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
