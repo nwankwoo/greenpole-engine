@@ -5,6 +5,7 @@
  */
 package org.greenpole.entrycode.emmanuel;
 
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -78,13 +79,15 @@ public class ClientCompanyLogic {
         QueueSender qSender;
         NotificationWrapper wrapper;
         NotifierProperties prop;
+        BigDecimal sn;
         try {
             org.greenpole.hibernate.entity.ClientCompany clientCompany = cq.getClientCompany(rightIssue.getClientCompanyId());
             if (cq.checkClientCompany(clientCompany.getName())) {
                 logger.info("client company [{}] checks out - [{}]", clientCompany.getName(), login.getUserId());
                 if (cq.checkClientCompanyForShareholders(clientCompany.getName())) {
                     logger.info("client company [{}] checks out. No shareholders found - [{}]", clientCompany.getName(), login.getUserId());
-                    if (rightIssue.getTotalSharesOnIssue() > 0) {
+                    
+                    if (rightIssue.getTotalSharesOnIssue().compareTo(BigDecimal.ZERO) > 0 ) {
                         if (rightIssue.getQualifyDate() != null || !"".equals(rightIssue.getQualifyDate())) {
                             if (rightIssue.getOpeningDate() != null || !"".equals(rightIssue.getOpeningDate())) {
                                 if (rightIssue.getClosingDate() != null || !"".equals(rightIssue.getClosingDate())) {
@@ -175,14 +178,14 @@ public class ClientCompanyLogic {
                 logger.info("client company [{}] checks out - [{}]", clientCompany.getName(), login.getUserId());
                 if (cq.checkClientCompanyForShareholders(clientCompany.getName())) {
                     logger.info("client company [{}] is checked for shareholders - [{}]", clientCompany.getName(), login.getUserId());
-                    if (right_model.getTotalSharesOnIssue() > 0) {
+                    if (right_model.getTotalSharesOnIssue().compareTo(BigDecimal.ZERO) > 0) {
                         if (right_model.getQualifyDate() != null || !"".equals(right_model.getQualifyDate())) {
                             if (right_model.getOpeningDate() != null || !"".equals(right_model.getOpeningDate())) {
                                 if (right_model.getClosingDate() != null || !"".equals(right_model.getClosingDate())) {
-                                    right_hib.setTotalSharesOnIssue(right_model.getTotalSharesOnIssue());
+                                   right_hib.setTotalSharesOnIssue(right_model.getTotalSharesOnIssue().longValue());
                                     right_hib.setMethodOnOffer(right_model.getMethodOnOffer());
                                     right_hib.setIssuePrice(right_model.getIssuePrice());
-                                    right_hib.setIssueSize(right_model.getTotalSharesOnIssue() * right_model.getIssuePrice());
+                                    //right_hib.setIssueSize();
                                     right_hib.setQualifyShareUnit(right_model.getQualifyShareUnit());
                                     right_hib.setAlottedUnitPerQualifyUnit(right_model.getAlottedUnitPerQualifyUnit());
                                     right_hib.setQualifyDate(formatter.parse(right_model.getQualifyDate()));
@@ -554,12 +557,12 @@ public class ClientCompanyLogic {
     }
 
     /**
-     *
+     *Processes a request to invalidate a client company
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the
      * notification
      * @param clientCompany the client company to be invalidated
-     * @return response to invalidate client company accounts request
+     * @return response to the invalidation of client company request
      */
     public Response invalidateClientCompany_Request(Login login, String authenticator, ClientCompany clientCompany) {
         logger.info("request to invalidate client company account, invoked by [{}]", login.getUserId());
@@ -630,7 +633,7 @@ public class ClientCompanyLogic {
 
     /**
      * Processes a saved request to invalidate client company
-     *
+     *from authorisation
      * @param login the user's login details
      * @param notificationCode the notification code
      * @return response to invalidate client company account request
@@ -732,8 +735,8 @@ public class ClientCompanyLogic {
                 List<org.greenpole.hibernate.entity.InitialPublicOffer> ipo_hib_list = hd.getInitialPublicOfferByClientCompanyId(queryParams.getInitialPublicOffer().getClientCompanyId(), queryParams.getDescriptor(), queryParams.getStart_date(), queryParams.getEnd_date(), queryParams.getDate_format());
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0;
-                int remaingShares = 0;
-                int sharesOverSub = 0;
+                long remaingShares = 0;
+                long sharesOverSub = 0;
                 List<IpoApplication> ipoApp_list_out = new ArrayList<>();
                 List<InitialPublicOffer> ipo_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
@@ -752,10 +755,10 @@ public class ClientCompanyLogic {
                         sharesOverSub = 0;
                     }
                     remaingShares = ipo.getTotalSharesOnOffer() - totalSharesSubscribed;
-                    ipoModel.setTotalSharesOnOffer(ipo.getTotalSharesOnOffer());
+                    ipoModel.setTotalSharesOnOffer(new BigDecimal(ipo.getTotalSharesOnOffer()));
                     ipoModel.setTotalSharesSubscribed(totalSharesSubscribed);
-                    ipoModel.setTotalSharesRemaining(remaingShares);
-                    ipoModel.setTotalSharesOverSubscribed(sharesOverSub);
+                    ipoModel.setTotalSharesRemaining((int)remaingShares);
+                    ipoModel.setTotalSharesOverSubscribed((int)sharesOverSub);
                     ipoApp_model.setInitialPublicOffer(ipoModel);
                     ipoApp_list_out.add(ipoApp_model);
                 }
@@ -777,7 +780,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     *
+     *views report on rights issue
      * @param login
      * @param queryParams
      * @return
@@ -816,15 +819,16 @@ public class ClientCompanyLogic {
                 List<org.greenpole.hibernate.entity.RightsIssue> ri_hib_list = hd.getRightsIssue(queryParams.getRightsIssue().getClientCompanyId(), queryParams.getDescriptor(), queryParams.getStart_date(), queryParams.getEnd_date(), queryParams.getDate_format());
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0, sharesDistributed = 0, totalSharesDistributed = 0;
-                int remaingShares = 0, amountOfTotalSharesPaid = 0, totalSharesOnOffer = 0;
-                int sharesOverSub = 0;
+                long remaingShares = 0, amountOfTotalSharesPaid = 0;
+                long totalSharesOnOffer = 0;
+                long sharesOverSub = 0;
                 List<RightsIssueApplication> riApp_list_out = new ArrayList<>();
                 List<RightsIssue> ri_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.RightsIssue ri : ri_hib_list) {
                     RightsIssue riModel = new RightsIssue();
                     RightsIssueApplication riApp_model = new RightsIssueApplication();
-                    riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
+                    riModel.setTotalSharesOnIssue(new BigDecimal(ri.getTotalSharesOnIssue()));
                     totalSharesOnOffer = ri.getTotalSharesOnIssue();
                     List<org.greenpole.hibernate.entity.RightsIssueApplication> rightsIssueApp_hib_list = hd.getAllRightsIssueApplications(ri.getId(), queryParams.getRightsIssue().getClientCompanyId());
                     for (org.greenpole.hibernate.entity.RightsIssueApplication riApp : hd.getAllRightsIssueApplications(ri.getId(), queryParams.getRightsIssue().getClientCompanyId())) {
@@ -834,18 +838,18 @@ public class ClientCompanyLogic {
                         remaingShares = totalSharesOnOffer - totalSharesDistributed;
                         amountOfTotalSharesPaid += riApp.getAmountPaid();
                         //sharesOverSub = ri.getTotalSharesOnIssue() - totalSharesSubscribed;
-                        riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
-                        riModel.setTotalSharesRem(remaingShares);
+                        riModel.setTotalSharesOnIssue(new BigDecimal(ri.getTotalSharesOnIssue()));
+                        riModel.setTotalSharesRem((int)remaingShares);
                         if (totalSharesSubscribed > ri.getTotalSharesOnIssue()) {
                             if (totalSharesOnOffer < totalSharesSubscribed) {
                                 sharesOverSub = totalSharesSubscribed - totalSharesOnOffer;
                             } else if (totalSharesOnOffer <= totalSharesSubscribed) {
                                 sharesOverSub = 0;
                             }
-                            int overSubShares = totalSharesSubscribed - ri.getTotalSharesOnIssue();
-                            riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
+                            long overSubShares = totalSharesSubscribed - ri.getTotalSharesOnIssue();
+                            riModel.setTotalSharesOnIssue(new BigDecimal(ri.getTotalSharesOnIssue()));
                             riModel.setTotalSharesDistributed(totalSharesDistributed);
-                            riModel.setTotalSharesPaidForAfterClose(amountOfTotalSharesPaid);
+                            riModel.setTotalSharesPaidForAfterClose(totalSharesSubscribed);
                             riModel.setTotalSharesRem(0);
                             riModel.setTotalSharesOverSub(overSubShares);
                             riApp_model.setClearingHouseName(ch_hib.getName());
@@ -876,10 +880,10 @@ public class ClientCompanyLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param queryParams
-     * @return
+     *processes request to view private placement report
+     * @param login the user details
+     * @param queryParams the query parameters
+     * @return list of query result from hibernate
      */
     public Response viewPrivatePlacement_Request(Login login, QueryIPORightsIssuePrivatePlacement queryParams) {
         Response resp = new Response();
@@ -915,9 +919,9 @@ public class ClientCompanyLogic {
                 List<org.greenpole.hibernate.entity.PrivatePlacement> pp_hib_list = hd.getPrivatePlacement(queryParams.getPrivatePlacement().getClientCompanyId(), queryParams.getDescriptor(), queryParams.getStart_date(), queryParams.getEnd_date(), queryParams.getDate_format());
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0;
-                int remaingShares = 0;
-                int totalSharesOnOffer = 0;
-                int sharesOverSub = 0;
+                long remaingShares = 0;
+                long totalSharesOnOffer = 0;
+                long sharesOverSub = 0;
                 List<PrivatePlacementApplication> ppApp_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.PrivatePlacement pp : pp_hib_list) {
@@ -938,10 +942,10 @@ public class ClientCompanyLogic {
                         ppApp_model.setClearingHouseName(ch_hib.getName());
                         ppApp_model.setClearingHouseBrokerage(pp.getTotalSharesOnOffer() * pp.getOfferPrice() * 0.75 / 100);//total values of shares submitted to clearing house
                     }
-                    ppModel.setTotalSharesOnOffer(pp.getTotalSharesOnOffer());
+                    ppModel.setTotalSharesOnOffer(new BigDecimal(pp.getTotalSharesOnOffer()));
                     ppModel.setTotalSharesSubscribed(totalSharesSubscribed);
-                    ppModel.setTotalSharesRemaining(remaingShares);
-                    ppModel.setTotalSharesOverSubscribed(sharesOverSub);
+                    ppModel.setTotalSharesRemaining((int)remaingShares);
+                    ppModel.setTotalSharesOverSubscribed((int)sharesOverSub);
                     ppApp_model.setPrivatePlacement(ppModel);
                     ppApp_list_out.add(ppApp_model);
                     // ppModel.setPrivatePlacementApplication(ppApp_list_out);
@@ -964,10 +968,10 @@ public class ClientCompanyLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param queryParams
-     * @return
+     *processes request to query shareholders list
+     * @param login the user details
+     * @param queryParams the search parameters
+     * @return list of shareholders from hibernate
      */
     public Response queryShareholdersList_Request(Login login, QueryShareholders queryParams) {
         Response resp = new Response();
@@ -1113,10 +1117,10 @@ public class ClientCompanyLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param queryParams
-     * @return
+     *processes request to query bondholder list
+     * @param login the user details
+     * @param queryParams the search parameters
+     * @return list of bondholder from hibernate
      */
     public Response queryBondholdersList_Request(Login login, QueryShareholders queryParams) {
         Response resp = new Response();
@@ -1257,7 +1261,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     *
+     * processes request to 
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
      * @param rightApp
@@ -1349,22 +1353,23 @@ public class ClientCompanyLogic {
                         int holderUnallottedRights;
                         double valueOfHolderUnallotedRights, interest, taxRate, returnMoney;
                         int sunHoldersAllottedRights = 0;
-                        int totalSharesSub = 0;
+                        long totalSharesSub = 0;
                         int sumHolderAdditionalShares = 0;
-                        int compRemainingRights = 0;
+                        long compRemainingRights = 0;
                         int lowestAdditionalShares;
                         int sumTotalAdditionalShares = 0;
                         int eachHolderShares, noOfHolders = 0;
                         int holderId;
-                        int holderSharesSub = 0, holderSharesSubCompare = 0;
-                        int avg1 = 0, avg2 = 0, excess = 0;
-                        int noOfShareHoldersLessThanAvg = 0, newShareholderList = 0, extraExcess = 0;
+                        long holderSharesSub = 0, holderSharesSubCompare = 0;
+                        long avg1 = 0, avg2 = 0, excess = 0;
+                        int noOfShareHoldersLessThanAvg = 0, newShareholderList = 0;
+                        long extraExcess = 0;
 
                         double holderShares;//holds shares given to shareholders after distribution
                         long noOfDays;
                         boolean sharesAdded = false;
-                        int totalSharesOnOIssue;
-                        int remainingSharesAfterSub;
+                        long totalSharesOnOIssue;
+                        long remainingSharesAfterSub;
                         org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = new org.greenpole.hibernate.entity.HolderCompanyAccount();
                         noOfHolders = rightApp_list_hib.size();
                         for (org.greenpole.hibernate.entity.RightsIssueApplication ri : rightApp_list_hib) {
@@ -1415,7 +1420,7 @@ public class ClientCompanyLogic {
                                                 holderSharesSubCompare = 0;
                                                 noOfShareHoldersLessThanAvg++;//number of holders that get this average
                                                 newShareholderList = noOfHolders - noOfShareHoldersLessThanAvg;
-                                                oneHolderRightsApp_hib.setAdditionalSharesGiven(holderSharesSub);
+                                                oneHolderRightsApp_hib.setAdditionalSharesGiven((int)holderSharesSub);
                                                 oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderSharesSub * rightsIssueSetup.getIssuePrice());
                                                 oneHolderRightsApp_hib.setTotalValue((holderSharesSub * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getSharesSubscribed() * rightsIssueSetup.getIssuePrice()));
                                             } else if (avg1 <= oneHolderRightsApp_hib.getAdditionalSharesSubscribed()) {//if additional shares requested is the same as shares given
@@ -1426,13 +1431,13 @@ public class ClientCompanyLogic {
                                                     holderSharesSub = holderSharesSubCompare;
                                                 }
                                                 holderSharesSubCompare = holderSharesSubCompare - holderSharesSub;
-                                                holderUnallottedRights = (oneHolderRightsApp_hib.getAdditionalSharesSubscribed() - holderSharesSub);
+                                                holderUnallottedRights = (oneHolderRightsApp_hib.getAdditionalSharesSubscribed() - (int)holderSharesSub);
                                                 valueOfHolderUnallotedRights = holderUnallottedRights * rightsIssueSetup.getIssuePrice();
                                                 noOfDays = getDateDiff(current_date, oneHolderRightsApp_hib.getDateApplied(), TimeUnit.DAYS);
                                                 interest = (valueOfHolderUnallotedRights * rightApp_model.getRate() * noOfDays) / 100;
                                                 taxRate = rightApp_model.getTaxRate() * interest;
                                                 returnMoney = valueOfHolderUnallotedRights + (interest - taxRate);
-                                                oneHolderRightsApp_hib.setAdditionalSharesGiven(holderSharesSub);
+                                                oneHolderRightsApp_hib.setAdditionalSharesGiven((int)holderSharesSub);
                                                 oneHolderRightsApp_hib.setAdditionalSharesGivenValue(holderSharesSub * rightsIssueSetup.getIssuePrice());
                                                 oneHolderRightsApp_hib.setTotalValue((holderSharesSub * rightsIssueSetup.getIssuePrice()) + (oneHolderRightsApp_hib.getAllottedRights() * rightsIssueSetup.getIssuePrice()));
                                                 oneHolderRightsApp_hib.setReturnMoney(returnMoney);

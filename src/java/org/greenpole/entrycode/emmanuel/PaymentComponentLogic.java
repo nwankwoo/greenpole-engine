@@ -819,7 +819,7 @@ public class PaymentComponentLogic {
                 div_hib.setSHolderMailingAddr(null);
                 div_hib.setTax(Double.NaN);
                 div_hib.setUnclaimed(false);
-                div_hib.setWarrantNumber(randomTwo);
+                //div_hib.setWarrantNumber(randomTwo);
                 //div_hib.setWarrantNumber(warrantNumber);//generated randomly
                 div_hib.setYearEnding(null);
                 div_hib.setYearType(null);
