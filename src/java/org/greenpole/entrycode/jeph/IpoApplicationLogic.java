@@ -73,14 +73,14 @@ public class IpoApplicationLogic {
         try {
             List<IpoApplication> iAppList = new ArrayList<>();
 
-            int remainingSharesNotBought = 0;
-            int totalSharesBought = 0;
-            int continuingSharesSubscribed = 0;
-            int continuingShares = 0;
+            long remainingSharesNotBought = 0;
+            long totalSharesBought = 0;
+            long continuingSharesSubscribed = 0;
+            long continuingShares = 0;
             double amtPaid = 0;
             double returnMoney = 0;
-            int continuingSharesAvailable = 0;
-            int sharesBought = 0;
+            long continuingSharesAvailable = 0;
+            long sharesBought = 0;
             double sharesSubscribedValue = 0;
             if (hq.checkHolderAccount(ipoApply.getHolderId())) {
                 // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
@@ -98,7 +98,7 @@ public class IpoApplicationLogic {
                                     for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoApplyList) {
                                         totalSharesBought += ipoapp.getSharesSubscribed();
                                     }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer() - totalSharesBought;
+                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
                                     if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
                                         sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
                                         ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
@@ -193,13 +193,13 @@ public class IpoApplicationLogic {
 
         List<IpoApplication> iAppList = new ArrayList<>();
 
-        int remainingSharesNotBought = 0;
-        int totalSharesBought = 0;
-        int continuingShares = 0;
+        long remainingSharesNotBought = 0;
+        long totalSharesBought = 0;
+        long continuingShares = 0;
         double amtPaid = 0;
         double returnMoney = 0;
-        int continuingSharesAvailable = 0;
-        int sharesSubscribed = 0;
+        long continuingSharesAvailable = 0;
+        long sharesSubscribed = 0;
         double sharesSubscribedValue = 0;
 
         try {
@@ -223,7 +223,7 @@ public class IpoApplicationLogic {
                                     for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoApplyList) {
                                         totalSharesBought += ipoapp.getSharesSubscribed();
                                     }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer() - totalSharesBought;
+                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
                                     if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
                                         sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
                                         ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
@@ -311,14 +311,14 @@ public class IpoApplicationLogic {
         Date date = new Date();
         List<IpoApplication> iAppList = new ArrayList<>();
 
-        int remainingSharesNotBought = 0;
-        int totalSharesBought = 0;
-        int returnShares = 0;
-        int continuingShares = 0;
+        long remainingSharesNotBought = 0;
+        long totalSharesBought = 0;
+        long returnShares = 0;
+        long continuingShares = 0;
         double amtPaid = 0;
         double returnMoney = 0;
-        int continuingSharesAvailable = 0;
-        int sharesSubscribed = 0;
+        long continuingSharesAvailable = 0;
+        long sharesSubscribed = 0;
         double sharesSubscribedValue = 0;
 
         try {
@@ -343,7 +343,7 @@ public class IpoApplicationLogic {
                                     for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoApplyList) {
                                         totalSharesBought += ipoapp.getSharesSubscribed();
                                     }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer() - totalSharesBought;
+                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
                                     if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
                                         sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
                                         ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
@@ -550,7 +550,7 @@ public class IpoApplicationLogic {
     /**
      * Processes request to add share units to a shareholder's company account
      * @param login the user's login details
-     * @param authenticator the authenticator meant to receive the notification code
+     * @param authenticator the authenticator meant to receive the notification
      * @param ipoApply IPO application object
      * @return response object to the Add share unit request
      */
@@ -1206,14 +1206,14 @@ public class IpoApplicationLogic {
 
             List<IpoApplication> iAppList = new ArrayList<>();
 
-            int remainingSharesNotBought = 0;
-            int totalSharesBought = 0;
-            int continuingSharesSubscribed = 0;
-            int continuingShares = 0;
+            long remainingSharesNotBought = 0;
+            long totalSharesBought = 0;
+            long continuingSharesSubscribed = 0;
+            long continuingShares = 0;
             double amtPaid = 0;
             double returnMoney = 0;
-            int continuingSharesAvailable = 0;
-            int sharesBought = 0;
+            long continuingSharesAvailable = 0;
+            long sharesBought = 0;
             double sharesSubscribedValue = 0;
             if (hq.checkHolderAccount(ipoApply.getHolderId())) {
                 // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
@@ -1231,7 +1231,7 @@ public class IpoApplicationLogic {
                                     for (IpoApplication ipoapp : ipoApplyList) {
                                         totalSharesBought += ipoapp.getSharesSubscribed();
                                     }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer() - totalSharesBought;
+                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
                                     if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
                                         sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
                                         ipoApply.setSharesSubscribedValue(sharesSubscribedValue);

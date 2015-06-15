@@ -141,7 +141,7 @@ public class PrivatePlacementComponent {
             if (clientCompExist) {
                 org.greenpole.hibernate.entity.ClientCompany clComp = cq.getClientCompany(ppModel.getClientCompanyId());
                 ppEntity.setClientCompany(clComp);
-                ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer());
+                ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer().longValue());
                 ppEntity.setMethodOnOffer(Integer.parseInt(ppModel.getMethodOfOffer()));
                 ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinimumSubscription());
                 ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());

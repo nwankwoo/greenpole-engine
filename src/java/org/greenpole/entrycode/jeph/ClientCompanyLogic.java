@@ -17,11 +17,14 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entirycode.jeph.model.BondOfferReport;
+import org.greenpole.entirycode.jeph.model.QueryCanceledDividend;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
+import org.greenpole.entity.model.taguser.TagUser;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
@@ -40,7 +43,9 @@ import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
+import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
+import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
 import org.slf4j.Logger;
@@ -54,18 +59,19 @@ public class ClientCompanyLogic {
 
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
+    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyLogic.class);
     NotificationProperties noteProp = new NotificationProperties(ClientCompanyLogic.class);
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyLogic.class);
     SimpleDateFormat formatter = new SimpleDateFormat();
 
     /**
+     * Processes request to view generated report on client company's bond offer
      *
-     * @param login
-     * @param authenticator
-     * @param bondOfferReport
-     * @return
+     * @param login the user's login details
+     * @param bondOfferReport Bond offer Report object
+     * @return response to the View Generated Report request
      */
-    public Response viewBondOfferReport_Request(Login login, String authenticator, BondOfferReport bondOfferReport) {
+    public Response viewBondOfferReport_Request(Login login, BondOfferReport bondOfferReport) {
         Response resp = new Response();
         logger.info("Request to view Bond Offer report, invoked by [{}]", login.getUserId());
         try {
@@ -121,11 +127,12 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to declare share bonus for client company
      *
-     * @param login
-     * @param authenticator
-     * @param shareBonus
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param shareBonus Share Bonus object
+     * @return response to the Declare Share Bonus Request
      */
     public Response declareShareBonus_Request(Login login, String authenticator, ShareBonus shareBonus) {
         Response resp = new Response();
@@ -207,10 +214,13 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to declare share bonus for client company that has been
+     * saved as a notification file, according to the specified notification
+     * code
      *
-     * @param login
-     * @param notificationCode
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the declare Share Bonus request
      */
     public Response declareShareBonus_Authorise(Login login, String notificationCode) {
         logger.info("Authorise reverse stock split, invoked by [{}]", login.getUserId());
@@ -279,10 +289,11 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request validation to apply stock split (share reconstruction)
      *
-     * @param login
-     * @param reconstructor
-     * @return
+     * @param login the user's login details
+     * @param reconstructor Reconstruction object
+     * @return response to the Apply Stock Split request
      */
     public Response applyStockSplit_Request(Login login, Reconstruction reconstructor) {
         Response resp = new Response();
@@ -354,11 +365,12 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request confirmation to Apply Stock Split
      *
-     * @param login
-     * @param authenticator
-     * @param reconstructor
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param reconstructor Reconstruction object
+     * @return response to the Apply Stock Split request
      */
     public Response applyStockSplitConfirmation_Request(Login login, String authenticator, Reconstruction reconstructor) {
         Response resp = new Response();
@@ -444,10 +456,12 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to Apply Stock Split that has been saved as a
+     * notification file, according to the specified notification code;
      *
-     * @param login
-     * @param notificationCode
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the Apply Stock Spit request
      */
     public Response applyStockSplit_Authorise(Login login, String notificationCode) {
         logger.info("Authorise apply stock split request, invoked by [{}]", login.getUserId());
@@ -532,10 +546,12 @@ public class ClientCompanyLogic {
 
     // re-implement
     /**
+     * Processes request validation for Apply Reverse Stock Split (Share
+     * reconstruction)
      *
-     * @param login
-     * @param reconstructor
-     * @return
+     * @param login the user's login details
+     * @param reconstructor Reconstruction object
+     * @return response to the Apply Reverse Stock Split request validation
      */
     public Response reverseStockSplit_Request(Login login, Reconstruction reconstructor) {
         Response resp = new Response();
@@ -607,11 +623,13 @@ public class ClientCompanyLogic {
 
     // re-implement
     /**
+     * Processes request confirmation for Apply Reverse Stock Split (Share
+     * reconstruction)
      *
-     * @param login
-     * @param authenticator
-     * @param reconstructor
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param reconstructor Reconstruction object
+     * @return response to the Apply Reverse Stock Split request confirmation
      */
     public Response reverseStockSplitConfirmation_Request(Login login, String authenticator, Reconstruction reconstructor) {
         Response resp = new Response();
@@ -698,10 +716,12 @@ public class ClientCompanyLogic {
 
     // re-implement
     /**
+     * Processes request for Apply Reverse Stock Split that has been saved as a
+     * notification file, according to the specified notification code
      *
-     * @param login
-     * @param notificationCode
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response object to the Apply Reverse Stock Split
      */
     public Response reverseStockSplit_Authorise(Login login, String notificationCode) {
         logger.info("Authorise reverse stock split, invoked by [{}]", login.getUserId());
@@ -786,7 +806,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * Request to apply for a bond offer.
+     * Processes request to Upload Bond Offer en-mass
      *
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
@@ -855,7 +875,8 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * Processes a saved request to apply for a bond offer.
+     * Processes request to Upload Bond Offer Application that has been saved in
+     * a notification file, according to the specified notification code
      *
      * @param login the user's login details
      * @param notificationCode the notification code
@@ -930,10 +951,11 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to declare Dividend for Client company
      *
-     * @param login
-     * @param authenticator
-     * @param dividendDeclared
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividendDeclared Dividend Declared object
      * @return
      */
     public Response declaredDividend_Request(Login login, String authenticator, DividendDeclared dividendDeclared) {
@@ -1105,10 +1127,10 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * 
+     *
      * @param login
      * @param notificationCode
-     * @return 
+     * @return
      */
     public Response cancelDividend_Authorise(Login login, String notificationCode) {
         logger.info("Authorise cancel dividend process, invoked by [{}]", login.getUserId());
@@ -1161,6 +1183,83 @@ public class ClientCompanyLogic {
             logger.error("Error processing 'cancel dividend' authorisation request - [" + login.getUserId() + "]", ex);
             return resp;
         }
+    }
+
+    public Response viewCanceledDividend_Request(Login login, QueryCanceledDividend queryCanceledDividend) {
+        logger.info("Request to view generated report on cancelled dividends [{}], invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
+
+        try {
+            
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryCanceledDividend.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(queryCanceledDividend.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                //check end date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("between")) {
+                    try {
+                        formatter.parse(queryCanceledDividend.getEndDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for end date");
+                        logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = hq.getAllCanceledDividend(queryCanceledDividend.getDescriptor(), queryCanceledDividend.getStartDate(),
+                //         queryCanceledDividend.getEndDate(), greenProp.getDateFormat());
+                
+                List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = new ArrayList<>();
+                
+                TagUser tag = new TagUser();
+                
+                for (org.greenpole.hibernate.entity.Dividend div : canceledDividendList) {
+                    
+                }                
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(queryCanceledDividend);
+                tag.setResult(new ArrayList<>());
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Query Successful");
+                resp.setRetn(0);
+                logger.info("Query successful - [{}]", login.getUserId());
+                // send SMS and/or Email notification
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on cancelled dividends. Contact system administrator.");
+            logger.info("Error generating report on cancelled dividends. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on cancelled dividends - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    public Response viewCanceledDividend_Authorise(Login login, String notificationCode) {
+
+        return new Response();
     }
 
     /**
@@ -1287,13 +1386,15 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Creates Dividend for shareholders of a client company
      *
-     * @param login
-     * @param dividendDeclared
-     * @return
+     * @param login the user's login details
+     * @param dividendDeclared Dividend Declared object
+     * @return response object to the calling method
      */
     private Response createDividend(Login login, DividendDeclared dividendDeclared) {
         Response resp = new Response();
+        Date date = new Date();
         List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
         // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders(dividendDeclared.getClientCompanyId());
         List<org.greenpole.hibernate.entity.Dividend> dividendList = new ArrayList<>();
@@ -1332,6 +1433,8 @@ public class ClientCompanyLogic {
                         dividend.setPayableAmount(dividend.getGrossAmount());
                     }
                 }
+                dividend.setIssued(Boolean.TRUE);
+                dividend.setIssueDate(date);
                 dividend.setPayableDate(formatter.parse(dividendDeclared.getDatePayable()));
                 dividendList.add(dividend);
             }
@@ -1528,10 +1631,11 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Validates declared dividend
      *
-     * @param login
-     * @param dividendDeclared
-     * @return
+     * @param login the user's login details
+     * @param dividendDeclared Dividend Declared object
+     * @return response object to the calling method
      */
     private Response validateDividendDeclaration(Login login, DividendDeclared dividendDeclared) {
         Response resp = new Response();
@@ -1635,10 +1739,10 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * 
+     *
      * @param login
      * @param dividend
-     * @return 
+     * @return
      */
     private Response checkDividendStatus(Login login, Dividend dividend) {
         Response resp = new Response();
