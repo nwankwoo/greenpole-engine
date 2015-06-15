@@ -595,5 +595,45 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    @Override
+    public List<Dividend> getAllMarkedDividends(String descriptor, String startDate, String endDate, String dateformat) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<DividenAnnotation> getAllDividendsAnnotation(int dividendId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<Dividend> getAllDividends() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void invalidatDividend(int dividendId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public Dividend getOneDividendRecord(int dividendId, int holderCompanyAccountId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+/**
+ * revalidates an invalidated dividend record
+ * @param dividendId the dividend Id to be revalidated
+ * @param holderCompanyAccountId the account to revalidate it dividend
+ * @return true if revalidated else false
+ */
+    @Override
+    public boolean revalidateDividend(int dividendId, int holderCompanyAccountId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, int warrantNumber) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
     
 }

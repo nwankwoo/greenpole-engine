@@ -9,23 +9,17 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
-import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.InitialPublicOffer;
 import org.greenpole.entity.model.clientcompany.PrivatePlacement;
-import org.greenpole.entity.model.holder.Administrator;
 import org.greenpole.entity.model.holder.Holder;
 import org.greenpole.entity.model.holder.HolderBondAccount;
 import org.greenpole.entity.model.holder.HolderCompanyAccount;
@@ -43,8 +37,6 @@ import org.greenpole.entrycode.emmanuel.model.QueryIPORightsIssuePrivatePlacemen
 import org.greenpole.entrycode.emmanuel.model.QueryShareholders;
 import org.greenpole.entrycode.emmanuel.model.RightsIssue;
 import org.greenpole.entrycode.emmanuel.model.RightsIssueApplication;
-import org.greenpole.hibernate.entity.AdministratorPostalAddress;
-import org.greenpole.hibernate.entity.HolderCompanyAccountId;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
 import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
@@ -647,12 +639,11 @@ public class ClientCompanyLogic {
         logger.info("request to invalidate client company, invoked by: [{}] ", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
-        NotifierProperties prop;
         NotificationProperties noteProps = new NotificationProperties(ClientCompanyLogic.class);
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProps.getNotificationLocation(), notificationCode);
-            List<ClientCompany> cc_List = (List<ClientCompany>) wrapper.getModel();
-            ClientCompany cc_model = cc_List.get(0);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<ClientCompany> cc_list = (List<ClientCompany>) wrapper.getModel();
+            ClientCompany cc_model = cc_list.get(0);
             if (cq.checkClientCompany(cc_model.getName())) {
                 logger.info("client company [{}] checks out - [{}]", cc_model.getName(), login.getUserId());
                 if (!cq.checkClientCompanyForShareholders(cc_model.getName())) {
@@ -706,7 +697,7 @@ public class ClientCompanyLogic {
      * @param queryParams the query parameters to search by
      * @return response to the query list
      */
-    public Response queryIPO_Request(Login login, QueryIPORightsIssuePrivatePlacement queryParams) {
+    public Response viewIPO_Request(Login login, QueryIPORightsIssuePrivatePlacement queryParams) {
         Response resp = new Response();
         try {
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
@@ -742,22 +733,31 @@ public class ClientCompanyLogic {
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0;
                 int remaingShares = 0;
+                int sharesOverSub = 0;
                 List<IpoApplication> ipoApp_list_out = new ArrayList<>();
                 List<InitialPublicOffer> ipo_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.InitialPublicOffer ipo : ipo_hib_list) {
                     InitialPublicOffer ipoModel = new InitialPublicOffer();
                     IpoApplication ipoApp_model = new IpoApplication();
-                    ipoModel.setTotalSharesOnOffer(ipo.getTotalSharesOnOffer());
                     for (org.greenpole.hibernate.entity.IpoApplication ipoApp : hd.getAllIpoApplication(ipo.getId(), queryParams.getInitialPublicOffer().getClientCompanyId())) {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(ipoApp.getClearingHouse().getId());
                         totalSharesSubscribed += ipoApp.getSharesSubscribed();
-                        remaingShares = ipo.getTotalSharesOnOffer() - totalSharesSubscribed;
-                        ipoApp_model.setInitialPublicOffer(ipoModel);
                         ipoApp_model.setClearingHouseName(ch_hib.getName());
                         ipoApp_model.setClearingHouseBrokerage(ipo.getTotalSharesOnOffer() * ipo.getOfferPrice() * 0.75 / 100);//total values of shares submitted to clearing house
-                        ipoApp_list_out.add(ipoApp_model);
                     }
+                    if (ipo.getTotalSharesOnOffer() < totalSharesSubscribed) {
+                        sharesOverSub = (totalSharesSubscribed - ipo.getTotalSharesOnOffer());
+                    } else if (ipo.getTotalSharesOnOffer() <= totalSharesSubscribed) {
+                        sharesOverSub = 0;
+                    }
+                    remaingShares = ipo.getTotalSharesOnOffer() - totalSharesSubscribed;
+                    ipoModel.setTotalSharesOnOffer(ipo.getTotalSharesOnOffer());
+                    ipoModel.setTotalSharesSubscribed(totalSharesSubscribed);
+                    ipoModel.setTotalSharesRemaining(remaingShares);
+                    ipoModel.setTotalSharesOverSubscribed(sharesOverSub);
+                    ipoApp_model.setInitialPublicOffer(ipoModel);
+                    ipoApp_list_out.add(ipoApp_model);
                 }
                 List<TagUser> tagList = new ArrayList<>();
 
@@ -817,6 +817,7 @@ public class ClientCompanyLogic {
                 //List<org.greenpole.hibernate.entity.IpoApplication> ipo_list = hd.getAllIpoApplication(ipo_hib.getId(), queryParams.getInitialPublicOffer().getClientCompanyId());
                 int totalSharesSubscribed = 0, sharesDistributed = 0, totalSharesDistributed = 0;
                 int remaingShares = 0, amountOfTotalSharesPaid = 0, totalSharesOnOffer = 0;
+                int sharesOverSub = 0;
                 List<RightsIssueApplication> riApp_list_out = new ArrayList<>();
                 List<RightsIssue> ri_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
@@ -836,17 +837,17 @@ public class ClientCompanyLogic {
                         riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
                         riModel.setTotalSharesRem(remaingShares);
                         if (totalSharesSubscribed > ri.getTotalSharesOnIssue()) {
+                            if (totalSharesOnOffer < totalSharesSubscribed) {
+                                sharesOverSub = totalSharesSubscribed - totalSharesOnOffer;
+                            } else if (totalSharesOnOffer <= totalSharesSubscribed) {
+                                sharesOverSub = 0;
+                            }
                             int overSubShares = totalSharesSubscribed - ri.getTotalSharesOnIssue();
                             riModel.setTotalSharesOnIssue(ri.getTotalSharesOnIssue());
                             riModel.setTotalSharesDistributed(totalSharesDistributed);
                             riModel.setTotalSharesPaidForAfterClose(amountOfTotalSharesPaid);
                             riModel.setTotalSharesRem(0);
                             riModel.setTotalSharesOverSub(overSubShares);
-                            if (riApp.getAdditionalSharesSubscribed() == 0) {
-                                riModel.setTotalSharesHolderOverSub(0);
-                            } else if (riApp.getAdditionalSharesSubscribed() != 0) {
-                                riModel.setTotalSharesHolderOverSub(rightsIssueApp_hib_list.size());
-                            }
                             riApp_model.setClearingHouseName(ch_hib.getName());
                             riApp_model.setClearingHouseBrokerage(ri.getTotalSharesOnIssue() * ri.getIssuePrice() * 0.75 / 100);
                             riApp_list_out.add(riApp_model);
@@ -916,24 +917,33 @@ public class ClientCompanyLogic {
                 int totalSharesSubscribed = 0;
                 int remaingShares = 0;
                 int totalSharesOnOffer = 0;
+                int sharesOverSub = 0;
                 List<PrivatePlacementApplication> ppApp_list_out = new ArrayList<>();
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.PrivatePlacement pp : pp_hib_list) {
                     PrivatePlacement ppModel = new PrivatePlacement();
                     PrivatePlacementApplication ppApp_model = new PrivatePlacementApplication();
                     totalSharesOnOffer = pp.getTotalSharesOnOffer();
-                    ppModel.setTotalSharesOnOffer(pp.getTotalSharesOnOffer());
                     for (org.greenpole.hibernate.entity.PrivatePlacementApplication ppApp : hd.getPrivatePlacementApplication(pp.getId(), queryParams.getPrivatePlacement().getClientCompanyId())) {
                         org.greenpole.hibernate.entity.ClearingHouse ch_hib = hd.getClearingHouse(ppApp.getClearingHouse().getId());
                         totalSharesSubscribed += ppApp.getSharesSubscribed();
+                        if (totalSharesOnOffer < totalSharesSubscribed) {
+                            sharesOverSub = totalSharesSubscribed - totalSharesOnOffer;
+                        } else if (totalSharesOnOffer <= totalSharesSubscribed) {
+                            sharesOverSub = 0;
+                        }
                         remaingShares = totalSharesOnOffer - totalSharesSubscribed;
                         ppModel.setClientCompanyId(pp.getClientCompany().getId());
                         ppApp_model.setPrivatePlacement(ppModel);
                         ppApp_model.setClearingHouseName(ch_hib.getName());
                         ppApp_model.setClearingHouseBrokerage(pp.getTotalSharesOnOffer() * pp.getOfferPrice() * 0.75 / 100);//total values of shares submitted to clearing house
-                        ppApp_list_out.add(ppApp_model);
                     }
-
+                    ppModel.setTotalSharesOnOffer(pp.getTotalSharesOnOffer());
+                    ppModel.setTotalSharesSubscribed(totalSharesSubscribed);
+                    ppModel.setTotalSharesRemaining(remaingShares);
+                    ppModel.setTotalSharesOverSubscribed(sharesOverSub);
+                    ppApp_model.setPrivatePlacement(ppModel);
+                    ppApp_list_out.add(ppApp_model);
                     // ppModel.setPrivatePlacementApplication(ppApp_list_out);
                 }
                 List<TagUser> tagList = new ArrayList<>();
@@ -1036,7 +1046,11 @@ public class ClientCompanyLogic {
                     org.greenpole.entity.model.holder.Holder holder_model = new org.greenpole.entity.model.holder.Holder();
                     holder_model.setHolderId(holder.getId());
                     holder_model.setGender(holder.getGender());
-                    holder_model.setDob(formatter.format(holder.getDob()));
+                    Date dob = holder.getDob();
+                    int holderAge = currentYear - this.getBirthYear(dob);
+                    if (holderAge >= queryParams.getStartAge() && holderAge <= queryParams.getEndAge()) {
+                        holder_model.setDob(formatter.format(holder.getDob()));
+                    }
                     List<org.greenpole.hibernate.entity.HolderResidentialAddress> hra_out_list = hd.getHolderResidentialAddresses(holder.getId());
                     for (org.greenpole.hibernate.entity.HolderResidentialAddress hra : hra_out_list) {
                         Address residential_addy_out = new Address();
@@ -1175,7 +1189,11 @@ public class ClientCompanyLogic {
                     org.greenpole.entity.model.holder.Holder holder_model = new org.greenpole.entity.model.holder.Holder();
                     holder_model.setHolderId(holder.getId());
                     holder_model.setGender(holder.getGender());
-                    holder_model.setDob(formatter.format(holder.getDob()));
+                    Date dob = holder.getDob();
+                    int holderAge = currentYear - this.getBirthYear(dob);
+                    if (holderAge >= queryParams.getStartAge() && holderAge <= queryParams.getEndAge()) {
+                        holder_model.setDob(formatter.format(holder.getDob()));
+                    }
                     List<org.greenpole.hibernate.entity.HolderResidentialAddress> hra_out_list = hd.getHolderResidentialAddresses(holder.getId());
                     for (org.greenpole.hibernate.entity.HolderResidentialAddress hra : hra_out_list) {
                         Address residential_addy_out = new Address();
@@ -1301,7 +1319,12 @@ public class ClientCompanyLogic {
             return resp;
         }
     }
-
+/**
+ * Processes authorisation request to apply additional shares to shareholders
+ * @param login the user details
+ * @param notificationCode the notification code
+ * @return response to the authorisation request
+ */
     public Response ApplyAdditionalSharesToShareholders_Authorise(Login login, String notificationCode) {
         logger.info("request authorisation to store holder additional shares. Invoked by [{}]", login.getUserId());
         Response resp = new Response();
@@ -1337,7 +1360,6 @@ public class ClientCompanyLogic {
                         int avg1 = 0, avg2 = 0, excess = 0;
                         int noOfShareHoldersLessThanAvg = 0, newShareholderList = 0, extraExcess = 0;
 
-                       
                         double holderShares;//holds shares given to shareholders after distribution
                         long noOfDays;
                         boolean sharesAdded = false;
