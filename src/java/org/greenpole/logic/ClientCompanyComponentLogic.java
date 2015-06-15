@@ -1486,7 +1486,7 @@ public class ClientCompanyComponentLogic {
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
                             if (cq.checkOpenPrivatePlacement(cc.getId())) {
                                 ppEntity.setClientCompany(cc);
-                                ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer());
+                                ppEntity.setTotalSharesOnOffer(ppModel.getTotalSharesOnOffer().longValue());
                                 ppEntity.setMethodOnOffer(Integer.parseInt(ppModel.getMethodOfOffer()));
                                 ppEntity.setStartingMinSubscrptn(ppModel.getStartingMinimumSubscription());
                                 ppEntity.setContinuingMinSubscrptn(ppModel.getContinuingMinimumSubscription());
@@ -1803,12 +1803,12 @@ public class ClientCompanyComponentLogic {
         
         org.greenpole.hibernate.entity.ClientCompany cc_hib = cq.getClientCompany(ipoModel.getClientCompanyId());
         ipo_hib.setClientCompany(cc_hib);
-        ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer());
+        ipo_hib.setTotalSharesOnOffer(ipoModel.getTotalSharesOnOffer().longValue());
         ipo_hib.setMethodOfOffer(ipoModel.getMethodOfOffer());
         ipo_hib.setStartingMinSub(ipoModel.getStartingMinimumSubscription());
         ipo_hib.setContMinSub(ipoModel.getContinuingMinimumSubscription());
         ipo_hib.setOfferPrice(ipoModel.getOfferPrice());
-        ipo_hib.setOfferSize(ipoModel.getOfferPrice() * ipoModel.getTotalSharesOnOffer());
+        ipo_hib.setOfferSize(ipoModel.getOfferPrice() * ipoModel.getTotalSharesOnOffer().longValue());
         ipo_hib.setIpoClosed(false);
         ipo_hib.setOpeningDate(formatter.parse(ipoModel.getOpeningDate()));
         ipo_hib.setClosingDate(formatter.parse(ipoModel.getClosingDate()));
