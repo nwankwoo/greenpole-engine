@@ -342,4 +342,18 @@ public interface HibernatDummyQuerInterface {
     public boolean checkCaution(int holderId, int cautionId);
 
     public boolean rightsIssueAppFromSetup(org.greenpole.hibernate.entity.RightsIssueApplication right);
+
+    public List<org.greenpole.hibernate.entity.Dividend> getAllMarkedDividends(String descriptor, String startDate, String endDate, String dateformat);
+
+    public List<org.greenpole.hibernate.entity.DividenAnnotation> getAllDividendsAnnotation(int dividendId);
+
+    public List<org.greenpole.hibernate.entity.Dividend> getAllDividends();
+
+    public void invalidatDividend(int dividendId);
+
+    public org.greenpole.hibernate.entity.Dividend getOneDividendRecord(int dividendId, int holderCompanyAccountId);
+
+    public boolean revalidateDividend(int dividendId, int holderCompanyAccountId);
+
+    public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, int warrantNumber);
 }

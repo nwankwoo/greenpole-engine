@@ -552,7 +552,7 @@ public class TransactionComponentLogic {
                             boolean created;
 
                             if (h.getChn() == null || "".equals(h.getChn())) {
-                                        //there are two versions of createHolderAccount, one for bond account and the other for company account
+                                //there are two versions of createHolderAccount, one for bond account and the other for company account
                                 //thus, null cannot be directly passed into the method, as java will not be able to distinguish between
                                 //both createHolderAccount methods.
                                 org.greenpole.hibernate.entity.HolderCompanyAccount emptyAcct = null;
@@ -707,7 +707,7 @@ public class TransactionComponentLogic {
 
         for (PhoneNumber pnList : phoneNumberList) {
             org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
-               // phoneNoId.setHolderId(holdModel.getHolderId());
+            // phoneNoId.setHolderId(holdModel.getHolderId());
             phoneNumberEntity.setPhoneNumber(pnList.getPhoneNumber());
             phoneNumberEntity.setIsPrimary(pnList.isPrimaryPhoneNumber());
             phoneNumberEntity.setId(pnList.getEntityId());
@@ -737,11 +737,12 @@ public class TransactionComponentLogic {
 
         return companyAccountEntity;
     }
+
     public Response queryTransaction_Request(Login login, QueryTransaction queryParams) {
         Response resp = new Response();
         Descriptor descriptorUtil = new Descriptor();
         SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        logger.info("request to query uploaded transaction, invoked by [{}]", login.getUserId());
+        logger.info("request to query transaction, invoked by [{}]", login.getUserId());
         try {
             if (queryParams.getDescriptor() == null || "".equals(queryParams.getDescriptor())) {
                 logger.info("Uploade transaction query unsuccessful. Empty descriptor - [{}]", login.getUserId());
@@ -781,24 +782,23 @@ public class TransactionComponentLogic {
                 org.greenpole.hibernate.entity.ProcessedTransaction pt_hib_search = new org.greenpole.hibernate.entity.ProcessedTransaction();
                 ProcessedTransaction pt_model_search = new ProcessedTransaction();
                 org.greenpole.hibernate.entity.ProcessedTransactionHolder pth_hib_search = new org.greenpole.hibernate.entity.ProcessedTransactionHolder();
-
-                if (queryParams.getProcessedTransaction().getClientCompany() != null) {
+                int holderIdFrom, holderIdTo;
+                if (queryParams.getUnitTransfer().getClientCompanyName() != null) {
                     org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(queryParams.getUnitTransfer().getClientCompanyId());
-                    pt_model_search = queryParams.getProcessedTransaction();
                     ph_hib_search.setClientCompany(cc);
-                    ph_hib_search.setCompanyName(queryParams.getProcessedTransaction().getCompanyName());
+                    ph_hib_search.setCompanyName(cc.getCode());
+                }
+                ProcessedTransactionHolder proHolder_model_search;
+
+                if (queryParams.getUnitTransfer().getHolderIdFrom() > 0) {
+                    holderIdFrom = queryParams.getUnitTransfer().getHolderIdFrom();
+                    pth_id_hib_search.setHolderId(holderIdFrom);
+                }
+                if (queryParams.getUnitTransfer().getHolderIdTo() > 0) {
+                    holderIdTo = queryParams.getUnitTransfer().getHolderIdTo();
+                    pth_id_hib_search.setHolderId(holderIdTo);
                 }
                 ProcessedTransactionHolder pth_model_search;
-                if (queryParams.getProcessedTransaction().getProcessedTransactionHolder() != null) {
-                    pth_model_search = queryParams.getProcessedTransaction().getProcessedTransactionHolder().get(0);
-                    pth_id_hib_search.setHolderId(pth_model_search.getHolderId());
-                    pth_id_hib_search.setTransactionId(pth_model_search.getProcessedTransactionId());
-                    pth_hib_search.setFromTo(pth_model_search.getFromTo());
-                    pth_hib_search.setHolderChn(pth_model_search.getHolderChn());
-                    pth_hib_search.setHolderName(pth_model_search.getHolderName());
-                    pth_hib_search.setUnitType(pth_model_search.getUnitType());
-                    pth_hib_search.setUnits(pth_model_search.getUnits());
-                }
                 Map<String, Integer> shareUnitSold_search;
                 if (queryParams.getShareUnitSold() != null && !queryParams.getShareUnitSold().isEmpty()) {
                     shareUnitSold_search = queryParams.getShareUnitSold();
@@ -829,10 +829,8 @@ public class TransactionComponentLogic {
                 List<ProcessedTransaction> pt_model_list_out = new ArrayList<>();
                 for (org.greenpole.hibernate.entity.ProcessedTransaction pt : pt_hib_list) {
                     ProcessedTransaction ptModel = new ProcessedTransaction();
-                    ptModel.setClientCompany(null);
                     ptModel.setCompanyName(pt.getCompanyName());
                     ptModel.setCscsTransactionId(pt.getCscsTransactionId());
-
                     for (org.greenpole.hibernate.entity.ProcessedTransactionHolder pth : hd.getProcessedTransactionHolder(pt.getId())) {
                         ProcessedTransactionHolderId pth_id_model_out = pth.getId();
                         ProcessedTransactionHolder pthModel = new ProcessedTransactionHolder();
