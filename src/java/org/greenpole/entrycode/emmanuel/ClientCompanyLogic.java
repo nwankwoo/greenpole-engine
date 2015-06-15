@@ -1319,7 +1319,12 @@ public class ClientCompanyLogic {
             return resp;
         }
     }
-
+/**
+ * Processes authorisation request to apply additional shares to shareholders
+ * @param login the user details
+ * @param notificationCode the notification code
+ * @return response to the authorisation request
+ */
     public Response ApplyAdditionalSharesToShareholders_Authorise(Login login, String notificationCode) {
         logger.info("request authorisation to store holder additional shares. Invoked by [{}]", login.getUserId());
         Response resp = new Response();
