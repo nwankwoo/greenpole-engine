@@ -5,18 +5,15 @@
  */
 package org.greenpole.entrycode.jeph;
 
-import org.greenpole.entirycode.jeph.model.TransactionQueryReport;
 import org.greenpole.entirycode.jeph.model.ProcessedTransaction;
 import org.greenpole.entirycode.jeph.model.SuspendedTransaction;
 import org.greenpole.entirycode.jeph.model.ProcessedTransactionHolder;
 import org.greenpole.entirycode.jeph.model.SuspendedTransactionHolder;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
@@ -38,7 +35,6 @@ import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
 import org.greenpole.notifier.sender.QueueSender;
-import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,11 +53,11 @@ public class TransactionComponentLogic {
     private static final Logger logger = LoggerFactory.getLogger(TransactionComponentLogic.class);
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param suspendedTransaction
-     * @return
+     * Process request to Reconcile Transaction
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param suspendedTransaction Suspended Transaction object
+     * @return response to the Reconcile Transaction request
      */
     public Response reconcileTransaction_Request(Login login, String authenticator, SuspendedTransaction suspendedTransaction) {
         logger.info("Request transaction reconciliation of [{}] share units, invoked by [{}]", suspendedTransaction.getCompanyName(), login.getUserId());
@@ -134,10 +130,11 @@ public class TransactionComponentLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to Reconcile Transaction that have been saves as a notification
+     * file, according to the specified notification code
+     * @param login user's login details
+     * @param notificationCode the notification code
+     * @return return response object to the Reconcile request
      */
     public Response reconcileTransaction_Authorise(Login login, String notificationCode) {
         logger.info("Authorise Reconciliation of suspended transaction, invoked by [{}]", login.getUserId());
@@ -232,11 +229,11 @@ public class TransactionComponentLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param authenticator
-     * @param processedTrans
-     * @return
+     * Processes request to view Transaction Report generated on queried transaction
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param processedTrans Processed Transaction object
+     * @return response to the View Transaction Report request
      */
     public Response viewTransactionReport_Request(Login login, String authenticator, ProcessedTransaction processedTrans) {
         logger.info("Request to view transaction report, invoked by [{}]", login.getUserId());

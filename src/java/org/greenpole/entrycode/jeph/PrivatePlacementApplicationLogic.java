@@ -60,7 +60,7 @@ public class PrivatePlacementApplicationLogic {
      * creation
      * @param login the user's login details
      * @param ppApply the Private Placement application object to be validated
-     * @return response object to the Private Placement validation request
+     * @return response to the Private Placement validation request
      */
     public Response privatePlacementApplication_Request(Login login, PrivatePlacementApplication ppApply) {
         logger.info("Request to create Private Placement application of [{}] for [{}], invoked by [{}]", ppApply.getIssuer(), ppApply.getHolderId(), login.getUserId());
@@ -68,12 +68,12 @@ public class PrivatePlacementApplicationLogic {
         Date date = new Date();
 
         double amtPaid = 0;
-        int continuingShares = 0;
-        int remainingSharesNotBought = 0;
-        int totalSharesBought = 0;
-        int continuingSharesAvailable = 0;
-        int continuingSharesSubscribed = 0;
-        int subscribedShares = 0;
+        long continuingShares = 0;
+        long remainingSharesNotBought = 0;
+        long totalSharesBought = 0;
+        long continuingSharesAvailable = 0;
+        long continuingSharesSubscribed = 0;
+        long subscribedShares = 0;
         double returnMoney = 0;
         double sharesSubscribedValue = 0;
         List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
@@ -186,7 +186,7 @@ public class PrivatePlacementApplicationLogic {
      * @param authenticator the authenticator user meant to receive the
      * notification
      * @param ppApply the Private Placement application object to be created
-     * @return response object to the Private Placement application creation
+     * @return response to the Private Placement application creation
      * request
      */
     public Response privatePlacementApplicationConfirmation_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
@@ -197,12 +197,12 @@ public class PrivatePlacementApplicationLogic {
         List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
 
         double amtPaid = 0;
-        int continuingShares = 0;
-        int remainingSharesNotBought = 0;
-        int totalSharesBought = 0;
-        int continuingSharesAvailable = 0;
-        int continuingSharesSubscribed = 0;
-        int sharesSubscribed = 0;
+        long continuingShares = 0;
+        long remainingSharesNotBought = 0;
+        long totalSharesBought = 0;
+        long continuingSharesAvailable = 0;
+        long continuingSharesSubscribed = 0;
+        long sharesSubscribed = 0;
         double returnMoney = 0;
         double sharesSubscribedValue = 0;
 
@@ -309,18 +309,18 @@ public class PrivatePlacementApplicationLogic {
      * saved in a notification file, according to the specified notification code
      * @param login the user's login details
      * @param notificationCode the notification code
-     * @return response object to the Private Placement application creation request
+     * @return response to the Private Placement application creation request
      */
     public Response privatePlacementApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation request to private placement application, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
         Response resp = new Response();
         Date date = new Date();
-        int continuingShares = 0;
+        long continuingShares = 0;
         double amtPaid = 0;
-        int totalSharesBought = 0;
-        int availableShares = 0;
-        int remainigSharesNotBought = 0;
+        long totalSharesBought = 0;
+        long availableShares = 0;
+        long remainigSharesNotBought = 0;
         double returnMoney = 0;
         double sharesSubscribedValue = 0;
 
@@ -352,7 +352,7 @@ public class PrivatePlacementApplicationLogic {
                                             ppApply.setReturnMoney(returnMoney);
                                             ppApply.setCanceled(false);
                                         } else if ((ppApply.getSharesSubscribed() > remainigSharesNotBought) && (remainigSharesNotBought >= pp.getStartingMinSubscrptn())) {
-                                            int continuingSharesAvailable = remainigSharesNotBought - pp.getStartingMinSubscrptn();
+                                            long continuingSharesAvailable = remainigSharesNotBought - pp.getStartingMinSubscrptn();
                                             if (continuingSharesAvailable % pp.getContinuingMinSubscrptn() == 0) {
                                                 availableShares = (int) (pp.getStartingMinSubscrptn() + (Math.ceil(continuingSharesAvailable / pp.getContinuingMinSubscrptn()) * pp.getContinuingMinSubscrptn()));
                                                 sharesSubscribedValue = availableShares * pp.getOfferPrice();
@@ -450,7 +450,7 @@ public class PrivatePlacementApplicationLogic {
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
      * @param ppApply the Private Placement application object to be canceled
-     * @return response object to the Private Placement application cancel request
+     * @return response to the Private Placement application cancel request
      */
     public Response cancelPrivatePlacementApplication_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("Request to cancel Private Placement application [{}], invoked by", login.getUserId());
@@ -500,7 +500,7 @@ public class PrivatePlacementApplicationLogic {
      * has been saved as a notification file, according to the specified notification code
      * @param login the user's login details
      * @param notificationCode the notification code
-     * @return the response object to the cancel Private Placement application request
+     * @return the response to the cancel Private Placement application request
      */
     public Response cancelPrivatePlacementApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation to cancel Private Placement Application, invoked by [{}]", login.getUserId());
@@ -551,7 +551,7 @@ public class PrivatePlacementApplicationLogic {
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
      * @param ppApply Private Placement object
-     * @return response object to the Add Share Unit request
+     * @return response to the Add Share Unit request
      */
     public Response addShareUnit_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("Request to add share units [{}], invoked by", login.getUserId());
@@ -650,13 +650,12 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     * Processes request to adjust share units to be added to shareholder's company account
+     * Processes request validation to adjust share units to be added to shareholder's company account
      * @param login the user's login details
-     * @param authenticator the authenticator meant to receive the notification
      * @param ppApply Private Placement Application object
      * @return response to the Adjust Share Unit request
      */
-    public Response adjustShareUnit_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
+    public Response adjustShareUnit_Request(Login login, PrivatePlacementApplication ppApply) {
         logger.info("Request to adjust share units [{}], invoked by", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
@@ -711,12 +710,12 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     * Processes request to adjust share units to be added to shareholder's company account
-     * 
-     * @param login
-     * @param authenticator
-     * @param ppApply
-     * @return
+     * Processes request confirmation to adjust share units to be added to shareholder's company account
+     * that has been saved as a notification file, according to the specified notification code
+     * @param login the user's login details 
+     * @param authenticator the authenticator meant to receive the notification 
+     * @param ppApply Private Placement Application object
+     * @return response to the Adjust Share Unit Confirmation
      */
     public Response adjustShareUnit_Confirmation(Login login, String authenticator, PrivatePlacementApplication ppApply) {
         logger.info("Request to adjust share units [{}], invoked by", login.getUserId());
@@ -781,10 +780,12 @@ public class PrivatePlacementApplicationLogic {
     }
 
     /**
-     *
-     * @param login
-     * @param notificationCode
-     * @return
+     * Processes request to adjust the share units to be added to a shareholder's company account
+     * that has been saved as a notification file, according to the specified 
+     * notification code
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the Adjust Share Unit authorisation request
      */
     public Response adjustShareUnit_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation request to adjust share unit [{}], invoked by", login.getUserId());
@@ -858,7 +859,7 @@ public class PrivatePlacementApplicationLogic {
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification code
      * @param ppApplyList the list of Private Placement applications
-     * @return response object to the Private Placement Application list
+     * @return response to the Private Placement Application list
      */
     public Response uploadPPAEnmass_Request(Login login, String authenticator,
             List<PrivatePlacementApplication> ppApplyList) {
@@ -914,7 +915,7 @@ public class PrivatePlacementApplicationLogic {
      * that has been saved as a notification file, according to the specified notification code
      * @param login the user's login details
      * @param notificationCode the notification code
-     * @return response object to the Upload Private Placement application en-mass
+     * @return response to the Upload Private Placement application en-mass
      */
     public Response uploadPPAEnmass_Authorise(Login login, String notificationCode) {
         logger.info("Authorise uploaded list of Private Placement application, invoked by [{}]", login.getUserId());
@@ -1059,7 +1060,13 @@ public class PrivatePlacementApplicationLogic {
             return resp;
         }
     }
-
+    
+    /**
+     * Validates Holder details
+     * @param login the user's login details
+     * @param holder Holder object
+     * @return response object to the calling method
+     */
     private Response validateHolderDetails(Login login, org.greenpole.entity.model.holder.Holder holder) {
         Response resp = new Response();
 
@@ -1176,18 +1183,24 @@ public class PrivatePlacementApplicationLogic {
         return resp;
     }
 
+    /**
+     * Validates Private Placement Application
+     * @param login the user's login details
+     * @param ppApply Private Placement Application object
+     * @return response object to the caller method
+     */
     private Response validatePPA(Login login, PrivatePlacementApplication ppApply) {
         logger.info("Request to create Private Placement application of [{}] for [{}], invoked by [{}]", ppApply.getIssuer(), ppApply.getHolderId(), login.getUserId());
         Response resp = new Response();
         Date date = new Date();
 
         double amtPaid = 0;
-        int continuingShares = 0;
-        int remainingSharesNotBought = 0;
-        int totalSharesBought = 0;
-        int continuingSharesAvailable = 0;
-        int continuingSharesSubscribed = 0;
-        int subscribedShares = 0;
+        long continuingShares = 0;
+        long remainingSharesNotBought = 0;
+        long totalSharesBought = 0;
+        long continuingSharesAvailable = 0;
+        long continuingSharesSubscribed = 0;
+        long subscribedShares = 0;
         double returnMoney = 0;
         double sharesSubscribedValue = 0;
         List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
