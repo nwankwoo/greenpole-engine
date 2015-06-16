@@ -522,7 +522,7 @@ public class HolderComponentLogic {
             List<RightsIssueApplication> riList = (List<RightsIssueApplication>) wrapper.getModel();
             RightsIssueApplication rightsIssueApp = riList.get(0);
             int checkForQualifyShares;
-            int remClientCompanySharesAfterSub = 0;
+            long remClientCompanySharesAfterSub = 0;
             int newShares = 0;
             boolean verify = false;
             if (hd.checkRightsIssue(rightsIssueApp.getRightsIssueId(), rightsIssueApp.getClientCompanyId())) {
@@ -722,11 +722,11 @@ public class HolderComponentLogic {
                 if (hd.checkHolderCompanyAccount(rightsIssueApp.getHolder().getHolderId(), rightsIssueApp.getClientCompanyId())) {
                     logger.info("Holder company account checks out " + login.getUserId());
                     if (!riApp.getApproved() || !riApp.getProcessingPayment()) {//checks that application is not approved and not processed for payment also
-                        int compAvailableRights = rightIssue.getTotalSharesOnIssue();//this increases every time a cancellation is done
+                        long compAvailableRights = rightIssue.getTotalSharesOnIssue();//this increases every time a cancellation is done
                         org.greenpole.hibernate.entity.RightsIssue ri_hib = new org.greenpole.hibernate.entity.RightsIssue();
                         org.greenpole.hibernate.entity.RightsIssueApplication riApp_hib = new org.greenpole.hibernate.entity.RightsIssueApplication();
                         int holderAppliedRights = riApp.getSharesSubscribed();
-                        int returnRights = holderAppliedRights + compAvailableRights;
+                        long returnRights = holderAppliedRights + compAvailableRights;
                         ri_hib.setTotalSharesOnIssue(returnRights);
                         hd.updateRightIssueTotalShares(rightsIssueApp.getClientCompanyId(), rightsIssueApp.getRightsIssueId());
                         riApp_hib.setCanceled(true);
@@ -783,10 +783,12 @@ public class HolderComponentLogic {
             double valueOfSharesSub = 0.0;
             boolean checkHolders = false;
             boolean checkHCA = false;
-            int availableRights = 0;
-            int renouncedShares;
-            int noOfHoldersShares_hib, sumOfSharesSubscribe = 0, allotedHolderRights;
-            int prevTotalSharesSub = 0, additionalSharesAwaitingSub, remaingSharesAfterCurrentSub;
+            long availableRights = 0;
+            long renouncedShares;
+            int noOfHoldersShares_hib, allotedHolderRights;
+            long sumOfSharesSubscribe = 0;
+            int prevTotalSharesSub = 0;
+            long additionalSharesAwaitingSub, remaingSharesAfterCurrentSub;
             org.greenpole.hibernate.entity.Holder holderObj = new org.greenpole.hibernate.entity.Holder();
             noOfHoldersShares_hib = 0;
             sumOfSharesSubscribe = 0;
@@ -833,23 +835,20 @@ public class HolderComponentLogic {
                             availableRights = right.getTotalSharesOnIssue() - noOfHoldersShares_hib;//note: this reduction is based on what is left for right minus previous sub.
                             if (rp.getSharesSubscribed() == 0) {//set this field in setup rights issue to zero
                                 valueOfSharesSub += sumOfSharesSubscribe * right.getIssuePrice();//to be use to check third condition of this requirement
-                                //assuming that shares subscribe will take care of alloted rights and additional rights requested if any
-                                //if (right.getTotalSharesOnIssue() == allotedHolderRights) {//second condition yet to be understood
-                                //}
                                 additionalSharesAwaitingSub = right.getTotalSharesOnIssue() - sumOfSharesSubscribe;
                                 if (sumAmountPaid_model == valueOfSharesSub) {//check if amount paid equals system calculation of share value
                                     RightsIssueApplication rightApp_model = new RightsIssueApplication();
-                                    rightApp_model.setApplicationType(null);
+                                    //rightApp_model.setApplicationType();
                                     rightApp_model.setIssuer(right.getClientCompany().getName());
                                     rightApp_model.setTotalRightsAvailable(availableRights);//assuming before subscription
-                                    rightApp_model.setTotalSharesSubscribed(sumOfSharesSubscribe);//is total shares sub (to include this current one?)
-                                    rightApp_model.setValueOfTotalSharesSubscribed(valueOfSharesSub);
+                                    rightApp_model.setTotalSharesSubscribed((int)sumOfSharesSubscribe);//is total shares sub (to include this current one?)
+                                    rightApp_model.setValueOfAdditionalShares(valueOfSharesSub);
                                     rightApp_model.setAdditionalSharesAwaitingSub(additionalSharesAwaitingSub);
                                     rightApp_model.setValueOfAdditionalShares(additionalSharesAwaitingSub * right.getIssuePrice());//value of additional shares awaiting subscription
                                     rightApp_model.setTotalValue(noOfHoldersShares_hib * right.getIssuePrice()
                                             + additionalSharesAwaitingSub * right.getIssuePrice() + sumOfSharesSubscribe * right.getIssuePrice());
-                                    rightApp_model.setTotalSharesRenounced(right.getTotalSharesOnIssue() - sumOfSharesSubscribe);//asume shares remainging after this subscription
-                                    renouncedShares = right.getTotalSharesOnIssue() - sumOfSharesSubscribe;
+                                    //rightApp_model.setTotalSharesRenounced(right.getTotalSharesOnIssue() - (int)sumOfSharesSubscribe);//asume shares remainging after this subscription to be looked into after this pull request
+                                    renouncedShares = (right.getTotalSharesOnIssue() - sumOfSharesSubscribe);
                                     //rightApp_model.setIssuingHouse(right.geti);
                                     rightApp_model.setReturnMoney(valueOfSharesSub);
                                     subscribingHolders_list.add(rightApp_model);
@@ -1008,7 +1007,8 @@ public class HolderComponentLogic {
             boolean checkHolder = false;
             boolean checkHolderCompAcct = false;
             int counter;
-            int sumAppliedShares_hib = 0, remShares = 0;
+            int sumAppliedShares_hib = 0;
+            long remShares = 0;
             int sumOfSharesSubscribe_model = 0;
             org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(rightsIssueAppList.get(0).getClientCompanyId());
             if (hd.checkRightsIssue(rightsIssueAppList.get(0).getRightsIssueId(), rightsIssueAppList.get(0).getClientCompanyId())) {

@@ -40,7 +40,7 @@ public class GeneralComponentLogic {
         logger.info("request to get all receiver's notification, invoked by [{}]", login.getUserId());
         
         try {
-            if (true /*gq.checkValidUser(login.getUserId())*/) {
+            if (gq.checkValidUser(login.getUserId())) {
                 List<Notification> notifi_hib_list = gq.getNotificationsForReceiver(login.getUserId());
                 List<NotificationWrapper> wrappers = new ArrayList<>();
                 
@@ -93,6 +93,40 @@ public class GeneralComponentLogic {
             
             resp.setRetn(99);
             resp.setDesc("General error. Unable to get receiver notification. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+    
+    /**
+     * Request to reject notification.
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the reject notification request
+     */
+    public Response rejectNotification(Login login, String notificationCode) {
+        Response resp = new Response();
+        org.greenpole.util.Notification notification = new org.greenpole.util.Notification();
+        logger.info("request to reject notification, invoked by [{}]", login.getUserId());
+        
+        try {
+            if (gq.checkValidUser(login.getUserId())) {
+                notification.markRejected(notificationCode);
+                resp.setRetn(0);
+                resp.setDesc("successful");
+                logger.info("Notification rejected - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(400);
+            resp.setDesc("Illegal user.");
+            logger.info("Illegal user - [{}]", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error marking notification as rejected. See error log - [{}]", login.getUserId());
+            logger.error("error marking notification as rejected - [" + login.getUserId() + "]", ex);
+            
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to mark notification as rejected. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }

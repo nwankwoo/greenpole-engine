@@ -355,5 +355,5 @@ public interface HibernatDummyQuerInterface {
 
     public boolean revalidateDividend(int dividendId, int holderCompanyAccountId);
 
-    public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, int warrantNumber);
+    public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, long warrantNumber);
 }
