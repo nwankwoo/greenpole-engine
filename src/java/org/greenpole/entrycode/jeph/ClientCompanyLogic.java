@@ -16,8 +16,10 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entirycode.jeph.model.BondOfferReport;
 import org.greenpole.entirycode.jeph.model.QueryCanceledDividend;
@@ -806,7 +808,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * Processes request to Upload Bond Offer en-mass
+     * Processes request to Upload Bond Offer Application en-mass
      *
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
@@ -1001,6 +1003,9 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to declare Dividend for Client company that has been
+     * saved in a notification file, according to the specified notification
+     * code
      *
      * @param login
      * @param notificationCode
@@ -1055,6 +1060,13 @@ public class ClientCompanyLogic {
         }
     }
 
+    /**
+     *
+     * @param login
+     * @param authenticator
+     * @param dividendDeclared
+     * @return
+     */
     public Response viewCorporateActionBonusReport_Request(Login login, String authenticator, Dividend dividendDeclared) {
         Response resp = new Response();
 
@@ -1075,11 +1087,12 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to cancel shareholder dividend
      *
-     * @param login
-     * @param authenticator
-     * @param dividend
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividend Dividend object
+     * @return response to the Cancel Dividend request
      */
     public Response cancelDividend_Request(Login login, String authenticator, Dividend dividend) {
         logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
@@ -1127,10 +1140,12 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to cancel shareholder dividend that has been saved in a
+     * notification file, according to the specified notification code
      *
-     * @param login
-     * @param notificationCode
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the Cancel Dividend request
      */
     public Response cancelDividend_Authorise(Login login, String notificationCode) {
         logger.info("Authorise cancel dividend process, invoked by [{}]", login.getUserId());
@@ -1185,13 +1200,20 @@ public class ClientCompanyLogic {
         }
     }
 
-    public Response viewCanceledDividend_Request(Login login, QueryCanceledDividend queryCanceledDividend) {
+    /**
+     * Generates a report of canceled dividend
+     *
+     * @param login the user's login details
+     * @param queryCanceledDividend QueryCanceledDividend object
+     * @return response to the View Canceled Dividend Report query
+     */
+    public Response viewCanceledDividendReport_Request(Login login, QueryCanceledDividend queryCanceledDividend) {
         logger.info("Request to view generated report on cancelled dividends [{}], invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Descriptor descriptorUtil = new Descriptor();
 
         try {
-            
+
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryCanceledDividend.getDescriptor());
             if (descriptors.size() == 1) {
                 //check start date is properly formatted
@@ -1220,27 +1242,56 @@ public class ClientCompanyLogic {
                         return resp;
                     }
                 }
-                // List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = hq.getAllCanceledDividend(queryCanceledDividend.getDescriptor(), queryCanceledDividend.getStartDate(),
-                //         queryCanceledDividend.getEndDate(), greenProp.getDateFormat());
-                
-                List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = new ArrayList<>();
-                
+                // List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = hq.getAllCanceledDividend(queryCanceledDividend.getDescriptor(), 
+                //           queryCanceledDividend.getStartDate(), queryCanceledDividend.getEndDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.Dividend> canceledDividendEntityList = new ArrayList<>();
+                List<Dividend> canceledDividendLModelList = new ArrayList<>();
                 TagUser tag = new TagUser();
-                
-                for (org.greenpole.hibernate.entity.Dividend div : canceledDividendList) {
-                    
-                }                
+
+                for (org.greenpole.hibernate.entity.Dividend div : canceledDividendEntityList) {
+                    Dividend canceledDividend = new Dividend();
+                    canceledDividend.setClientCompName(div.getClientCompName());
+                    canceledDividend.setDividendDeclaredId(div.getDividendDeclared().getId());
+                    // canceledDividend.setHolderCompanyAccountId();
+                    canceledDividend.setWarrantNumber(div.getWarrantNumber().intValue());
+                    canceledDividend.setIssueType(div.getIssueType());
+                    canceledDividend.setIssueDate(div.getIssueDate().toString());
+                    canceledDividend.setDivNumber(div.getDivNumber());
+                    canceledDividend.setYearType(div.getYearType());
+                    canceledDividend.setYearEnding(div.getYearEnding().toString());
+                    canceledDividend.setSHolderMailingAddr(div.getSHolderMailingAddr());
+                    canceledDividend.setRate(div.getRate());
+                    canceledDividend.setCompAccHoldings(div.getCompAccHoldings());
+                    canceledDividend.setWithldingTaxRate(div.getWithldingTaxRate());
+                    canceledDividend.setGrossAmount(div.getGrossAmount());
+                    canceledDividend.setTax(div.getTax());
+                    canceledDividend.setPayableAmount(div.getPayableAmount());
+                    canceledDividend.setPayableDate(div.getPayableDate().toString());
+                    canceledDividend.setIssued(div.getIssued());
+                    canceledDividend.setIssueDate(div.getIssueDate().toString());
+                    // canceledDividend.setReIssued(div.getReIssued());
+                    // canceledDividend.setReIssuedDate(div.getReIssuedDate().toString());
+                    // canceledDividend.setPaid(div.getPaid());
+                    // canceledDividend.setPaidDate(div.getPaidDate().toString());
+                    // canceledDividend.setPaymentMethod(div.getPaymentMethod());
+                    // canceledDividend.setUnclaimed(div.getUnclaimed());
+                    // canceledDividend.setUnclaimedDate(div.getUnclaimedDate().toString());
+                    // canceledDividend.setCancelled(div.getCancelled());
+                    canceledDividend.setCanelledDate(div.getCanelledDate().toString());
+
+                    canceledDividendLModelList.add(canceledDividend);
+                }
                 List<TagUser> tagList = new ArrayList<>();
 
                 tag.setQueryParam(queryCanceledDividend);
-                tag.setResult(new ArrayList<>());
+                tag.setResult(canceledDividendLModelList);
                 tagList.add(tag);
 
                 resp.setBody(tagList);
-                resp.setDesc("Query Successful");
+                resp.setDesc("Canceled Dividend Query Report Generation Successful");
                 resp.setRetn(0);
-                logger.info("Query successful - [{}]", login.getUserId());
-                // send SMS and/or Email notification
+                logger.info("Canceled Dividend Query Report Generation - [{}]", login.getUserId());
                 return resp;
             }
             logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
@@ -1257,16 +1308,145 @@ public class ClientCompanyLogic {
         }
     }
 
-    public Response viewCanceledDividend_Authorise(Login login, String notificationCode) {
+    /**
+     * Processes request to replace dividend warrant
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividend Dividend object
+     * @return response to the replace dividend warrant request
+     */
+    public Response replaceDividendWarrant_Request(Login login, String authenticator, Dividend dividend) {
+        logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
+
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties props;
+
+            Response res = checkDividendReplaced(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                return res;
+            }
+            List<Dividend> dividendList = new ArrayList<>();
+            dividendList.add(dividend);
+
+            wrapper = new NotificationWrapper();
+            props = new NotifierProperties(ClientCompanyLogic.class);
+            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate dividend warrant replacement process for " + dividend.getClientCompanyId());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(dividendList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend warrant replacement. Contact system administrator.");
+            logger.info("Error processing dividend warrant replacement. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend warrant replacement - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to replace dividend warrant that has been saved in a
+     * notification file, according to the specified notification code
+     *
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the replace dividend warrant request
+     */
+    public Response replaceDividendWarrant_Authorise(Login login, String notificationCode) {
+        logger.info("Authorise replace dividend warrant process, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
+            Dividend dividend = dividendList.get(0);
+
+            Response res = checkDividendStatus(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                return res;
+            }
+            dividend.setIssued(false);
+            dividend.setReIssued(false);
+
+            // org.greenpole.hibernate.entity.Dividend dividendEntity = hq.getShareHolderDividend(dividend.getHolderCompanyAccountId());
+            org.greenpole.hibernate.entity.Dividend dividendEntity = new org.greenpole.hibernate.entity.Dividend();
+            org.greenpole.hibernate.entity.DividenAnnotation dividendAnnotEntity = new org.greenpole.hibernate.entity.DividenAnnotation();
+
+            Set dividendAnnot = new HashSet();
+
+            dividendAnnotEntity.setAnnotation(dividend.getAnnotation());
+            dividendEntity.setIssued(dividend.isIssued());
+            dividendEntity.setReIssued(dividend.isReIssued());
+            dividendAnnot.add(dividend.getAnnotation());
+            dividendEntity.setDividenAnnotations(dividendAnnot);
+
+            boolean status = false;
+            // status = hq.updateShareholderDividend(dividendEntity);
+            if (status) {
+                resp.setRetn(0);
+                resp.setDesc("Replace dividend warrant authorisation process successful");
+                logger.info("Replace dividend warrant authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                wrapper.setAttendedTo(true);
+                notification.markAttended(notificationCode);
+                // send SMS and/or Email notification
+                return resp;
+            }
+            resp.setRetn(200);
+            resp.setDesc("Unable to process replace dividend warrant authorisation.");
+            logger.info("Unable to process replace dividend warrant authorisation - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("Unable to process 'replace dividend warrant' authorisation request. Contact System Administrator");
+            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process 'replace dividend warrant' authorisation request. Contact system administrator.");
+            logger.info("Error processing 'replace dividend warrant' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error processing 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes recreation of a new dividend which will retain all previous
+     * information on a canceled dividend except with a new warrant number
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividend Dividend object
+     * @return response to the recreate dividend request
+     */
+    public Response recreateDividend_Request(Login login, String authenticator, Dividend dividend) {
 
         return new Response();
     }
 
     /**
+     * Validates holder details
      *
-     * @param login
-     * @param holder
-     * @return
+     * @param login the user's login details
+     * @param holder Holder object
+     * @return response to the calling method
      */
     private Response validateHolderDetails(Login login, org.greenpole.entity.model.holder.Holder holder) {
         Response resp = new Response();
@@ -1739,10 +1919,11 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * checks the status of a Dividend
      *
-     * @param login
-     * @param dividend
-     * @return
+     * @param login the user's login details
+     * @param dividend Dividend object
+     * @return response to the check dividend status method
      */
     private Response checkDividendStatus(Login login, Dividend dividend) {
         Response resp = new Response();
@@ -1766,6 +1947,51 @@ public class ClientCompanyLogic {
         resp.setDesc("Dividend has been paid for and so cannot be cancelled");
         logger.info("Dividend has been paid for and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
         return resp;
+    }
+
+    /**
+     * Processes a dividend for replacement
+     *
+     * @param login the user's login details
+     * @param dividend Dividend object
+     * @return response to the check dividend replaced
+     */
+    private Response checkDividendReplaced(Login login, Dividend dividend) {
+        Response resp = new Response();
+        try {
+            if (!dividend.isReIssued() || !dividend.isIssued()) {// checks if dividend is issued or re-issued
+                if ((dividend.getPaymentMethod() == null || "".equals(dividend.getPaymentMethod())) || !dividend.getPaid()) {//checks if dividend has NOT been paid for or does not belong to shareholder with a mandated e-payment
+                    if (dividend.getAnnotation() != null && !"".equals(dividend.getAnnotation())) {// check for dividend annotation
+                        resp.setRetn(0);
+                        return resp;
+                    }// dividend annotation (reason for replacing dividend warrant) is not specified
+                    resp.setRetn(200);
+                    resp.setDesc("Dividend annotation (reason for wanting to replace dividend warrant) is not specified");
+                    logger.info("Dividend annotation (reason for wanting to replace dividend warrant) is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }// dividend has been paid for or shareholder belongs with a mandated e-payment
+                resp.setRetn(200);
+                resp.setDesc("Dividend has been paid for or shareholder belongs with a mandated e-payment and so cannot replace dividend");
+                logger.info("Dividend has been paid for or shareholder belongs with a mandated e-payment and so cannot replace dividend. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// dividend has not been issued or re-issued
+            resp.setRetn(200);
+            resp.setDesc("Dividend has not been issued or re-issued and so cannot replace dividend");
+            logger.info("Dividend has not been issued or re-issued and so cannot replace dividend. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        } catch (NullPointerException ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to validate 'replace dividend warrant' authorisation request. Contact system administrator.");
+            logger.info("Error validating 'replace dividend warrant' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error validating 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to validate 'replace dividend warrant' authorisation request. Contact system administrator.");
+            logger.info("Error validating 'replace dividend warrant' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error validating 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
 }
