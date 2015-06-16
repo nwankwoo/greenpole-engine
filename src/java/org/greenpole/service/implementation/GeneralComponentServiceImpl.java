@@ -9,6 +9,7 @@ import javax.jws.WebService;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.logic.GeneralComponentLogic;
+import org.greenpole.security.SecurityCheck;
 import org.greenpole.service.GeneralComponentService;
 
 /**
@@ -22,6 +23,13 @@ public class GeneralComponentServiceImpl implements GeneralComponentService {
     @Override
     public Response getReceiverNotifications_Request(Login login) {
         return request.getReceiverNotifications_Request(login);
+    }
+
+    @Override
+    public Response rejectNotification(Login login, String notificationCode) {
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.rejectNotification(login, notificationCode);
     }
     
 }

@@ -91,8 +91,7 @@ public class ClientCompanyComponentLogic {
                 } else {
                     flag = true;
                 }
-                System.out.println("Depository id::: " + cc.getDepositoryId());
-                System.out.println("Depository id::: " + cc.getNseSectorId());
+                
                 if (flag && cc.getDepositoryId() > 0) {
                     boolean found = false;
                     for (Depository d : cq.getAllDepositories()) {
