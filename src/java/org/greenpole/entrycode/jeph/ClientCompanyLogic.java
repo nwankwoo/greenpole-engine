@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entirycode.jeph.model.BondOfferReport;
-import org.greenpole.entirycode.jeph.model.QueryCanceledDividend;
+import org.greenpole.entirycode.jeph.model.QueryCorporateAction;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
@@ -32,6 +32,7 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entity.tags.AddressTag;
+import org.greenpole.entrycode.emmanuel.model.QueryDividend;
 import org.greenpole.hibernate.entity.BondOffer;
 import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
@@ -961,7 +962,7 @@ public class ClientCompanyLogic {
      * @return
      */
     public Response declaredDividend_Request(Login login, String authenticator, DividendDeclared dividendDeclared) {
-        logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
+        logger.info("request to create declare dividend, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
 
@@ -1061,29 +1062,203 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Generates a report to view corporate action on declared dividend
      *
-     * @param login
-     * @param authenticator
-     * @param dividendDeclared
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param viewDividendDeclared QueryCorporateAction object
+     * @return response to the view corporate action dividend report process
      */
-    public Response viewCorporateActionBonusReport_Request(Login login, String authenticator, Dividend dividendDeclared) {
+    public Response viewCorporateActionDividendReport_Request(Login login, String authenticator, QueryCorporateAction viewDividendDeclared) {
+        logger.info("Request to view generated report on declared dividend [{}], invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
 
-        return resp;
+        try {
+            if (viewDividendDeclared.getDescriptor() == null || "".equals(viewDividendDeclared.getDescriptor())) {
+                resp.setRetn(300);
+                resp.setDesc("View corporate action report on declared dividend unsuccessful, empty descriptor found.");
+                logger.info("View corporate action report on declared dividend unsuccessful. Empty descriptor - [{}]", login.getUserId());
+                return resp;
+            }
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(viewDividendDeclared.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(viewDividendDeclared.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.DividendDeclared> viewDividendList = cq.getAllDeclaredDividend(viewDividend.getDescriptor(), 
+                //           viewDividend.getStartDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.DividendDeclared> viewDividendDeclaredEntityList = new ArrayList<>();
+                List<DividendDeclared> declaredDividendModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.DividendDeclared divDeclrd : viewDividendDeclaredEntityList) {
+                    DividendDeclared veiwDividendDeclared = new DividendDeclared();
+
+                    veiwDividendDeclared.setClientCompanyId(divDeclrd.getClientCompany().getId());
+                    veiwDividendDeclared.setYearType(divDeclrd.getYearType());
+                    veiwDividendDeclared.setIssueType(divDeclrd.getIssueType());
+                    veiwDividendDeclared.setQualifyDate(divDeclrd.getQualifyDate().toString());
+                    veiwDividendDeclared.setWithholdingTaxRateInd(divDeclrd.getWithholdingTaxRateInd());
+                    veiwDividendDeclared.setWithholdingTaxRateCorp(divDeclrd.getWithholdingTaxRateCorp());
+                    veiwDividendDeclared.setYearEnding(divDeclrd.getYearEnding());
+                    veiwDividendDeclared.setDatePayable(divDeclrd.getDatePayable().toString());
+                    veiwDividendDeclared.setRate(divDeclrd.getRate());
+
+                    List<org.greenpole.entity.model.holder.Holder> holderListSend = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
+                    // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders(dividendDeclared.getClientCompanyId());
+                    for (org.greenpole.hibernate.entity.Holder h : holderList) {
+                        org.greenpole.entity.model.holder.Holder hold = new org.greenpole.entity.model.holder.Holder();
+                        hold.setHolderAcctNumber(h.getHolderAcctNumber());
+                        hold.setChn(h.getChn());
+                        hold.setFirstName(h.getFirstName());
+                        hold.setMiddleName(h.getMiddleName());
+                        hold.setLastName(h.getLastName());
+                        hold.setGender(h.getGender());
+                        hold.setDob(h.getDob().toString());
+                        hold.setTaxExempted(h.getTaxExempted());
+                        hold.setPryAddress(h.getPryAddress());
+
+                        holderListSend.add(hold);
+                    }
+                    veiwDividendDeclared.setHolders(holderListSend);
+                    declaredDividendModelList.add(veiwDividendDeclared);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(viewDividendDeclared);
+                tag.setResult(declaredDividendModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Generation of Report on Corporate Action: Declared Dividend Successful");
+                resp.setRetn(0);
+                logger.info("Generation of Report on Corporate Action: Declared Dividend Successful - [{}]", login.getUserId());
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on declared dividends. Contact system administrator.");
+            logger.info("Error generating report on declared dividends. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on declared dividends - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
     /**
+     * Generates a report to view corporate action on share bonus
      *
-     * @param login
-     * @param authenticator
-     * @param dividend
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param viewShareBonus QueryCorporateAction object
+     * @return response to the view corporate action bonus report process
      */
-    public Response viewCorporateActionDividendReport_Request(Login login, String authenticator, Dividend dividend) {
+    public Response viewCorporateActionBonusReport_Request(Login login, String authenticator, QueryCorporateAction viewShareBonus) {
+        logger.info("Request to view generated report on declared share bonus [{}], invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
 
-        return resp;
+        try {
+            if (viewShareBonus.getDescriptor() == null || "".equals(viewShareBonus.getDescriptor())) {
+                resp.setRetn(300);
+                resp.setDesc("View corporate action report on declared bonus unsuccessful, empty descriptor found.");
+                logger.info("View corporate action report on declared bonus unsuccessful. Empty descriptor - [{}]", login.getUserId());
+                return resp;
+            }
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(viewShareBonus.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(viewShareBonus.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.ShareBonus> viewShareBonusEntityList = cq.getAllShareBonus(viewDividend.getDescriptor(), 
+                //           viewDividend.getStartDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.ShareBonus> viewShareBonusEntityList = new ArrayList<>();
+                List<ShareBonus> shareBonusModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.ShareBonus bonus : viewShareBonusEntityList) {
+                    ShareBonus viewBonus = new ShareBonus();
+
+                    viewBonus.setClientCompanyId(bonus.getClientCompany().getId());
+                    viewBonus.setTitle(bonus.getTitle());
+                    viewBonus.setQualifyDate(bonus.getQualifyDate().toString());
+                    viewBonus.setQualifyShareUnit(bonus.getQualifyShareUnit());
+                    viewBonus.setBonusUnitPerQualifyUnit(bonus.getBonusUnitPerQualifyUnit());
+
+                    List<org.greenpole.entity.model.holder.Holder> holderListSend = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
+                    // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders(viewShareBonus.getClientCompanyId());
+                    for (org.greenpole.hibernate.entity.Holder h : holderList) {
+                        org.greenpole.entity.model.holder.Holder hold = new org.greenpole.entity.model.holder.Holder();
+                        hold.setHolderAcctNumber(h.getHolderAcctNumber());
+                        hold.setChn(h.getChn());
+                        hold.setFirstName(h.getFirstName());
+                        hold.setMiddleName(h.getMiddleName());
+                        hold.setLastName(h.getLastName());
+                        hold.setGender(h.getGender());
+                        hold.setDob(h.getDob().toString());
+                        hold.setTaxExempted(h.getTaxExempted());
+                        hold.setPryAddress(h.getPryAddress());
+
+                        holderListSend.add(hold);
+                    }
+                    viewBonus.setHolders(holderListSend);
+                    shareBonusModelList.add(viewBonus);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(viewShareBonus);
+                tag.setResult(shareBonusModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Generation of Report on Corporate Action: Declared Share Bonus Successful");
+                resp.setRetn(0);
+                logger.info("Generation of Report on Corporate Action: Declared Share Bonus Successful - [{}]", login.getUserId());
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on Share Bonus dividends. Contact system administrator.");
+            logger.info("Error generating report on declared Share Bonus. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on declared Share Bonus - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
     /**
@@ -1204,10 +1379,10 @@ public class ClientCompanyLogic {
      * Generates a report of canceled dividend
      *
      * @param login the user's login details
-     * @param queryCanceledDividend QueryCanceledDividend object
+     * @param queryCanceledDividend QueryCorporateAction object
      * @return response to the View Canceled Dividend Report query
      */
-    public Response viewCanceledDividendReport_Request(Login login, QueryCanceledDividend queryCanceledDividend) {
+    public Response viewCanceledDividendReport_Request(Login login, QueryCorporateAction queryCanceledDividend) {
         logger.info("Request to view generated report on cancelled dividends [{}], invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Descriptor descriptorUtil = new Descriptor();
@@ -1437,8 +1612,115 @@ public class ClientCompanyLogic {
      * @return response to the recreate dividend request
      */
     public Response recreateDividend_Request(Login login, String authenticator, Dividend dividend) {
+        logger.info("request to recreate dividend, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
 
-        return new Response();
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties props;
+
+            Response res = verifyDividendDetails(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                return res;
+            }
+            List<Dividend> dividendList = new ArrayList<>();
+            dividendList.add(dividend);
+
+            wrapper = new NotificationWrapper();
+            props = new NotifierProperties(ClientCompanyLogic.class);
+            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate recreate dividend process for " + dividend.getClientCompanyId());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(dividendList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process recreate dividend process. Contact system administrator.");
+            logger.info("Error processing recreate dividend process. See error log - [{}]", login.getUserId());
+            logger.error("Error processing recreate dividend process - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to recreate dividend that has been saved in a
+     * notification file, according to the specified notification code
+     *
+     * @param login
+     * @param notificationCode
+     * @return
+     */
+    public Response recreateDividend_Authorise(Login login, String notificationCode) {
+        logger.info("Authorise replace dividend warrant process, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
+            Dividend dividend = dividendList.get(0);
+
+            Response res = verifyDividendDetails(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                return res;
+            }
+
+            List<org.greenpole.hibernate.entity.Dividend> dividendEntityList = new ArrayList<>();
+            org.greenpole.hibernate.entity.Dividend dividendEntity = new org.greenpole.hibernate.entity.Dividend();
+
+            dividendEntity.setClientCompName(dividend.getClientCompName());
+            dividendEntity.setIssueType(dividend.getIssueType());
+            dividendEntity.setIssueDate(formatter.parse(dividend.getIssueDate()));
+            dividendEntity.setDivNumber(dividend.getDivNumber());
+            dividendEntity.setYearType(dividend.getYearType());
+            // TODO: warranty number to be auto generated #important
+            // dividendEntity.setWarrantNumber(warrantNumber);
+
+            // dividendEntity.setHolderCompanyAccount(hq.getHolderCompanyAccount(dividend.getHolderCompanyAccountId()));
+            dividendEntity.setSHolderMailingAddr(dividend.getSHolderMailingAddr());
+            dividendEntity.setRate(dividend.getRate());
+            dividend.setCompAccHoldings(dividend.getCompAccHoldings());
+            dividendEntity.setWithldingTaxRate(dividend.getWithldingTaxRate());
+            dividendEntity.setGrossAmount(dividend.getGrossAmount());
+            dividendEntity.setTax(dividendEntity.getTax());
+            dividendEntity.setPayableAmount(dividendEntity.getPayableAmount());
+            dividendEntity.setIssued(dividend.isIssued());
+            dividendEntity.setIssueDate(formatter.parse(dividend.getIssueDate()));
+            dividendEntity.setPayableDate(formatter.parse(dividend.getPayableDate()));
+            dividendEntityList.add(dividendEntity);
+
+            boolean status = false;
+            // status hq.createUpdateShareholderDividend(dividendEntityList);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Dividends for shareholders NOT successful");
+                logger.info("Dividends for shareholders NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Dividends for shareholders successful");
+            logger.info("Dividends for shareholders successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend creation for shareholders. Contact system administrator.");
+            logger.info("Error processing dividend creation for shareholders. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend creation for shareholders - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
     /**
@@ -1584,7 +1866,7 @@ public class ClientCompanyLogic {
 
                 dividend.setClientCompName(cq.getClientCompany(dividendDeclared.getClientCompanyId()).getName());
                 dividend.setIssueType(dividendDeclared.getIssueType());
-                dividend.setIssueDate(formatter.parse(dividendDeclared.getIssueDate()));
+                dividend.setIssueDate(date);
                 // dividend.setDivNumber(Integer.MIN_VALUE);
                 dividend.setYearType(dividendDeclared.getYearType());
                 // dividend.setWarrantNumber(warrantNumber);
@@ -1635,6 +1917,160 @@ public class ClientCompanyLogic {
             resp.setDesc("General error. Unable to process dividend creation for shareholders. Contact system administrator.");
             logger.info("Error processing dividend creation for shareholders. See error log - [{}]", login.getUserId());
             logger.error("Error processing dividend creation for shareholders - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Verifies dividend details for processing Dividend recreation
+     *
+     * @param login the user's login details
+     * @param dividend Dividend object
+     * @return response to the dividend verification request
+     */
+    private Response verifyDividendDetails(Login login, Dividend dividend) {
+        logger.info("process to verify dividend details, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        try {
+            if (dividend.getClientCompanyId() > 0) {// check clientcompanyid
+                if (dividend.getDividendDeclaredId() > 0) {// check dividend declared id
+                    if (true) {// check dividend issue type id
+                        if (dividend.getHolderCompanyAccountId() > 0) {// check holder company account id
+                            if (dividend.getClientCompName() != null || !"".equals(dividend.getClientCompName())) {//check client company name
+                                if (dividend.getIssueType() != null || !"".equals(dividend.getIssueType())) {// check issue type
+                                    if (dividend.getIssueDate() != null || !"".equals(dividend.getIssueDate())) {// check issue date
+                                        try {// check issue date format
+                                            formatter.parse(dividend.getIssueDate());
+                                        } catch (ParseException ex) {// issue date format is wrong
+                                            resp.setRetn(200);
+                                            resp.setDesc("Incorrect date format for issue date");
+                                            logger.info("An error was thrown while checking the issue date format. See error log invoked by [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                            logger.error("Incorrect date format for issue date invoked by [{}]", login.getUserId(), ex);
+                                            return resp;
+                                        }
+                                        if (dividend.getDivNumber() > 0) {// check dividend number
+                                            if (dividend.getYearType() != null || !"".equals(dividend.getYearType())) {// check year type
+                                                if (dividend.getYearEnding() != null || !"".equals(dividend.getYearEnding())) {// check year ending
+                                                    if (dividend.getSHolderMailingAddr() != null || !"".equals(dividend.getSHolderMailingAddr())) {// check shareholder mailing address
+                                                        if (dividend.getRate() > 0.0) {// check rate
+                                                            if (dividend.getCompAccHoldings() > 0.0) {// check company account holdings
+                                                                if (dividend.getWithldingTaxRate() > 0) {// check withholding tax rate
+                                                                    if (dividend.getGrossAmount() > 0) {// gross amount
+                                                                        if (true) {// tax
+                                                                            if (dividend.getPayableAmount() > 0) {// check payable amount
+                                                                                if (dividend.getPayableDate() != null || !"".equals(dividend.getPayableDate())) {// check payable date
+                                                                                    try {
+                                                                                        formatter.parse(dividend.getPayableDate());
+                                                                                    } catch (ParseException ex) {
+                                                                                        resp.setRetn(200);
+                                                                                        resp.setDesc("Incorrect date format for payable date");
+                                                                                        logger.info("An error was thrown while checking the payable date format. See error log invoked by [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                                                                        logger.error("Incorrect date format for payable date invoked by [{}]", login.getUserId(), ex);
+                                                                                        return resp;
+                                                                                    }
+                                                                                    if (dividend.isCancelled()) {// checks if it is canceled
+                                                                                        resp.setRetn(0);
+                                                                                        return resp;
+                                                                                    }// dividend is not canceled
+                                                                                    resp.setRetn(200);
+                                                                                    resp.setDesc("Dividend is not canceled");
+                                                                                    logger.info("Dividend is not canceled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                                    return resp;
+                                                                                }// payable date is not specified
+                                                                                resp.setRetn(200);
+                                                                                resp.setDesc("Payable date is not specified");
+                                                                                logger.info("Payable date is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                                return resp;
+                                                                            }// payable amount is not specified
+                                                                            resp.setRetn(200);
+                                                                            resp.setDesc("Payable amount is not specified");
+                                                                            logger.info("Payable amount is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                            return resp;
+                                                                        }// tax amount is missing
+                                                                        resp.setRetn(200);
+                                                                        resp.setDesc("Tax amount is not specified");
+                                                                        logger.info("Tax amount is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                        return resp;
+                                                                    }// gross amount is not specified
+                                                                    resp.setRetn(200);
+                                                                    resp.setDesc("Gross amount is not specified");
+                                                                    logger.info("Gross amount is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                    return resp;
+                                                                }// withholding tax rate is not specified
+                                                                resp.setRetn(200);
+                                                                resp.setDesc("Withholding tax rate is not specified");
+                                                                logger.info("Withholding tax rate is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                return resp;
+                                                            }// company account holdings is not specified
+                                                            resp.setRetn(200);
+                                                            resp.setDesc("Company account holdings is not specified");
+                                                            logger.info("Company account holdings is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                            return resp;
+                                                        }// rate is not specified
+                                                        resp.setRetn(200);
+                                                        resp.setDesc("Rate is not specified");
+                                                        logger.info("Rate is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                        return resp;
+                                                    }// shareholder mailing address is not specified
+                                                    resp.setRetn(200);
+                                                    resp.setDesc("Shareholder mailing address is not specified");
+                                                    logger.info("Shareholder mailing address is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                    return resp;
+                                                }// year ending is not specified
+                                                resp.setRetn(200);
+                                                resp.setDesc("Year ending is not specified");
+                                                logger.info("Year ending is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                return resp;
+                                            }// year type is not specified
+                                            resp.setRetn(200);
+                                            resp.setDesc("Year type is not specified");
+                                            logger.info("Year type is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                            return resp;
+                                        }// dividend number is not specified
+                                        resp.setRetn(200);
+                                        resp.setDesc("Dividend number is not specified");
+                                        logger.info("Dividend number is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                        return resp;
+                                    }// issue date is not specified
+                                    resp.setRetn(200);
+                                    resp.setDesc("Issue date is not specified");
+                                    logger.info("Issue date is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                    return resp;
+                                }// issue type is not specified
+                                resp.setRetn(200);
+                                resp.setDesc("Issue type is not specified");
+                                logger.info("Issue type is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                return resp;
+                            }// client company name is not specified
+                            resp.setRetn(200);
+                            resp.setDesc("Client company name is not specified");
+                            logger.info("Client company name is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            return resp;
+                        }// holder company account id is not specified
+                        resp.setRetn(200);
+                        resp.setDesc("Holder company account ID is not specified");
+                        logger.info("Holder company account ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                        return resp;
+                    }// dividend issue type id is not specified
+                    resp.setRetn(200);
+                    resp.setDesc("Dividend issue type ID is not specified");
+                    logger.info("Dividend issue type ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }// dividend declared id is not specified
+                resp.setRetn(200);
+                resp.setDesc("Dividend declared ID is not specified");
+                logger.info("Dividend declared ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// clientcompanyid is not specified
+            resp.setRetn(200);
+            resp.setDesc("Client company ID is not specified");
+            logger.info("Client company ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend warrant verification. Contact system administrator.");
+            logger.info("Error processing dividend warrant verification. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend warrant verification - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
