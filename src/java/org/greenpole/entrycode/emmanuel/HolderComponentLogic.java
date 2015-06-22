@@ -925,11 +925,6 @@ public class HolderComponentLogic {
                             break;
                         }
                     }
-                   // for (org.greenpole.hibernate.entity.RightsIssueApplication ra : rightsApp_hib_list) {
-
-                    // sumAppliedShares += ra.getSharesSubscribed();//get sum of shares subscribed
-                    // remShares = ri.getTotalSharesOnIssue() - sumOfSharesSubscribe;//get shares left in client company account
-                    //}
                     if (checkHolder) {
                         if (checkHolderCompAcct) {
                             if (ri.getTotalSharesOnIssue() >= sumOfSharesSubscribe) {

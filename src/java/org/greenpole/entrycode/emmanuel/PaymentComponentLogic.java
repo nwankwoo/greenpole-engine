@@ -15,12 +15,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import org.greenpole.entirycode.jeph.model.DividendDeclared;
+import org.greenpole.entirycode.jeph.model.DividendSettlement;
 import org.greenpole.entity.model.clientcompany.BondType;
+import org.greenpole.entity.model.holder.Holder;
+import org.greenpole.entity.model.holder.HolderCompanyAccount;
 import org.greenpole.entity.model.taguser.TagUser;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entrycode.emmanuel.model.CorporateActionReport;
 import org.greenpole.entrycode.emmanuel.model.Coupon;
 import org.greenpole.entrycode.emmanuel.model.DividenAnnotation;
 import org.greenpole.entrycode.emmanuel.model.Dividend;
@@ -186,6 +192,13 @@ public class PaymentComponentLogic {
         }
     }
 
+    /**
+     * processes query for dividend details
+     *
+     * @param login the user details
+     * @param queryParams the search parameters
+     * @return query result from hibernate
+     */
     public Response queryDividend_Request(Login login, QueryDividend queryParams) {
         Response resp = new Response();
         logger.info("querying of dividend details invoked by ", login.getUserId());
@@ -255,6 +268,7 @@ public class PaymentComponentLogic {
                 for (org.greenpole.hibernate.entity.Dividend div : dividend_hib_list) {
                     Dividend di = new Dividend();
                     org.greenpole.hibernate.entity.HolderCompanyAccount hca = hq.getHolderCompanyAccount(div.getHolderCompanyAccount().getHolder().getId(), div.getClientCompany().getId());
+                    org.greenpole.hibernate.entity.HolderCompanyAccountId hca_id = hca.getHolderCompanyAccount().getId();
                     di.setClientCompName(div.getClientCompName());
                     di.setIssueType(div.getIssueType());
                     di.setIssued(div.getIssued());
@@ -265,6 +279,7 @@ public class PaymentComponentLogic {
                     di.setSHolderMailingAddr(div.getSHolderMailingAddr());
                     di.setPayableDate(formatter.format(div.getPayableDate()));
                     di.setCompAccHoldings(div.getCompAccHoldings());
+                    di.setHolderCompanyAccountId(hca_id.getHolderId());
                     di.setCancelled(div.getCancelled());
                     di.setCanelledDate(formatter.format(div.getCanelledDate()));
                     di.setDividendDeclaredId(div.getDividendDeclared().getId());
@@ -276,7 +291,7 @@ public class PaymentComponentLogic {
                         di_ann_model.setAnnotation(di_ann.getAnnotation());
                         div_ann_list_out.add(di_ann_model);
                     }
-                    di.setDividendAnnotation(div_ann_list_out);
+                    di.setDividenAnnotation(div_ann_list_out);
                     dividend_model_list_out.add(di);
 
                 }
@@ -298,6 +313,13 @@ public class PaymentComponentLogic {
         return resp;
     }
 
+    /**
+     * processes query for coupon details
+     *
+     * @param login the user details
+     * @param queryParams the query parameters
+     * @return query result from hibernate
+     */
     public Response queryCoupon_Request(Login login, QueryCoupon queryParams) {
         Response resp = new Response();
         logger.info("querying of coupon details invoked by ", login.getUserId());
@@ -314,7 +336,7 @@ public class PaymentComponentLogic {
             }
 
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryParams.getDescriptor());
-            if (descriptors.size() == 6) {
+            if (descriptors.size() == 3) {
                 Coupon coup_model_search = new Coupon();
                 if (queryParams.getCoupon() != null) {
                     coup_model_search = queryParams.getCoupon();
@@ -358,7 +380,10 @@ public class PaymentComponentLogic {
                 List<org.greenpole.hibernate.entity.Coupon> coupon_hib_list = hd.getCoupon(queryParams.getDescriptor(), coup_hib_search, redemptionAmount_search, couponAmount_search);
                 for (org.greenpole.hibernate.entity.Coupon cou : coupon_hib_list) {
                     Coupon co = new Coupon();
+                    org.greenpole.hibernate.entity.BondOffer bo = hd.getBondOfferId(cou.getHolderBondAccount().getBondOffer().getClientCompany().getId());
                     //org.greenpole.hibernate.entity.HolderCompanyAccount hca = hq.getHolderCompanyAccount(div.getHolderCompanyAccount().getHolder().getId(), div.getClientCompany().getId());
+                    org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompanyByName(cou.getClientCompanyName());
+                   // org.greenpole.hibernate.entity.HolderBondAccount hba = hd.retrieveHolderBondCompAccount(holderId, bondId)
                     co.setClientCompanyName(cou.getClientCompanyName());
                     co.setIssueDate(formatter.format(cou.getIssueDate()));
                     co.setCouponNumber(cou.getCouponNumber());
@@ -367,6 +392,7 @@ public class PaymentComponentLogic {
                     co.setRedemptnDate(formatter.format(cou.getRedemptnDate()));
                     co.setCouponAmt(cou.getCouponAmt());
                     co.setRedemptionAmt(cou.getRedemptionAmt());
+                    //co.setHolderBondAccountId(cou.getHolderBondAccount().getHolderBondAccount().getId());
                     coupon_model_list_out.add(co);
                 }
                 logger.info("Coupon query successful - [{}]", login.getUserId());
@@ -387,6 +413,13 @@ public class PaymentComponentLogic {
         return resp;
     }
 
+    /**
+     * processes request to view marked dividend report
+     *
+     * @param login the user details
+     * @param queryParams the search parameters
+     * @return hibernate list of marked dividend
+     */
     public Response viewMarkedDividends_Request(Login login, QueryDividend queryParams) {
         logger.info("request to query marked dividends , invoked by [{}] ", login.getUserId());
         Response resp = new Response();
@@ -428,7 +461,7 @@ public class PaymentComponentLogic {
                 for (org.greenpole.hibernate.entity.Dividend div : div_hib_list) {
                     Dividend div_model = new Dividend();
                     div_model.setId(div.getId());
-                    div_model.setClientCompName(null);
+                    div_model.setClientCompName(div.getClientCompName());
                     div_model.setCompAccHoldings(div.getCompAccHoldings());
                     div_model.setDivNumber(div.getDivNumber());
                     div_model.setDividendDeclaredId(div.getDividendDeclared().getId());
@@ -473,7 +506,7 @@ public class PaymentComponentLogic {
                         dv_model.setId(dv.getId());
                         dividend_ann_model_out.add(dv_model);
                     }
-                    div_model.setDividendAnnotation(dividend_ann_model_out);
+                    div_model.setDividenAnnotation(dividend_ann_model_out);
                     div_model_list_out.add(div_model);
                 }
                 List<TagUser> tagList = new ArrayList<>();
@@ -500,26 +533,40 @@ public class PaymentComponentLogic {
         return resp;
     }
 
+    /**
+     * get the difference in dates
+     *
+     * @param date1 the current date
+     * @param date2 the second date
+     * @param timeUnit converts diffInDays to milliseconds which is in turn
+     * converted to days
+     * @return the difference in the two dates given
+     */
     public static long getDateDiff(Date date1, Date date2, TimeUnit timeUnit) {
         long diffInDays = date1.getTime() - date2.getTime();
         return timeUnit.convert(diffInDays, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * monitors issue but not paid dividend records and invalidate the one's that has stayed for
+     * six months and above 
+     */
     public void monitorAndInvalidateDividend() {
-        Response resp = new Response();
         try {
             long millis = System.currentTimeMillis();
             Date current_date = new java.sql.Date(millis);
             //boolean paidStatus = false;
             int month = 0, days = 0;
+            int year = 0;
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             List<org.greenpole.hibernate.entity.Dividend> dividends_hib_list = hd.getAllDividends();
             if (!dividends_hib_list.isEmpty()) {
                 for (org.greenpole.hibernate.entity.Dividend div : dividends_hib_list) {
                     org.greenpole.hibernate.entity.Dividend div_hib = new org.greenpole.hibernate.entity.Dividend();
                     if (div.getIssued() && !div.getPaid()) {//true if not paid else false if paid but am using false
-                        Date payableDate = div.getPayableDate();
-                        long noOfDaysDiff = getDateDiff(current_date, payableDate, TimeUnit.DAYS);
+                        Date issueDate = div.getIssueDate();
+                        long noOfDaysDiff = getDateDiff(current_date, issueDate, TimeUnit.DAYS);
+                        year = (int) noOfDaysDiff / 365;
                         month = (int) noOfDaysDiff / 30;
                         days = (int) noOfDaysDiff % 30;
                         if (month >= 6 && days > 0) {
@@ -534,6 +581,14 @@ public class PaymentComponentLogic {
         }
     }
 
+    /**
+     * processes request to revalidate an invalidated dividend record
+     *
+     * @param login the user details
+     * @param authenticator the user details
+     * @param dividend the dividend to be revalidated
+     * @return response to the revalidation request
+     */
     public Response revalidateDividend_Request(Login login, String authenticator, Dividend dividend) {
         logger.info("request to revalidate dividend invoked by - [{}]", login.getUserId());
         Response resp = new Response();
@@ -611,6 +666,13 @@ public class PaymentComponentLogic {
         }
     }
 
+    /**
+     * processes a saved request to revalidate an invalidated dividend record
+     *
+     * @param login the user details
+     * @param notificationCode the notification code
+     * @return response to the revalidation request
+     */
     public Response revalidateDividend_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorise revalidation of dividend, invoked by - [{}] " + login.getUserId());
@@ -672,12 +734,12 @@ public class PaymentComponentLogic {
     }
 
     /**
-     * Processes request to upload dividend details from
+     * Processes request to upload dividend details from U - Dividend
      *
-     * @param login
-     * @param authenticator
-     * @param divList
-     * @return
+     * @param login the user details
+     * @param authenticator the user meant to receive this notification
+     * @param divList the list of paid dividends to be processed
+     * @return response to the upload of paid dividend request
      */
     public Response uploadPaidDividends_Request(Login login, String authenticator, List<Dividend> divList) {
         Response resp = new Response();
@@ -742,7 +804,15 @@ public class PaymentComponentLogic {
         }
     }
 
-    public Response uploadPaidDividends_Request(Login login, String notificationCode) {
+    /**
+     * Processes saved request to upload paid dividends details from from U -
+     * Dividend.
+     *
+     * @param login the user details
+     * @param notificationCode the notification code
+     * @return response to the upload of paid dividends request
+     */
+    public Response uploadPaidDividends_Authorisation(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorisation for upload of paid dividends details from U - Dividend invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
         Notification notification = new Notification();
@@ -751,6 +821,7 @@ public class PaymentComponentLogic {
             List<Dividend> divList = (List<Dividend>) wrapper.getModel();
             int counter;
             boolean exists = false;
+            boolean uploaded = false;
             for (counter = 0; counter < divList.size(); counter++) {
                 exists = hd.checkAgainstUploadingSameDivRecord(divList.get(counter).getClientCompanyId(), divList.get(counter).getDividendDeclaredId(), divList.get(counter).getWarrantNumber());
                 if (exists) {
@@ -771,74 +842,302 @@ public class PaymentComponentLogic {
                 }
             }
             if (!exists) {
-
+                uploaded = hd.uploadDividendsViaUDividend(retrieveDividends(divList));
+            }
+            if (uploaded) {
+                resp.setRetn(0);
+                resp.setDesc("Successfully uploaded ");
+                logger.info("Successfully uploaded paid dividends from U - Dividend ", login.getUserId());
+                return resp;
+            }
+            if (!uploaded) {
+                resp.setRetn(0);
+                resp.setDesc("Unable to upload paid dividends records ");
+                logger.info("Unable to upload paid dividends records ", login.getUserId());
+                return resp;
             }
 
         } catch (Exception ex) {
+            logger.info("error processing upload of dividend details from U - Dividend request. See error log - [{}]", login.getUserId());
+            logger.error("error processing upload of dividend details from U - Dividend request - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process upload of dividend details from U - Dividend records request. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
         }
         return resp;
     }
 
+    /**
+     * Unwraps the list of dividend model to create the list of hibernate
+     * dividend entity.
+     *
+     * @param divList the list of dividend model
+     * @return the list of hibernate dividend entities
+     */
     private List<org.greenpole.hibernate.entity.Dividend> retrieveDividends(List<Dividend> divList) {
         List<org.greenpole.hibernate.entity.Dividend> div_hib_list = new ArrayList<>();
         org.greenpole.hibernate.entity.Dividend div_hib = new org.greenpole.hibernate.entity.Dividend();
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+        Random ran = new Random();
+        long ac = 0;
         if (!divList.isEmpty()) {
             for (Dividend dv : divList) {
-                Random ran = new Random();
-                int randomOne = ran.nextInt() % 1000000;
-                int randomTwo = ran.nextInt() % 1000000;
-                if (randomOne < 0) {
-                    randomOne = randomOne / (-1);
+                     int ser = ran.nextInt() % 1000000000;
+            int ser2 = ran.nextInt() % 1000000000;
+
+            if (ser < 0) {
+                ser = ser / (-1);
+            }
+            if (ser2 < 0) {
+                ser2 = ser2 / (-1);
+            }
+            String sr = Integer.toString(ser).substring(0, 5);
+            String ssl = Integer.toString(ser2).substring(0, 6);
+            String warrantNo;
+            warrantNo = sr + ssl;
+            ac = Long.parseLong(warrantNo);
+                org.greenpole.hibernate.entity.DividendDeclared dd = hd.getDeclaredDividend(dv.getDividendDeclaredId(), dv.getClientCompanyId());
+                org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(dv.getClientCompanyId());
+                org.greenpole.hibernate.entity.DividendIssueType dit = hd.getDividendType(dv.getDividendIssueTypeId());
+                List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hd.getAllHolderCompanyAccountsByClientCompanyId(dv.getClientCompanyId());
+                for (org.greenpole.hibernate.entity.HolderCompanyAccount hca : hca_hib_list) {
+                    try {
+                        div_hib.setClientCompName(dv.getClientCompName());
+                        div_hib.setClientCompany(cc);
+                        div_hib.setCompAccHoldings(hca.getShareUnits());
+                        div_hib.setDivNumber(dv.getDivNumber());
+                        div_hib.setDividendDeclared(dd);
+                        div_hib.setDividendIssueType(dit);
+                        div_hib.setGrossAmount(dv.getGrossAmount());
+                        div_hib.setIssueDate(formatter.parse(dv.getIssueDate()));
+                        div_hib.setIssueType(dv.getIssueType());
+                        div_hib.setIssued(dv.isIssued());
+                        div_hib.setIssuedDate(formatter.parse(dv.getIssueDate()));
+                        div_hib.setPaid(true);
+                        div_hib.setPaidDate(formatter.parse(dv.getPaidDate()));
+                        div_hib.setPayableAmount(dv.getPayableAmount());
+                        div_hib.setPayableDate(formatter.parse(dv.getPayableDate()));
+                        div_hib.setPaymentMethod(dv.getPaymentMethod());
+                        div_hib.setRate(dv.getRate());
+                        div_hib.setReIssued(false);
+                        div_hib.setSHolderMailingAddr(dv.getSHolderMailingAddr());
+                        div_hib.setTax(dv.getTax());
+                        div_hib.setUnclaimed(false);
+                        div_hib.setWarrantNumber(ac);
+                        div_hib.setYearEnding(formatter.parse(dv.getYearEnding()));
+                        div_hib.setYearType(dv.getYearType());
+                    } catch (ParseException ex) {
+                    }
                 }
-                if (randomTwo < 0) {
-                    randomTwo = randomTwo / (-1);
-                }
-                String sr = Integer.toString(randomOne).substring(0, 5);//generates five digits
-                String ssl = Integer.toString(randomTwo).substring(0, 5);//generates five digits
-                String warrantNo = " ";
-                warrantNo = sr + ssl;
-                long ac = Long.parseLong(warrantNo);
-                div_hib.setClientCompName(null);
-                div_hib.setClientCompany(null);
-                div_hib.setCompAccHoldings(Integer.MAX_VALUE);
-                div_hib.setDivNumber(Integer.MIN_VALUE);
-                div_hib.setDividendDeclared(null);
-                div_hib.setDividendIssueType(null);
-                div_hib.setGrossAmount(Double.MAX_VALUE);
-                div_hib.setIssueDate(null);
-                div_hib.setIssueType(null);
-                div_hib.setIssued(Boolean.TRUE);
-                div_hib.setIssuedDate(null);
-                div_hib.setPaid(Boolean.TRUE);
-                div_hib.setPaidDate(null);
-                div_hib.setPayableAmount(Double.NaN);
-                div_hib.setPayableDate(null);
-                div_hib.setPaymentMethod(null);
-                div_hib.setRate(Double.NaN);
-                div_hib.setReIssued(false);
-                div_hib.setSHolderMailingAddr(null);
-                div_hib.setTax(Double.NaN);
-                div_hib.setUnclaimed(false);
-                //div_hib.setWarrantNumber(randomTwo);
-                //div_hib.setWarrantNumber(warrantNumber);//generated randomly
-                div_hib.setYearEnding(null);
-                div_hib.setYearType(null);
             }
         }
         return div_hib_list;
     }
-    private static long randomNum() {
-    List<Integer> numbers = new ArrayList<>();
-    long fg = 0;
-    for(int i = 0; i < 10; i++){
-        numbers.add(i);
+
+    /**
+     * generates a random number which is used as dividend warrant number the
+     * number generated is in String form but is converted during usage
+     *
+     * @return ten digits number
+     */
+    private static String randomNum() {
+        List<Integer> numbers = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            numbers.add(i);
+        }
+        Collections.shuffle(numbers);
+        String result = "";
+        for (int i = 0; i < 10; i++) {
+            result += numbers.get(i);
+        }
+        return result;
     }
-    Collections.shuffle(numbers);
-    String result = "";
-    for(int i = 0; i < 10; i++){
-        result += numbers.get(i).toString();
-        fg = Long.parseLong(result);
+
+    /**
+     * processes a request to disable e - payment of dividend for a shareholder
+     *
+     * @param login the user details
+     * @param authenticator the user meant to receive this notification
+     * @param holder the holder whose e-payment is to be disabled
+     * @return response to the disabling of holder e - payment of dividend
+     */
+    public Response disableEpayment_Response(Login login, String authenticator, Holder holder) {
+        Response resp = new Response();
+        logger.info("request to disable e-payment of dividend of shareholder , invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        QueueSender qSender;
+        NotificationWrapper wrapper;
+        NotifierProperties prop;
+        try {
+            int counter;
+            boolean hasEpayment = false;
+            List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hd.getAllCompAccounts(holder.getHolderId());
+            if (hq.checkHolderAccount(holder.getHolderId())) {
+                if (holder.getChn() != null && !"".equals(holder.getChn())) {
+                    for (counter = 0; counter < hca_hib_list.size(); counter++) {
+                        if (hca_hib_list.get(counter).getEPayment()) {//if e-payment status is true
+                            hasEpayment = true;
+                        }
+                    }
+                    if (hasEpayment) {
+                        List<Holder> holder_list = new ArrayList();
+                        holder_list.add(holder);
+                        wrapper = new NotificationWrapper();
+                        prop = new NotifierProperties(PaymentComponentLogic.class);
+                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop.getAuthoriserNotifierQueueName());
+                        wrapper.setCode(notification.createCode(login));
+                        wrapper.setDescription("request to disable e-payment of dividend of a shareholder ");
+                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setFrom(login.getUserId());
+                        wrapper.setTo(authenticator);
+                        wrapper.setModel(holder_list);
+                        logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                        resp = qSender.sendAuthorisationRequest(wrapper);
+                        return resp;
+                    }
+                    resp.setRetn(300);
+                    resp.setDesc("holder company account has e-pament enabled ");
+                    logger.info("holder company account has e-pament enabled ", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(300);
+                resp.setDesc("unable to perform operation because shareholder has no chn ");
+                logger.info("unable to perform operation because shareholder has no chn ", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(300);
+            resp.setDesc("unable to perform operation because shareholder does not exist ");
+            logger.info("unable to perform operation because shareholder does not exist ", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error disabling e-payment of dividend on shareholder account request. See error log - [{}]", login.getUserId());
+            logger.error("error disabling e-payment of dividend on shareholder account request - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to disable e-payment of dividend on shareholder account request. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
     }
-    return fg;
-}
+
+    /**
+     * processes saved request to disable e-payment on shareholder account
+     *
+     * @param login the user details
+     * @param notificationCode the notification code
+     * @return response to the authorisation request
+     */
+    public Response disableEpayment_Authorisation(Login login, String notificationCode) {
+        Response resp = new Response();
+        logger.info("request to disable e-payment of dividend on shareholder account invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<Holder> holderList = (List<Holder>) wrapper.getModel().get(0);
+            Holder h_model = holderList.get(0);
+            int counter;
+            boolean hasEpayment = false;
+            boolean disabled = false;
+            List<org.greenpole.hibernate.entity.HolderCompanyAccount> hca_hib_list = hd.getAllCompAccounts(h_model.getHolderId());
+            if (hq.checkHolderAccount(h_model.getHolderId())) {
+                if (h_model.getChn() != null && !"".equals(h_model.getChn())) {
+                    for (counter = 0; counter < hca_hib_list.size(); counter++) {
+                        if (hca_hib_list.get(counter).getEPayment()) {//if e-payment status is true
+                            hasEpayment = true;
+                        }
+                    }
+                    if (hasEpayment) {
+                        org.greenpole.hibernate.entity.HolderCompanyAccount oneHca = hq.getHolderCompanyAccount(hca_hib_list.get(counter).getHolder().getId(), hca_hib_list.get(counter).getClientCompany().getId());
+                        oneHca.setEPayment(false);
+                        hd.updateHCA(hca_hib_list.get(counter).getHolder().getId(), hca_hib_list.get(counter).getClientCompany().getId());
+                        resp.setRetn(0);
+                        resp.setDesc("Successfully disabled e-payment on shareholder account ");
+                        logger.info("Successfully disabled e-payment on shareholder account ", login.getUserId());
+                        return resp;
+                    }
+                    resp.setRetn(300);
+                    resp.setDesc("Unsuccessful ");
+                    logger.info("Unsuccessful ", login.getUserId());
+                    return resp;
+                }
+                resp.setRetn(300);
+                resp.setDesc("unable to perform operation because shareholder has no chn ");
+                logger.info("unable to perform operation because shareholder has no chn ", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(300);
+            resp.setDesc("unable to perform operation because shareholder does not exist ");
+            logger.info("unable to perform operation because shareholder does not exist ", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error disabling e-payment of dividend on shareholder account request from authorisation. See error log - [{}]", login.getUserId());
+            logger.error("error disabling e-payment of dividend on shareholder account request from authorisation - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to disable e-payment of dividend on shareholder account request from authorisation. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+/**
+ * processes request to view dividend settlement report
+ * @param login the user details
+ * @param queryParams the search parameter
+ * @return list of search result from hibernate
+ */
+    public Response viewDividendSettlementReport_Request(Login login, DividendDeclared queryParams) {
+        Response resp = new Response();
+        logger.info("request to view dividend settlement report invoked by [{}] ", login.getUserId());
+        List<DividendSettlement> div_model_list_out = new ArrayList<>();
+        TagUser tag = new TagUser();
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+        CorporateActionReport corporateAction = new CorporateActionReport();
+        List<CorporateActionReport> corp_list_out = new ArrayList<>();
+        List<HolderCompanyAccount> paidShareholders_list = new ArrayList<>();
+        List<HolderCompanyAccount> unpaidShareholders_list = new ArrayList<>();
+        HolderCompanyAccount hca = new HolderCompanyAccount();
+        List<org.greenpole.hibernate.entity.DividendSettlement> divSettlement_hib_list = hd.getDividendSettlementReport(queryParams.getId(), queryParams.getClientCompanyId());
+        for (org.greenpole.hibernate.entity.DividendSettlement ds : divSettlement_hib_list) {
+            DividendSettlement dv_model = new DividendSettlement();
+            dv_model.setDividendDeclaredId(ds.getDividendDeclared().getId());
+            dv_model.setTotalDivAmtDec(ds.getTotalDivAmtDec());
+            dv_model.setTotalDivAmtPaid(ds.getTotalDivAmtPaid());
+            dv_model.setTotalDivAmtLeft(ds.getTotalDivAmtLeft());
+            dv_model.setShareholdersPaid(ds.getShareholdersPaid());
+            dv_model.setShareholdersUnpaid(ds.getShareholdersUnpaid());
+            div_model_list_out.add(dv_model);
+        }
+        corporateAction.setDividendSettlement(div_model_list_out);
+        List<org.greenpole.hibernate.entity.Dividend> div_hib_list = hd.getAllDividendsByCCIdAndDividendDeclaredId(queryParams.getClientCompanyId(), queryParams.getId());
+        for (org.greenpole.hibernate.entity.Dividend dd : div_hib_list) {
+            if (formatter.format(dd.getPaidDate()) != null && !"".equals(formatter.format(dd.getPaidDate())) && dd.getPaid()) {
+                hca.setClientCompanyId(dd.getClientCompany().getId());
+                hca.setClientCompanyName(dd.getClientCompName());
+                hca.setHolderId(dd.getHolderCompanyAccount().getHolder().getId());
+                paidShareholders_list.add(hca);
+            } else if (formatter.format(dd.getPaidDate()).isEmpty() && !dd.getPaid()) {
+                hca.setClientCompanyId(dd.getClientCompany().getId());
+                hca.setClientCompanyName(dd.getClientCompName());
+                hca.setHolderId(dd.getHolderCompanyAccount().getHolder().getId());
+                unpaidShareholders_list.add(hca);
+            }
+        }
+        corporateAction.setPaidShareholders(paidShareholders_list);
+        corporateAction.setUnpaidShareholders(unpaidShareholders_list);
+        corp_list_out.add(corporateAction);
+        List<TagUser> tagList = new ArrayList<>();
+
+        tag.setQueryParam(queryParams);
+        tag.setResult(corp_list_out);
+        tagList.add(tag);
+
+        resp.setBody(tagList);
+        resp.setDesc("Query Successful");
+        resp.setRetn(0);
+        logger.info("Query successful - [{}]", login.getUserId());
+        return resp;
+    }
 }
