@@ -34,7 +34,7 @@ public class PrivatePlacementComponent {
 
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(PrivatePlacementComponent.class);
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
 
     /**
@@ -53,7 +53,7 @@ public class PrivatePlacementComponent {
         Response resp = new Response();
         NotificationWrapper wrapper;
         QueueSender queue;
-        NotifierProperties props;
+        NotifierProperties prop;
         Date date = new Date();
 
         try {
@@ -65,8 +65,8 @@ public class PrivatePlacementComponent {
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
                             if (cq.checkOpenPrivatePlacement(cc.getId())) {
                                 wrapper = new NotificationWrapper();
-                                props = new NotifierProperties(PrivatePlacementComponent.class);
-                                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                prop = NotifierProperties.getInstance();
+                                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                                 List<PrivatePlacement> ppc = new ArrayList<>();
                                 ppc.add(privatePlacement);
                                 wrapper.setCode(notification.createCode(login));
@@ -133,7 +133,7 @@ public class PrivatePlacementComponent {
         logger.info("Private Placement creation authorised - notification code: [{}], invoked by [{}]", notificationCode, login.getUserId());
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacement> pplist = (List<PrivatePlacement>) wrapper.getModel();
             PrivatePlacement ppModel = pplist.get(0);
             org.greenpole.hibernate.entity.PrivatePlacement ppEntity = new org.greenpole.hibernate.entity.PrivatePlacement();

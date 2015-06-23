@@ -24,8 +24,8 @@ public class EmailReminder implements Runnable {
 
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyLogic.class);
     SimpleDateFormat formatter = new SimpleDateFormat();
 

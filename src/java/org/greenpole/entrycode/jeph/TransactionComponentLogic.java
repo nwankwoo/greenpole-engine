@@ -48,8 +48,8 @@ public class TransactionComponentLogic {
     private final HolderComponentQuery hq = new HolderComponentQueryImpl();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(TransactionComponentLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(TransactionComponentLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(TransactionComponentLogic.class);
 
     /**
@@ -69,7 +69,7 @@ public class TransactionComponentLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (!suspendedTransaction.isReconciled()) {// check if reconciled is false
                 if (suspendedTransaction.getCscsTransactionId() > 0) {// check for CSCS transaction id
@@ -91,8 +91,8 @@ public class TransactionComponentLogic {
                         return resp;
                     }
                     wrapper = new NotificationWrapper();
-                    props = new NotifierProperties(TransactionComponentLogic.class);
-                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                     List<SuspendedTransaction> suspendedList = new ArrayList<>();
                     suspendedList.add(suspendedTransaction);
@@ -143,7 +143,7 @@ public class TransactionComponentLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<SuspendedTransaction> suspendedTransactionList = (List<SuspendedTransaction>) wrapper.getModel();
             SuspendedTransaction suspendedTransaction = suspendedTransactionList.get(0);
 

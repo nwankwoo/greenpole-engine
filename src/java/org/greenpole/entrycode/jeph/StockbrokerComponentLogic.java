@@ -44,8 +44,8 @@ public class StockbrokerComponentLogic {
 
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
 //    private final StockbrokerComponentQuery cq = ComponentQueryFactory.getStockbrokerQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(StockbrokerComponentLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(StockbrokerComponentLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(StockbrokerComponentLogic.class);
     SimpleDateFormat formatter = new SimpleDateFormat();
 
@@ -64,7 +64,7 @@ public class StockbrokerComponentLogic {
 
         try {
             NotificationWrapper wrapper;
-            QueueSender qSender;
+            QueueSender queue;
             NotifierProperties prop;
 
             Response res = validateStockbroker(login, stockerbroker, false);
@@ -75,8 +75,8 @@ public class StockbrokerComponentLogic {
             }
 
             wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(StockbrokerComponentLogic.class);
-            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(),                                prop.getAuthoriserNotifierQueueName());
 
             logger.info("client company does not exist - [{}]: [{}]", login.getUserId(), stockerbroker.getName());
             List<Stockbroker> stockbrokerlist = new ArrayList<>();
@@ -114,7 +114,7 @@ public class StockbrokerComponentLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Stockbroker> stockbrokerList = (List<Stockbroker>) wrapper.getModel();
             Stockbroker stockbroker = stockbrokerList.get(0);
 
@@ -176,7 +176,7 @@ public class StockbrokerComponentLogic {
 
         try {
             NotificationWrapper wrapper;
-            QueueSender qSender;
+            QueueSender queue;
             NotifierProperties prop;
 
             Response res = validateStockbroker(login, stockerbroker, true);
@@ -187,8 +187,8 @@ public class StockbrokerComponentLogic {
             }
 
             wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(StockbrokerComponentLogic.class);
-            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(),                                prop.getAuthoriserNotifierQueueName());
 
             List<Stockbroker> stockbrokerlist = new ArrayList<>();
             stockbrokerlist.add(stockerbroker);
@@ -225,7 +225,7 @@ public class StockbrokerComponentLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Stockbroker> stockbrokerList = (List<Stockbroker>) wrapper.getModel();
             Stockbroker stockbroker = stockbrokerList.get(0);
 

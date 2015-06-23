@@ -47,8 +47,10 @@ import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
+import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
+import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
@@ -65,8 +67,9 @@ public class ClientCompanyLogic {
 
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyLogic.class);
     SimpleDateFormat formatter = new SimpleDateFormat();
 
@@ -149,15 +152,15 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
             List<ShareBonus> shareBonusList = new ArrayList();
             if (shareBonus.getTitle() != null && !"".equals(shareBonus.getTitle())) {
                 if (shareBonus.getQualifyShareUnit() > 0) {
                     if (shareBonus.getBonusUnitPerQualifyUnit() > 0) {
                         if (shareBonus.getQualifyDate() != null && date.before(formatter.parse(shareBonus.getQualifyDate()))) {
                             wrapper = new NotificationWrapper();
-                            props = new NotifierProperties(ClientCompanyLogic.class);
-                            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                            prop = NotifierProperties.getInstance();
+                            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                             shareBonusList.add(shareBonus);
 
@@ -174,8 +177,8 @@ public class ClientCompanyLogic {
                             return resp;
                         } else if (shareBonus.getQualifyDate() != null) {
                             wrapper = new NotificationWrapper();
-                            props = new NotifierProperties(ClientCompanyLogic.class);
-                            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                            prop = NotifierProperties.getInstance();
+                            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                             shareBonusList.add(shareBonus);
 
@@ -235,7 +238,7 @@ public class ClientCompanyLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ShareBonus> shareBonusList = (List<ShareBonus>) wrapper.getModel();
             ShareBonus shareBonus = shareBonusList.get(0);
             boolean checkShareHolders = cq.checkClientCompanyForShareholders(Integer.toString(shareBonus.getClientCompanyId()));
@@ -385,7 +388,7 @@ public class ClientCompanyLogic {
         try { // code needs to be modified to consider fractional shares account (APR)
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (cq.checkClientCompany(reconstructor.getClientCompanyId())) {
                 if (cq.checkClientCompanyForShareholders(cq.getClientCompany(reconstructor.getClientCompanyId()).getName())) {
@@ -422,8 +425,8 @@ public class ClientCompanyLogic {
                         reconstructionList.add(reconstructor);
 
                         wrapper = new NotificationWrapper();
-                        props = new NotifierProperties(ClientCompanyLogic.class);
-                        queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                        prop = NotifierProperties.getInstance();
+                        queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate Apply Stock Split confirmation process for " + reconstructor.getClientCompanyId());
@@ -474,7 +477,7 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try { // code needs to be modified to consider fractional shares account (APR)
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Reconstruction> reconstructorList = (List<Reconstruction>) wrapper.getModel();
             Reconstruction reconstructor = reconstructorList.get(0);
 
@@ -644,7 +647,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (cq.checkClientCompany(reconstructor.getClientCompanyId())) {
                 if (cq.checkClientCompanyForShareholders(cq.getClientCompany(reconstructor.getClientCompanyId()).getName())) {
@@ -681,8 +684,8 @@ public class ClientCompanyLogic {
                         reconstructionList.add(reconstructor);
 
                         wrapper = new NotificationWrapper();
-                        props = new NotifierProperties(ClientCompanyLogic.class);
-                        queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                        prop = NotifierProperties.getInstance();
+                        queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate Reverse Stock Split process for " + reconstructor.getClientCompanyId());
@@ -734,7 +737,7 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Reconstruction> reconstructorList = (List<Reconstruction>) wrapper.getModel();
             Reconstruction reconstructor = reconstructorList.get(0);
 
@@ -832,7 +835,7 @@ public class ClientCompanyLogic {
             NotifierProperties prop;
 
             wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(ClientCompanyLogic.class);
+            prop = NotifierProperties.getInstance();
             queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
@@ -898,7 +901,7 @@ public class ClientCompanyLogic {
         Notification notification = new Notification();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> acctList = (List<HolderBondAccount>) wrapper.getModel();
             List<HolderBondAccount> bondAccountList = (List<HolderBondAccount>) acctList.get(0);
             List<org.greenpole.hibernate.entity.HolderBondAccount> bondAccountListSend = new ArrayList<>();
@@ -976,7 +979,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
@@ -988,8 +991,8 @@ public class ClientCompanyLogic {
             dividendDeclaredList.add(dividendDeclared);
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate declare dividend process for " + dividendDeclared.getClientCompanyId());
@@ -1026,7 +1029,7 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<DividendDeclared> dividendDeclaredList = (List<DividendDeclared>) wrapper.getModel();
             DividendDeclared dividendDeclared = dividendDeclaredList.get(0);
 
@@ -1286,7 +1289,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = checkDividendStatus(login, dividend);
             if (res.getRetn() != 0) {
@@ -1300,8 +1303,8 @@ public class ClientCompanyLogic {
             dividendList.add(dividend);
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate cancel dividend process for " + dividend.getClientCompanyId());
@@ -1338,7 +1341,7 @@ public class ClientCompanyLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
             Dividend dividend = dividendList.get(0);
 
@@ -1509,7 +1512,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = checkDividendReplaced(login, dividend);
             if (res.getRetn() != 0) {
@@ -1521,8 +1524,9 @@ public class ClientCompanyLogic {
             dividendList.add(dividend);
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(),
+                    prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate dividend warrant replacement process for " + dividend.getClientCompanyId());
@@ -1559,7 +1563,7 @@ public class ClientCompanyLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
             Dividend dividend = dividendList.get(0);
 
@@ -1631,7 +1635,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = verifyDividendDetails(login, dividend);
             if (res.getRetn() != 0) {
@@ -1643,8 +1647,8 @@ public class ClientCompanyLogic {
             dividendList.add(dividend);
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate recreate dividend process for " + dividend.getClientCompanyId());
@@ -1681,7 +1685,7 @@ public class ClientCompanyLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
             Dividend dividend = dividendList.get(0);
 
@@ -1758,7 +1762,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = verifyCertificateDetails(login, certificateList);
             if (res.getRetn() != 0) {
@@ -1767,8 +1771,8 @@ public class ClientCompanyLogic {
                 return res;
             }
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate merge certificate process");
@@ -1811,7 +1815,7 @@ public class ClientCompanyLogic {
         // int bondHolding = 0;
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Certificate> certificateList = (List<Certificate>) wrapper.getModel();
 
             Response res = verifyCertificateDetails(login, certificateList);
@@ -2058,11 +2062,11 @@ public class ClientCompanyLogic {
         try {
 //            NotificationWrapper wrapper;
 //            org.greenpole.notifier.sender.QueueSender queue;
-//            NotifierProperties props;
+//            NotifierProperties prop;
 //
 //            wrapper = new NotificationWrapper();
-//            props = new NotifierProperties(ClientCompanyLogic.class);
-//            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+//            prop = NotifierProperties.getInstance();
+//            queue = new QueueSender(prop.getNotifierQueueFactory(),                                prop.getAuthoriserNotifierQueueName());
             // verify certificate if certificate has been claimed
 //            Response res = checkDividendReplaced(login, dividend);
 //            if (res.getRetn() != 0) {
@@ -2122,7 +2126,7 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try {
-//            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+//            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
 //            List<Certificate> CertificateList = (List<Certificate>) wrapper.getModel();
 //            Certificate certificate = CertificateList.get(0);
 //
