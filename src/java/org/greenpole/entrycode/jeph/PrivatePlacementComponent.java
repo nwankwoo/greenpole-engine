@@ -66,7 +66,7 @@ public class PrivatePlacementComponent {
                             if (cq.checkOpenPrivatePlacement(cc.getId())) {
                                 wrapper = new NotificationWrapper();
                                 props = new NotifierProperties(PrivatePlacementComponent.class);
-                                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
                                 List<PrivatePlacement> ppc = new ArrayList<>();
                                 ppc.add(privatePlacement);
                                 wrapper.setCode(notification.createCode(login));

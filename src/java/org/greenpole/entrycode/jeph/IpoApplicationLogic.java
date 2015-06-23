@@ -244,7 +244,7 @@ public class IpoApplicationLogic {
                                     }
                                     wrapper = new NotificationWrapper();
                                     props = new NotifierProperties(IpoApplicationLogic.class);
-                                    queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                                     logger.info("Preparing notification for confirm on Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
 
@@ -467,7 +467,7 @@ public class IpoApplicationLogic {
                 // if (true) {
                 wrapper = new NotificationWrapper();
                 props = new NotifierProperties(IpoApplicationLogic.class);
-                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
                 List<IpoApplication> iAppList = new ArrayList<>();
                 iAppList.add(ipoApply);
                 wrapper.setCode(notification.createCode(login));
@@ -570,7 +570,7 @@ public class IpoApplicationLogic {
                 ipoAppList.add(ipoApply);
                 wrapper = new NotificationWrapper();
                 props = new NotifierProperties(IpoApplicationLogic.class);
-                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate addition of share units for holder " + ipoApply.getHolderId());
@@ -753,7 +753,7 @@ public class IpoApplicationLogic {
                     ipoAppList.add(ipoApply);
                     wrapper = new NotificationWrapper();
                     props = new NotifierProperties(IpoApplicationLogic.class);
-                    queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate adjusting of share units for holder " + ipoApply.getHolderId());
@@ -880,7 +880,7 @@ public class IpoApplicationLogic {
 
             wrapper = new NotificationWrapper();
             props = new NotifierProperties(IpoApplicationLogic.class);
-            queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
             logger.info("Preparing notification for a list of Initial Public Offer applications, invoked by [{}]", login.getUserId());
             wrapper.setCode(notification.createCode(login));

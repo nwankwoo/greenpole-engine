@@ -571,7 +571,7 @@ public class PaymentComponentLogic {
                         } else {
                             wrapper = new NotificationWrapper();
                             prop = new NotifierProperties(PaymentComponentLogic.class);
-                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                     prop.getAuthoriserNotifierQueueName());
                             List<Dividend> divList = new ArrayList();
                             divList.add(dividend);
@@ -712,7 +712,7 @@ public class PaymentComponentLogic {
             if (!exists) {
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(PaymentComponentLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                         prop.getAuthoriserNotifierQueueName());
 
                 logger.info("dividend record does not exist - [{}]", login.getUserId());

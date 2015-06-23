@@ -92,7 +92,7 @@ public class TransactionComponentLogic {
                     }
                     wrapper = new NotificationWrapper();
                     props = new NotifierProperties(TransactionComponentLogic.class);
-                    queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                     List<SuspendedTransaction> suspendedList = new ArrayList<>();
                     suspendedList.add(suspendedTransaction);

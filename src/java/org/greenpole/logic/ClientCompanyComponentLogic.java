@@ -59,8 +59,8 @@ import org.slf4j.LoggerFactory;
 public class ClientCompanyComponentLogic {
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyComponentLogic.class);
-    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyComponentLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyComponentLogic.class);
     
     /**
@@ -166,8 +166,8 @@ public class ClientCompanyComponentLogic {
                 
                 if (flag) {
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                    prop = NotifierProperties.getInstance();
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
                             prop.getAuthoriserNotifierQueueName());
 
                     logger.info("client company does not exist - [{}]: [{}]", login.getUserId(), cc.getName());
@@ -459,8 +459,8 @@ public class ClientCompanyComponentLogic {
 
                     if (flag) {
                         wrapper = new NotificationWrapper();
-                        prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        prop = NotifierProperties.getInstance();
+                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
 
                         logger.info("client company is valid and primary - [{}]: [{}]", login.getUserId(), cc.getName());
@@ -919,8 +919,8 @@ public class ClientCompanyComponentLogic {
             //client company must exist before its share quotations can be uploaded
             if (exists) {
                 wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                prop = NotifierProperties.getInstance();
+                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                         prop.getAuthoriserNotifierQueueName());
 
                 logger.info("client company codes exist - [{}]", login.getUserId());
@@ -1072,8 +1072,8 @@ public class ClientCompanyComponentLogic {
                 if (!cq.checkClientCompanyForShareholders(cc.getName())) {
                     logger.info("client company [{}] checks out. No shareholders found - [{}]", cc.getName(), login.getUserId());
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                    prop = NotifierProperties.getInstance();
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
                             prop.getAuthoriserNotifierQueueName());
                     List<InitialPublicOffer> ipoList = new ArrayList();
                     ipoList.add(ipo);
@@ -1247,8 +1247,8 @@ public class ClientCompanyComponentLogic {
 
             if (flag) {
                 wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                 List<BondOffer> bc = new ArrayList<>();
                 bc.add(bond);
                 
@@ -1407,8 +1407,8 @@ public class ClientCompanyComponentLogic {
                         if (cq.checkClientCompanyForShareholders(cc.getName())) {
                             if (cq.checkOpenPrivatePlacement(cc.getId())) {
                                 wrapper = new NotificationWrapper();
-                                props = new NotifierProperties(ClientCompanyComponentLogic.class);
-                                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                props = NotifierProperties.getInstance();
+                                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
                                 List<PrivatePlacement> ppc = new ArrayList<>();
                                 ppc.add(privatePlacement);
                                 

@@ -157,7 +157,7 @@ public class ClientCompanyLogic {
                         if (shareBonus.getQualifyDate() != null && date.before(formatter.parse(shareBonus.getQualifyDate()))) {
                             wrapper = new NotificationWrapper();
                             props = new NotifierProperties(ClientCompanyLogic.class);
-                            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                             shareBonusList.add(shareBonus);
 
@@ -175,7 +175,7 @@ public class ClientCompanyLogic {
                         } else if (shareBonus.getQualifyDate() != null) {
                             wrapper = new NotificationWrapper();
                             props = new NotifierProperties(ClientCompanyLogic.class);
-                            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                             shareBonusList.add(shareBonus);
 
@@ -423,7 +423,7 @@ public class ClientCompanyLogic {
 
                         wrapper = new NotificationWrapper();
                         props = new NotifierProperties(ClientCompanyLogic.class);
-                        queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                        queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate Apply Stock Split confirmation process for " + reconstructor.getClientCompanyId());
@@ -682,7 +682,7 @@ public class ClientCompanyLogic {
 
                         wrapper = new NotificationWrapper();
                         props = new NotifierProperties(ClientCompanyLogic.class);
-                        queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                        queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate Reverse Stock Split process for " + reconstructor.getClientCompanyId());
@@ -833,7 +833,7 @@ public class ClientCompanyLogic {
 
             wrapper = new NotificationWrapper();
             prop = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
 
@@ -989,7 +989,7 @@ public class ClientCompanyLogic {
 
             wrapper = new NotificationWrapper();
             props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate declare dividend process for " + dividendDeclared.getClientCompanyId());
@@ -1301,7 +1301,7 @@ public class ClientCompanyLogic {
 
             wrapper = new NotificationWrapper();
             props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate cancel dividend process for " + dividend.getClientCompanyId());

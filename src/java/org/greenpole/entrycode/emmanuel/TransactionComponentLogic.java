@@ -102,7 +102,7 @@ public class TransactionComponentLogic {
                                                 if (!buyerHCA.getEsop()) {
                                                     wrapper = new NotificationWrapper();
                                                     prop = new NotifierProperties(TransactionComponentLogic.class);
-                                                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                                             prop.getAuthoriserNotifierQueueName());
                                                     wrapper.setCode(notification.createCode(login));
                                                     wrapper.setDescription("Upload of transaction files ");

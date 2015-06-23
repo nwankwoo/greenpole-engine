@@ -248,7 +248,7 @@ public class PrivatePlacementApplicationLogic {
                                         }
                                         wrapper = new NotificationWrapper();
                                         props = new NotifierProperties(PrivatePlacementApplication.class);
-                                        queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                        queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                                         wrapper.setCode(notification.createCode(login));
                                         wrapper.setDescription("Authenticate creation of Private Placement Application for holder " + ppApply.getHolderId());
@@ -467,7 +467,7 @@ public class PrivatePlacementApplicationLogic {
                 // if (true) {
                 wrapper = new NotificationWrapper();
                 props = new NotifierProperties(PrivatePlacementApplicationLogic.class);
-                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
                 List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
                 ppAppList.add(ppApply);
                 wrapper.setCode(notification.createCode(login));
@@ -568,7 +568,7 @@ public class PrivatePlacementApplicationLogic {
                 ppAppList.add(ppApply);
                 wrapper = new NotificationWrapper();
                 props = new NotifierProperties(PrivatePlacementApplication.class);
-                queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate addition of share units for holder " + ppApply.getHolderId());
@@ -748,7 +748,7 @@ public class PrivatePlacementApplicationLogic {
                     ppAppList.add(ppApply);
                     wrapper = new NotificationWrapper();
                     props = new NotifierProperties(PrivatePlacementApplication.class);
-                    queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate adjusting of share units for holder " + ppApply.getHolderId());
@@ -878,7 +878,7 @@ public class PrivatePlacementApplicationLogic {
 
             wrapper = new NotificationWrapper();
             props = new NotifierProperties(PrivatePlacementApplicationLogic.class);
-            queue = new QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
 
             logger.info("Preparing notification for a list of Private Placement applications, invoked by [{}]", login.getUserId());
 

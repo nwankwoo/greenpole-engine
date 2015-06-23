@@ -34,7 +34,7 @@ public class SecurityCheck {
     public static boolean securityFailChecker(Login login, String notificationCode, Response resp) {
         Logger logger = LoggerFactory.getLogger(SecurityCheck.class);
         GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-        NotificationProperties notificationProp = new NotificationProperties(SecurityCheck.class);
+        NotificationProperties notificationProp = NotificationProperties.getInstance();
         Notification notification = new Notification();
         //notification code must exist
         if (!gq.checkNotification(notificationCode)) {

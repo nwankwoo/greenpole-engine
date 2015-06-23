@@ -445,7 +445,7 @@ public class HolderComponentLogic {
                                     if (checkForQualifyShares == 0) {
                                         wrapper = new NotificationWrapper();
                                         prop = new NotifierProperties(HolderComponentLogic.class);
-                                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                                 prop.getAuthoriserNotifierQueueName());
                                         List<RightsIssueApplication> riList = new ArrayList();
                                         riList.add(rightsIssueApp);
@@ -658,7 +658,7 @@ public class HolderComponentLogic {
                     if (!riApp.getApproved() || !riApp.getProcessingPayment()) {//checks that application is not approved and not processed for payment also
                         wrapper = new NotificationWrapper();
                         prop = new NotifierProperties(HolderComponentLogic.class);
-                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
                         List<RightsIssueApplication> riList = new ArrayList();
                         riList.add(holderRightsIssue);
@@ -935,7 +935,7 @@ public class HolderComponentLogic {
                             if (ri.getTotalSharesOnIssue() >= sumOfSharesSubscribe) {
                                 wrapper = new NotificationWrapper();
                                 prop = new NotifierProperties(HolderComponentLogic.class);
-                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                         prop.getAuthoriserNotifierQueueName());
                                 wrapper.setCode(notification.createCode(login));
                                 wrapper.setDescription("Authenticate application of rights issue en-mass under the client company " + cc.getName() + " invoked by user " + login.getUserId());
