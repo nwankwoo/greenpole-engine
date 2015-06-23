@@ -35,7 +35,6 @@
                     <file>${libs.Hibernate_4.3.10.classpath}</file>
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
-
             </web-module-libraries>
             <web-module-additional-libraries/>
             <source-roots>
