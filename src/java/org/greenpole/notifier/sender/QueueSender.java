@@ -8,7 +8,6 @@ package org.greenpole.notifier.sender;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import javax.jms.DeliveryMode;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -26,6 +25,8 @@ import javax.naming.NamingException;
 import org.greenpole.entity.exception.ConfigNotFoundException;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
+import org.greenpole.entity.sms.TextSend;
+import org.greenpole.util.properties.QueueConfigProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +36,7 @@ import org.slf4j.LoggerFactory;
  * Sends object messages to a stated queue for processing
  */
 public class QueueSender {
+    private static final QueueConfigProperties queueConfigProp = QueueConfigProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(QueueSender.class);
     private Context context;
     private QueueConnectionFactory qconFactory;
@@ -68,21 +70,7 @@ public class QueueSender {
      * @throws IOException error loading file into properties
      */
     private static Context getInitialContext() throws NamingException, ConfigNotFoundException, IOException {
-        String config_file = "queue_config.properties";
-        Properties properties = new Properties();
-        InputStream input = QueueSender.class.getClassLoader().getResourceAsStream(config_file);
-        logger.info("Loading configuration file - {}", config_file);
-        
-        if (input == null) {
-            logger.info("Failure to load configuration file - {}", config_file);
-            throw new ConfigNotFoundException("queue_config.properties file missing from classpath");
-        }
-        
-        properties.load(input);
-        logger.info("Loaded configuration file - {}", config_file);
-        input.close();
-        
-        return new InitialContext(properties);
+        return new InitialContext(queueConfigProp);
     }
     
     /**
@@ -120,6 +108,39 @@ public class QueueSender {
         Response resp = new Response();
         try {
             ObjectMessage om = qsession.createObjectMessage(wrapper);
+            return processRequest(om, resp, "authorisation");
+        } catch (JMSException ex) {
+            logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
+            logger.error("An error(s) was thrown in the QueueSender", ex);
+            resp.setRetn(100);
+            resp.setDesc("An error occurred while sending authorisation request.\n"
+                    + "Contact system administrator");
+            return resp;
+        }
+    }
+    
+    /**
+     * Sends a text message request to the text notifier.
+     * @param toSend the text request
+     * @return response from the authoriser notifier
+     */
+    public Response sendTextMessageRequest(TextSend toSend){
+        Response resp = new Response();
+        try {
+            ObjectMessage om = qsession.createObjectMessage(toSend);
+            return processRequest(om, resp, "authorisation");
+        } catch (JMSException ex) {
+            logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
+            logger.error("An error(s) was thrown in the QueueSender", ex);
+            resp.setRetn(100);
+            resp.setDesc("An error occurred while sending authorisation request.\n"
+                    + "Contact system administrator");
+            return resp;
+        }
+    }
+    
+    private Response processRequest(ObjectMessage om, Response resp, String whatFor) {
+        try {
             producer = qsession.createProducer(queue);
             
             //create callback to ensure that reply from queue is captured
@@ -128,7 +149,7 @@ public class QueueSender {
             
             qcon.start();
             
-            logger.info("sending notification to queue");
+            logger.info("sending " + whatFor + " request to queue");
             producer.send(om);
             //producer.send(om, DeliveryMode.PERSISTENT, 9, 40000);
             consumer = qsession.createConsumer(tempqueue);
@@ -150,14 +171,14 @@ public class QueueSender {
             logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
             logger.error("An error(s) was thrown in the QueueSender", ex);
             resp.setRetn(100);
-            resp.setDesc("An error occurred while sending authorisation request.\n"
+            resp.setDesc("An error occurred while sending " + whatFor + " request.\n"
                     + "Contact system administrator");
             return resp;
         } catch (Exception ex) {
             logger.info("Error thrown in QueueSender. See error log");
             logger.error("An error(s) was thrown in the QueueSender", ex);
             resp.setRetn(100);
-            resp.setDesc("An error occurred while sending authorisation request.\n"
+            resp.setDesc("An error occurred while sending " + whatFor + " request.\n"
                     + "Contact system administrator");
             return resp;
         }

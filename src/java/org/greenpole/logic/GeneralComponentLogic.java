@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
  */
 public class GeneralComponentLogic {
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final NotificationProperties notificationProp = new NotificationProperties(GeneralComponentLogic.class);
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(GeneralComponentLogic.class);
     
     /**
