@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import org.greenpole.entity.model.holder.HolderCompanyAccount;
 import org.greenpole.entity.model.taguser.TagUser;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
@@ -20,6 +21,8 @@ import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entrycode.emmanuel.model.Certificate;
 import org.greenpole.entrycode.emmanuel.model.CertificateLodgement;
+import org.greenpole.entrycode.emmanuel.model.CertificateSplitConfirm;
+import org.greenpole.entrycode.emmanuel.model.CertificateVerification;
 import org.greenpole.entrycode.emmanuel.model.ProcessCertificateSplit;
 import org.greenpole.entrycode.emmanuel.model.QueryCertificate;
 import org.greenpole.entrycode.emmanuel.model.ViewCertificateLodgements;
@@ -389,6 +392,83 @@ public class CertificateComponentLogic {
     }
 
     /**
+     * processes confirmation request to split a certificate ownership
+     *
+     * @param login the user details
+     * @param splitCert details of the certificate to be splitted
+     * @return response to the splitting of the certificate confirmation
+     */
+    public Response splitCertificateConfirm_Request(Login login, ProcessCertificateSplit splitCert) {
+        Response resp = new Response();
+        logger.info("request certificate split confirmation invoked by ", login.getUserId());
+        try {
+            int counter;
+            boolean holderCompAccExists = false;
+            boolean chnExists = false;
+            CertificateSplitConfirm csc = new CertificateSplitConfirm();
+            HolderCompanyAccount hca = new HolderCompanyAccount();
+            List<HolderCompanyAccount> hca_model_list_out = new ArrayList<>();
+            boolean certExists = hd.checkCertificate(splitCert.getOriginalCertificate().getCertificateNumber(), splitCert.getOriginalCertificate().getHolderId());
+            if (certExists) {
+                if (splitCert.getCreatedCetificates().size() <= 4) {
+                    for (counter = 0; counter < splitCert.getCreatedCetificates().size(); counter++) {
+                        org.greenpole.hibernate.entity.Holder h = hd.getHolder(splitCert.getCreatedCetificates().get(counter).getHolderId());
+                        chnExists = hq.checkHolderAccount(h.getChn());
+                        holderCompAccExists = hq.checkHolderCompanyAccount(splitCert.getCreatedCetificates().get(counter).getHolderId(), splitCert.getOriginalCertificate().getClientCompanyId());
+                        if (!holderCompAccExists) {
+                            break;
+                        }
+                        if (!chnExists) {
+                            break;
+                        }
+                        if (holderCompAccExists && chnExists) {
+                            if (splitCert.getOriginalCertificate().getClientCompanyId() == splitCert.getCreatedCetificates().get(counter).getClientCompanyId()) {
+                                org.greenpole.hibernate.entity.HolderCompanyAccount hca_hib = hq.getHolderCompanyAccount(splitCert.getCreatedCetificates().get(counter).getHolderId(), splitCert.getOriginalCertificate().getClientCompanyId());
+                                hca.setClientCompanyId(hca_hib.getClientCompany().getId());
+                                hca.setHolderId(hca_hib.getHolder().getId());
+                                hca.setClientCompanyName(hca_hib.getClientCompany().getName());
+                                hca.setHolderCompAccPrimary(hca_hib.getHolderCompAccPrimary());
+                                hca.setShareUnits(hca_hib.getShareUnits());
+                                hca_model_list_out.add(hca);
+                                csc.setCertificateShareVolume(splitCert.getOriginalCertificate().getShareVolume());
+                                csc.setHolderCompanyAccount(hca_model_list_out);
+                            }
+                            resp.setRetn(300);
+                            resp.setDesc("One of the shareholders does not have the same company account");
+                            logger.info("One of the shareholders does not have the same company account ", login.getUserId());
+                            return resp;
+                        }
+                        resp.setRetn(300);
+                        resp.setDesc("One of the shareholders does not have a company account or has no chn ");
+                        logger.info("One of the shareholders does not have a company account or has no chn ", login.getUserId());
+                        return resp;
+
+                    }
+                    resp.setRetn(0);
+                    resp.setBody(hca_model_list_out);
+                    return resp;
+                }
+                resp.setRetn(300);
+                resp.setDesc("The maximum number of split per certificate cannot exceed four ");
+                logger.info("The maximum number of split per certificate cannot exceed four ", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(300);
+            resp.setDesc("The certificate to be splitted does not exists ");
+            logger.info("The certificate to be splitted does not exists ", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error splitting certificate ownership. See error log - [{}]", login.getUserId());
+            logger.error("error splitting certificate ownership - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to split certificate ownership. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
+    /**
      * processes request to split a certificate ownership
      *
      * @param login the user details
@@ -405,6 +485,7 @@ public class CertificateComponentLogic {
             QueueSender qSender;
             NotifierProperties prop;
             int counter;
+            boolean holderCompAccExists = false;
             boolean chnExists = false;
             boolean certExists = hd.checkCertificate(splitCert.getOriginalCertificate().getCertificateNumber(), splitCert.getOriginalCertificate().getHolderId());
             if (certExists) {
@@ -412,29 +493,40 @@ public class CertificateComponentLogic {
                     for (counter = 0; counter < splitCert.getCreatedCetificates().size(); counter++) {
                         org.greenpole.hibernate.entity.Holder h = hd.getHolder(splitCert.getCreatedCetificates().get(counter).getHolderId());
                         chnExists = hq.checkHolderAccount(h.getChn());
+                        holderCompAccExists = hq.checkHolderCompanyAccount(splitCert.getCreatedCetificates().get(counter).getHolderId(), splitCert.getOriginalCertificate().getClientCompanyId());
                         if (!chnExists) {
                             break;
                         }
-                        if (splitCert.getOriginalCertificate().getClientCompanyId() == splitCert.getCreatedCetificates().get(counter).getClientCompanyId()) {//check if shareholders are of the same account type
-                            wrapper = new NotificationWrapper();
-                            prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                                    prop.getAuthoriserNotifierQueueName());
-                            List<ProcessCertificateSplit> certlist = new ArrayList<>();
-                            certlist.add(splitCert);
-                            wrapper.setCode(notification.createCode(login));
-                            wrapper.setDescription("Authenticate certificate split invoked by " + login.getUserId());
-                            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
-                            wrapper.setFrom(login.getUserId());
-                            wrapper.setTo(authenticator);
-                            wrapper.setModel(certlist);
-                            logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                            resp = qSender.sendAuthorisationRequest(wrapper);
+                        if (!holderCompAccExists) {
+                            break;
+                        }
+                        if (holderCompAccExists && chnExists) {
+
+                            if (splitCert.getOriginalCertificate().getClientCompanyId() == splitCert.getCreatedCetificates().get(counter).getClientCompanyId()) {//check if shareholders are of the same account type
+                                wrapper = new NotificationWrapper();
+                                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
+                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                        prop.getAuthoriserNotifierQueueName());
+                                List<ProcessCertificateSplit> certlist = new ArrayList<>();
+                                certlist.add(splitCert);
+                                wrapper.setCode(notification.createCode(login));
+                                wrapper.setDescription("Authenticate certificate split invoked by " + login.getUserId());
+                                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                                wrapper.setFrom(login.getUserId());
+                                wrapper.setTo(authenticator);
+                                wrapper.setModel(certlist);
+                                logger.info("notification fowarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                                resp = qSender.sendAuthorisationRequest(wrapper);
+                                return resp;
+                            }
+                            resp.setRetn(300);
+                            resp.setDesc("One of the shareholder has a different company account ");
+                            logger.info("One of the shareholder has a different company account ", login.getUserId());
                             return resp;
                         }
                         resp.setRetn(300);
-                        resp.setDesc("One of the shareholder has a different company account ");
-                        logger.info("One of the shareholder has a different company account ", login.getUserId());
+                        resp.setDesc("One of the shareholders does not have a company account or has no chn ");
+                        logger.info("One of the shareholders does not have a company account or has no chn ", login.getUserId());
                         return resp;
                     }
                 }
@@ -476,6 +568,7 @@ public class CertificateComponentLogic {
             long millis = System.currentTimeMillis();
             Date current_date = new java.sql.Date(millis);
             int counter;
+            boolean holderCompAccExists = false;
             boolean created = false;
             boolean chnExists = false;
             boolean update = false;
@@ -485,11 +578,19 @@ public class CertificateComponentLogic {
             boolean certExists = hd.checkCertificate(certModel.getOriginalCertificate().getCertificateNumber(), certModel.getOriginalCertificate().getHolderId());
             org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(certModel.getOriginalCertificate().getClientCompanyId());
             org.greenpole.hibernate.entity.Certificate originalCert = hd.getCertificate(certModel.getOriginalCertificate().getCertificateNumber(), certModel.getOriginalCertificate().getHolderId());
+            org.greenpole.hibernate.entity.CertificateEvent certEvent = new org.greenpole.hibernate.entity.CertificateEvent();
             if (certExists) {
                 if (certModel.getCreatedCetificates().size() <= 4) {
                     for (counter = 0; counter < certModel.getCreatedCetificates().size(); counter++) {
                         org.greenpole.hibernate.entity.Holder h = hd.getHolder(certModel.getCreatedCetificates().get(counter).getHolderId());
                         chnExists = hq.checkHolderAccount(h.getChn());
+                        holderCompAccExists = hq.checkHolderCompanyAccount(certModel.getCreatedCetificates().get(counter).getHolderId(), certModel.getOriginalCertificate().getClientCompanyId());
+                        if (!chnExists) {
+                            break;
+                        }
+                        if (!holderCompAccExists) {
+                            break;
+                        }
                         int ser = ran.nextInt() % 1000000000;
                         int ser2 = ran.nextInt() % 1000000000;
 
@@ -504,36 +605,43 @@ public class CertificateComponentLogic {
                         String certificateNo;
                         certificateNo = sr + ssl;
                         ac = Integer.parseInt(certificateNo);
-                        if (!chnExists) {
-                            break;
-                        }
-                        if (certModel.getOriginalCertificate().getClientCompanyId() == certModel.getCreatedCetificates().get(counter).getClientCompanyId()) {
-                            cert_hib.setCertificateNumber(ac);
-                            cert_hib.setShareVolume(certModel.getCreatedCetificates().get(counter).getShareVolume());
-                            cert_hib.setHolder(h);
-                            cert_hib.setHolderName(certModel.getCreatedCetificates().get(counter).getHolderName());
-                            cert_hib.setHolderAddress(certModel.getCreatedCetificates().get(counter).getHolderAddress());
-                            cert_hib.setClientCompany(cc);
-                            cert_hib.setIssueDate(current_date);
-                            cert_hib.setCertNarration(certModel.getOriginalCertificate().getCertNarration());
-                            cert_hib.setCancelled(false);
-                            cert_hib.setClaimed(false);
-                            created = hd.createCertificate(cert_hib);
-                            originalCert.setCancelled(true);
-                            update = hd.updateCertOwnership(originalCert);
+                        if (holderCompAccExists && chnExists) {
+                            if (certModel.getOriginalCertificate().getClientCompanyId() == certModel.getCreatedCetificates().get(counter).getClientCompanyId()) {
+                                cert_hib.setCertificateNumber(ac);
+                                cert_hib.setShareVolume(certModel.getCreatedCetificates().get(counter).getShareVolume());
+                                cert_hib.setHolder(h);
+                                cert_hib.setHolderName(certModel.getCreatedCetificates().get(counter).getHolderName());
+                                cert_hib.setHolderAddress(certModel.getCreatedCetificates().get(counter).getHolderAddress());
+                                cert_hib.setClientCompany(cc);
+                                cert_hib.setIssueDate(current_date);
+                                cert_hib.setCertNarration(certModel.getOriginalCertificate().getCertNarration());
+                                cert_hib.setCancelled(false);
+                                cert_hib.setClaimed(false);
+                                created = hd.createCertificate(cert_hib);
+                                originalCert.setCancelled(true);
+                                update = hd.updateCertOwnership(originalCert);
+                            }
+                            resp.setRetn(300);
+                            resp.setDesc("One of the shareholder has a different company account ");
+                            logger.info("One of the shareholder has a different company account ", login.getUserId());
+                            return resp;
                         }
                         resp.setRetn(300);
-                        resp.setDesc("One of the shareholder has a different company account ");
-                        logger.info("One of the shareholder has a different company account ", login.getUserId());
+                        resp.setDesc("One of the shareholders does not have a company account or has no chn ");
+                        logger.info("One of the shareholders does not have a company account or has no chn ", login.getUserId());
                         return resp;
                     }
-                    if (created) {
+                    if (created && update) {
+                        certEvent.setCertificate(cert_hib);
+                        certEvent.setEventDate(current_date);
+                        certEvent.setSplitStatus(true);
+                        hd.createCertEvent(certEvent);
                         resp.setRetn(0);
                         resp.setDesc("Successfully splitted certificate ownership ");
                         logger.info("Successful splitted certificate ownership ", login.getUserId());
                         return resp;
                     }
-                    if (!created) {
+                    if (!created && !update) {
                         resp.setRetn(0);
                         resp.setDesc("Failed to split certificate ownership ");
                         logger.info("Failed to split certificate ownership ", login.getUserId());
@@ -571,6 +679,11 @@ public class CertificateComponentLogic {
     public Response lodgeCertificate_Request(Login login, String authenticator, CertificateLodgement cert) {
         Response resp = new Response();
         logger.info(" request to lodge / dematerialise certificate ", login.getUserId());
+        Notification notification = new Notification();
+
+        NotificationWrapper wrapper;
+        QueueSender queue;
+        NotifierProperties prop;
         try {
 
         } catch (Exception ex) {
@@ -678,4 +791,119 @@ public class CertificateComponentLogic {
             return resp;
         }
     }
+
+    /**
+     * processes request to confirm verification of certificate details
+     *
+     * @param login the user details
+     * @param certVerification the certificate to be verified
+     * @return response to the confirmation of certificate verification
+     */
+    public Response verifyCertificateConfirmation_Request(Login login, CertificateVerification certVerification) {
+        Response resp = new Response();
+        logger.info("request to verify certificate invoked by ", login.getUserId());
+        CertificateVerification cv_model = new CertificateVerification();
+        List<CertificateVerification> cv_model_list_out = new ArrayList<>();
+        boolean exists = false;
+        try {
+            exists = hd.checkCertByCertNo(certVerification.getCertificateId());
+            if (exists) {
+                if (certVerification.getCertificateId() > 0) {
+                    if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && certVerification.getStatus().equals("irregular")) {
+                        cv_model.setCertificateId(certVerification.getCertificateId());
+                        cv_model.setNote(certVerification.getNote());
+                        cv_model.setStatus(certVerification.getStatus());
+                        cv_model_list_out.add(cv_model);
+                    } else if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && !certVerification.getStatus().equals("irregular")) {
+                        cv_model.setCertificateId(certVerification.getCertificateId());
+                        cv_model.setStatus(certVerification.getStatus());
+                        cv_model_list_out.add(cv_model);
+                    }
+                    resp.setRetn(0);
+                    resp.setBody(cv_model_list_out);
+                    return resp;
+                }
+                resp.setRetn(300);
+                resp.setDesc("Certificate number not specified");
+                logger.info("Certificate number not specified ", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(300);
+            resp.setDesc("Certificate does not exists ");
+            logger.info("Certificate does not exists ", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error verifying certificate. See error log - [{}]", login.getUserId());
+            logger.error("error verifying certificate - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to certificate. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * processes request for verification of certificate details
+     *
+     * @param login the user details
+     * @param certVerification the certificate to be verified
+     * @return response to the confirmation of certificate verification
+     */
+    public Response verifyCertificate_Request(Login login, CertificateVerification certVerification) {
+        Response resp = new Response();
+        logger.info("request to verify certificate invoked by ", login.getUserId());
+        org.greenpole.hibernate.entity.CertificateVerification cv_hib = new org.greenpole.hibernate.entity.CertificateVerification();
+        CertificateVerification cv_model = new CertificateVerification();
+        boolean exists = false;
+        boolean saved = false;
+        try {
+            exists = hd.checkCertByCertNo(certVerification.getCertificateId());
+            if (exists) {//checks for certificate existence
+                logger.info("certificate checks out by [{}] ", login.getUserId());
+                org.greenpole.hibernate.entity.Certificate cert = hd.getCertByCertNumber(certVerification.getCertificateId());
+                if (cert.getCertificateNumber() > 0) {
+                    if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && certVerification.getStatus().equals("irregular")) {
+                        cv_hib.setCertificate(cert);
+                        cv_hib.setNote(certVerification.getNote());
+                        cv_hib.setStatus(certVerification.getStatus());
+                        saved = hd.saveCertificateVerification(cv_hib);
+                    } else if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && !certVerification.getStatus().equals("irregular")) {
+                        cv_hib.setCertificate(cert);
+                        cv_hib.setStatus(certVerification.getStatus());
+                        saved = hd.saveCertificateVerification(cv_hib);
+                    }
+                    if (saved) {
+                        resp.setRetn(0);
+                        resp.setDesc("Successful");
+                        logger.info("Successful ", login.getUserId());
+                        return resp;
+                    }
+                    if (!saved) {
+                        resp.setRetn(300);
+                        resp.setDesc("Certification verification failed");
+                        logger.info("Certification verification failed ", login.getUserId());
+                        return resp;
+                    }
+                }
+                resp.setRetn(300);
+                resp.setDesc("Certificate number not specified");
+                logger.info("Certificate number not specified ", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(300);
+            resp.setDesc("Certificate does not exists ");
+            logger.info("Certificate does not exists ", login.getUserId());
+            return resp;
+        } catch (Exception ex) {
+            logger.info("error verifying certificate. See error log - [{}]", login.getUserId());
+            logger.error("error verifying certificate - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to certificate. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
+        }
+    }
+
 }

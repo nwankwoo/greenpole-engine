@@ -21,7 +21,9 @@ import org.greenpole.hibernate.entity.BondOffer;
 import org.greenpole.hibernate.entity.BondType;
 import org.greenpole.hibernate.entity.Caution;
 import org.greenpole.hibernate.entity.Certificate;
+import org.greenpole.hibernate.entity.CertificateEvent;
 import org.greenpole.hibernate.entity.CertificateLodgement;
+import org.greenpole.hibernate.entity.CertificateVerification;
 import org.greenpole.hibernate.entity.ClearingHouse;
 import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
@@ -704,6 +706,24 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-  
+    @Override
+    public void createCertEvent(CertificateEvent certEvet) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkCertByCertNo(int certNumber) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public Certificate getCertByCertNumber(int certificateNo) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean saveCertificateVerification(CertificateVerification certVeri) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
    
 }

@@ -449,11 +449,33 @@ public interface HibernatDummyQuerInterface {
     /**
      * views certificate lodgement report
      * @param descriptor the description of the type of search to carry out
-     * @param certLodged the certificate lodgement details to be viewed
      * @param startDate the start date search
      * @param endDate the end date search
      * @param dateFormat the date formatter
      * @return list of hibernate certificate lodgement reports 
      */
     public List<org.greenpole.hibernate.entity.CertificateLodgement> viewCertLodgementReport(String descriptor, String startDate, String endDate, String dateFormat);
+    /**
+     * stores the details of a splitted certificate
+     * @param certEvet the certificate split record to be stored
+     */
+    public void createCertEvent(org.greenpole.hibernate.entity.CertificateEvent certEvet);
+    /**
+     * checks the existence of a certificate by the certificate number
+     * @param certNumber the certificate number
+     * @return true if found else false
+     */
+    public boolean checkCertByCertNo(int certNumber);
+    /**
+     * retrieve a certificate by its number
+     * @param certificateNo number of the certificate to be retrieved
+     * @return hibernate certificate entity
+     */
+    public org.greenpole.hibernate.entity.Certificate getCertByCertNumber(int certificateNo);
+    /**
+     * processes request to persist certificate verification details
+     * @param certVeri the certificate verification details
+     * @return true if verification details are saved else false
+     */
+    public boolean saveCertificateVerification(org.greenpole.hibernate.entity.CertificateVerification certVeri);
 }

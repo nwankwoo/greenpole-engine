@@ -340,12 +340,11 @@ public class PaymentComponentLogic {
                 Coupon coup_model_search = new Coupon();
                 if (queryParams.getCoupon() != null) {
                     coup_model_search = queryParams.getCoupon();
-                    //org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompany(div_model_search.getClientCompanyId());
+                    org.greenpole.hibernate.entity.BondType bt = cq.getBondType(coup_model_search.getBondTypeId());
                     coup_hib_search.setClientCompanyName(coup_model_search.getClientCompanyName());
                     coup_hib_search.setCouponNumber(coup_model_search.getCouponNumber());
-                    coup_hib_search.setBondType(coup_model_search.getBondType());
+                    coup_hib_search.setBondType(bt);
                     coup_hib_search.setBondholderMailingAddress(coup_model_search.getBondholderMailingAddress());
-
                     try {
                         coup_hib_search.setIssueDate(formatter.parse(coup_model_search.getIssueDate()));
                     } catch (Exception ex) {
@@ -380,19 +379,17 @@ public class PaymentComponentLogic {
                 List<org.greenpole.hibernate.entity.Coupon> coupon_hib_list = hd.getCoupon(queryParams.getDescriptor(), coup_hib_search, redemptionAmount_search, couponAmount_search);
                 for (org.greenpole.hibernate.entity.Coupon cou : coupon_hib_list) {
                     Coupon co = new Coupon();
-                    org.greenpole.hibernate.entity.BondOffer bo = hd.getBondOfferId(cou.getHolderBondAccount().getBondOffer().getClientCompany().getId());
-                    //org.greenpole.hibernate.entity.HolderCompanyAccount hca = hq.getHolderCompanyAccount(div.getHolderCompanyAccount().getHolder().getId(), div.getClientCompany().getId());
                     org.greenpole.hibernate.entity.ClientCompany cc = cq.getClientCompanyByName(cou.getClientCompanyName());
-                   // org.greenpole.hibernate.entity.HolderBondAccount hba = hd.retrieveHolderBondCompAccount(holderId, bondId)
+                    org.greenpole.hibernate.entity.HolderBondAccountId hba_id_hib = new org.greenpole.hibernate.entity.HolderBondAccountId(cou.getHolderBondAccount().getHolder().getId(), cc.getId());
                     co.setClientCompanyName(cou.getClientCompanyName());
                     co.setIssueDate(formatter.format(cou.getIssueDate()));
                     co.setCouponNumber(cou.getCouponNumber());
-                    co.setBondType(cou.getBondType());
+                    co.setBondTypeId(cou.getBondType().getId());
                     co.setBondholderMailingAddress(cou.getBondholderMailingAddress());
                     co.setRedemptnDate(formatter.format(cou.getRedemptnDate()));
                     co.setCouponAmt(cou.getCouponAmt());
                     co.setRedemptionAmt(cou.getRedemptionAmt());
-                    //co.setHolderBondAccountId(cou.getHolderBondAccount().getHolderBondAccount().getId());
+                    co.setHolderBondAccountId(hba_id_hib.getHolderId());
                     coupon_model_list_out.add(co);
                 }
                 logger.info("Coupon query successful - [{}]", login.getUserId());
