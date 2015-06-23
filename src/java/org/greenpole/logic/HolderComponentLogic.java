@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
@@ -42,6 +41,7 @@ import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entity.model.holder.QueryHolderConsolidation;
 import org.greenpole.entity.notification.NotificationType;
+import org.greenpole.entity.sms.TextSend;
 import org.greenpole.hibernate.entity.AdministratorEmailAddress;
 import org.greenpole.hibernate.entity.AdministratorPhoneNumber;
 import org.greenpole.hibernate.entity.AdministratorPostalAddress;
@@ -59,7 +59,6 @@ import org.greenpole.hibernate.entity.HolderPostalAddress;
 import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
-import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.notifier.sender.QueueSender;
@@ -70,6 +69,7 @@ import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
+import org.greenpole.util.properties.SMSProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,8 +82,8 @@ import org.slf4j.LoggerFactory;
 public class HolderComponentLogic {
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(HolderComponentLogic.class);
-    private final NotificationProperties notificationProp = new NotificationProperties(HolderComponentLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     
     /**
@@ -214,8 +214,8 @@ public class HolderComponentLogic {
             if (pryCheckPassed && secCheckPassed) {
                 wrapper = new NotificationWrapper();
                 
-                prop = new NotifierProperties(HolderComponentLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                prop = NotifierProperties.getInstance();
+                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                         prop.getAuthoriserNotifierQueueName());
 
                 logger.info("all holder accounts qualify for merge - [{}]", login.getUserId());
@@ -409,6 +409,20 @@ public class HolderComponentLogic {
 
                     if (merged) {
                         notification.markAttended(notificationCode);
+                        String holderPhone = hq.getHolderPryPhoneNumber(pryHolder.getId());
+                        if (!"".equals(holderPhone)) {
+                            SMSProperties smsProp = SMSProperties.getInstance();
+                            
+                            TextSend textSend = new TextSend();
+                            textSend.setMessage_id(notificationCode);
+                            textSend.setIsFlash(false);
+                            textSend.setPhoneNumber(holderPhone);
+                            textSend.setText(smsProp.getTextMerge());
+                            textSend.setIsBulk(false);
+                            textSend.setPurpose(NotificationType.merge_accounts.toString());
+                            textSend.setHolderId(pryHolder.getId());
+                        }
+                        
                         resp.setRetn(0);
                         resp.setDesc("Successful merge");
                         logger.info("Successful merge - [{}]", login.getUserId());
@@ -515,8 +529,8 @@ public class HolderComponentLogic {
             if (pryCheckPassed) {
                 wrapper = new NotificationWrapper();
                 
-                prop = new NotifierProperties(HolderComponentLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                prop = NotifierProperties.getInstance();
+                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                         prop.getAuthoriserNotifierQueueName());
 
                 logger.info("holder account qualifies for demerge operation - [{}]", login.getUserId());
@@ -757,8 +771,8 @@ public class HolderComponentLogic {
                                                 boolean receiverHolderCompAcctExists = hq.checkHolderCompanyAccount(unitTransfer.getHolderIdTo(), unitTransfer.getClientCompanyId());
 
                                                 wrapper = new NotificationWrapper();
-                                                prop = new NotifierProperties(HolderComponentLogic.class);
-                                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                prop = NotifierProperties.getInstance();
+                                                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                                         prop.getAuthoriserNotifierQueueName());
 
                                                 logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
@@ -1064,8 +1078,8 @@ public class HolderComponentLogic {
                                                 logger.info("sender holder has necessary units for transfer - [{}]", login.getUserId());
 
                                                 wrapper = new NotificationWrapper();
-                                                prop = new NotifierProperties(HolderComponentLogic.class);
-                                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                                prop = NotifierProperties.getInstance();
+                                                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                                         prop.getAuthoriserNotifierQueueName());
 
                                                 logger.info("preparing notification for transaction between holders [{}] and [{}] - [{}]",
@@ -2005,8 +2019,8 @@ public class HolderComponentLogic {
                     
                     if (flag) {
                         wrapper = new NotificationWrapper();
-                        prop = new NotifierProperties(HolderComponentLogic.class);
-                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        prop = NotifierProperties.getInstance();
+                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
 
                         List<Holder> holderList = new ArrayList();
@@ -2243,8 +2257,8 @@ public class HolderComponentLogic {
 
                     if (fileSize <= defaultSize) {
                         wrapper = new NotificationWrapper();
-                        prop = new NotifierProperties(HolderComponentLogic.class);
-                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        prop = NotifierProperties.getInstance();
+                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
                         
                         List<PowerOfAttorney> powerList = new ArrayList();
@@ -2583,8 +2597,8 @@ public class HolderComponentLogic {
                             
                             if (hq.checkBank(compAcct.getBank().getId())) {
                                 wrapper = new NotificationWrapper();
-                                prop = new NotifierProperties(HolderComponentLogic.class);
-                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop = NotifierProperties.getInstance();
+                                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                         prop.getAuthoriserNotifierQueueName());
                                 
                                 List<HolderCompanyAccount> compAcctList = new ArrayList();
@@ -2753,8 +2767,8 @@ public class HolderComponentLogic {
                             
                             if (hq.checkBank(bondAcct.getBank().getId())) {
                                 wrapper = new NotificationWrapper();
-                                prop = new NotifierProperties(HolderComponentLogic.class);
-                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop = NotifierProperties.getInstance();
+                                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                         prop.getAuthoriserNotifierQueueName());
                                 
                                 List<HolderBondAccount> bondAcctList = new ArrayList();
@@ -3018,8 +3032,8 @@ public class HolderComponentLogic {
             if (flag) {
                 
                 wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(HolderComponentLogic.class);
-                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                 
                 List<Holder> holdList = new ArrayList<>();
                 holdList.add(holder);
@@ -3353,8 +3367,8 @@ public class HolderComponentLogic {
 
             if (flag) {
                 wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(HolderComponentLogic.class);
-                queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                 List<Holder> holdList = new ArrayList<>();
                 holdList.add(holder);
@@ -3597,8 +3611,8 @@ public class HolderComponentLogic {
                 
                 if (fileSize <= defaultSize) {
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponentLogic.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                     
                     List<HolderSignature> holderListSignature = new ArrayList<>();
                     holderListSignature.add(holderSig);
@@ -3829,8 +3843,8 @@ public class HolderComponentLogic {
 
                 if (flag) {
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponentLogic.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                     List<Holder> holdList = new ArrayList<>();
                     holdList.add(holder);
@@ -3959,8 +3973,8 @@ public class HolderComponentLogic {
 
         try {
             wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(HolderComponentLogic.class);
-            queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
             
             //holder must exist
             if (hq.checkHolderAccount(holder.getHolderId())) {
@@ -4492,8 +4506,8 @@ public class HolderComponentLogic {
                     BondOffer bond = cq.getBondOffer(bondAccount.getBondOfferId());
                     
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(HolderComponentLogic.class);
-                    queue = new QueueSender(prop.getAuthoriserNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                     List<HolderBondAccount> acctList = new ArrayList<>();
                     acctList.add(bondAccount);

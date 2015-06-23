@@ -93,7 +93,7 @@ public class ClientCompanyLogic {
                                 if (rightIssue.getClosingDate() != null || !"".equals(rightIssue.getClosingDate())) {
                                     wrapper = new NotificationWrapper();
                                     prop = new NotifierProperties(ClientCompanyLogic.class);
-                                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                             prop.getAuthoriserNotifierQueueName());
                                     List<RightsIssue> rights_list = new ArrayList();
                                     rights_list.add(rightIssue);
@@ -357,7 +357,7 @@ public class ClientCompanyLogic {
             if (primaryCheck && secondaryCheck) {
                 wrapper = new NotificationWrapper();
                 prop = new NotifierProperties(ClientCompanyLogic.class);
-                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                         prop.getAuthoriserNotifierQueueName());
                 logger.info("clients companies qualify for merge - [{}]", login.getUserId());
                 List<ClientCompanyMerger> ccMerger_list = new ArrayList<>();
@@ -578,7 +578,7 @@ public class ClientCompanyLogic {
                     logger.info("client company [{}] is checked for shareholders - [{}]", clientCompany.getName(), login.getUserId());
                     wrapper = new NotificationWrapper();
                     prop = new NotifierProperties(ClientCompanyLogic.class);
-                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
                             prop.getAuthoriserNotifierQueueName());
                     List<ClientCompany> cc_list = new ArrayList();
                     cc_list.add(clientCompany);
@@ -602,7 +602,7 @@ public class ClientCompanyLogic {
                     } else if (!clientCompany.isMerged()) {
                         wrapper = new NotificationWrapper();
                         prop = new NotifierProperties(ClientCompanyLogic.class);
-                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
                         List<ClientCompany> cc_list = new ArrayList();
                         cc_list.add(clientCompany);
@@ -1288,7 +1288,7 @@ public class ClientCompanyLogic {
                 if (rightIssue.getRightsClosed() && rightIssue.getClosingDate().before(current_date)) {
                     wrapper = new NotificationWrapper();
                     prop = new NotifierProperties(ClientCompanyLogic.class);
-                    qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
                             prop.getAuthoriserNotifierQueueName());
                     List<RightsIssueApplication> rightApp_list = new ArrayList<>();
                     rightApp_list.add(rightApp);
