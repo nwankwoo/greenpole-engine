@@ -50,8 +50,8 @@ public class PrivatePlacementApplicationLogic {
 
     private final HolderComponentQuery hcq = new HolderComponentQueryImpl();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
-    NotificationProperties noteProp = new NotificationProperties(PrivatePlacementApplicationLogic.class);
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(PrivatePlacementApplicationLogic.class);
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(PrivatePlacementApplicationLogic.class);
     SimpleDateFormat formatter = new SimpleDateFormat();
 
@@ -209,7 +209,7 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
                 if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
@@ -247,8 +247,8 @@ public class PrivatePlacementApplicationLogic {
                                             }
                                         }
                                         wrapper = new NotificationWrapper();
-                                        props = new NotifierProperties(PrivatePlacementApplication.class);
-                                        queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                        prop = NotifierProperties.getInstance();
+                                        queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                                         wrapper.setCode(notification.createCode(login));
                                         wrapper.setDescription("Authenticate creation of Private Placement Application for holder " + ppApply.getHolderId());
@@ -325,7 +325,7 @@ public class PrivatePlacementApplicationLogic {
         double sharesSubscribedValue = 0;
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
             PrivatePlacementApplication ppApply = ppApplicationList.get(0);
             if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
@@ -460,14 +460,14 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
             // org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = hcq.getPrivatePlacementApplication(ipoApply.getId());
             org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = new org.greenpole.hibernate.entity.PrivatePlacementApplication();
             if (ppApplicationEntity.getProcessingPayment() || ppApplicationEntity.getApproved()) {
                 // if (true) {
                 wrapper = new NotificationWrapper();
-                props = new NotifierProperties(PrivatePlacementApplicationLogic.class);
-                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                 List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
                 ppAppList.add(ppApply);
                 wrapper.setCode(notification.createCode(login));
@@ -508,7 +508,7 @@ public class PrivatePlacementApplicationLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
             PrivatePlacementApplication ppApply = ppApplicationList.get(0);
             // org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = hcq.getPrivatePlacementApplication(ppApply.getId());
@@ -562,13 +562,13 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if ((ppApply.getHolderId() > 0) && (ppApply.getPrivatePlacementId() > 0)) {
                 ppAppList.add(ppApply);
                 wrapper = new NotificationWrapper();
-                props = new NotifierProperties(PrivatePlacementApplication.class);
-                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate addition of share units for holder " + ppApply.getHolderId());
@@ -607,7 +607,7 @@ public class PrivatePlacementApplicationLogic {
         Notification notification = new Notification();
         Response resp = new Response();
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
             PrivatePlacementApplication ppApply = ppApplicationList.get(0);
 
@@ -666,7 +666,7 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if ((ppApply.getHolderId() > 0) && (ppApply.getPrivatePlacementId() > 0)) {
                 if (ppApply.getSharesSubscribed() > ppApply.getSharesAdjusted()) {
@@ -728,7 +728,7 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if ((ppApply.getHolderId() > 0) && (ppApply.getPrivatePlacementId() > 0)) {
                 if (ppApply.getSharesSubscribed() > ppApply.getSharesAdjusted()) {
@@ -747,8 +747,8 @@ public class PrivatePlacementApplicationLogic {
                     ppApply.setReturnMoney(returnMoney);
                     ppAppList.add(ppApply);
                     wrapper = new NotificationWrapper();
-                    props = new NotifierProperties(PrivatePlacementApplication.class);
-                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate adjusting of share units for holder " + ppApply.getHolderId());
@@ -794,7 +794,7 @@ public class PrivatePlacementApplicationLogic {
         Date date = new Date();
         double returnMoney = 0;
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
             PrivatePlacementApplication ppApply = ppApplicationList.get(0);
 
@@ -873,12 +873,12 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(PrivatePlacementApplicationLogic.class);
-            queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             logger.info("Preparing notification for a list of Private Placement applications, invoked by [{}]", login.getUserId());
 
@@ -930,7 +930,7 @@ public class PrivatePlacementApplicationLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             List<PrivatePlacementApplication> ppAppList = (List<PrivatePlacementApplication>) wrapper.getModel();
             List<PrivatePlacementApplication> ppApplications = (List<PrivatePlacementApplication>) ppAppList.get(0);
@@ -1208,7 +1208,7 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (hcq.checkHolderAccount(ppApply.getHolderId())) {
                 // check if holder has company account with a particular client company

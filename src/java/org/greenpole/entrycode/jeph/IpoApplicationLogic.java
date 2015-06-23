@@ -53,8 +53,8 @@ public class IpoApplicationLogic {
     private final HolderComponentQuery hq = new HolderComponentQueryImpl();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(IpoApplicationLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(IpoApplicationLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(IpoApplicationLogic.class);
     // SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
 
@@ -205,7 +205,7 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (hq.checkHolderAccount(ipoApply.getHolderId())) {
                 // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
@@ -243,8 +243,8 @@ public class IpoApplicationLogic {
                                         }
                                     }
                                     wrapper = new NotificationWrapper();
-                                    props = new NotifierProperties(IpoApplicationLogic.class);
-                                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                                    prop = NotifierProperties.getInstance();
+                                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                                     logger.info("Preparing notification for confirm on Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
 
@@ -322,7 +322,7 @@ public class IpoApplicationLogic {
         double sharesSubscribedValue = 0;
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<IpoApplication> ipoApplicationList = (List<IpoApplication>) wrapper.getModel();
             IpoApplication ipoApply = ipoApplicationList.get(0);
             logger.info("Authorise Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
@@ -460,14 +460,14 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
             // org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = hcq.getIpoApplication(ipoApply.getId());
             org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = new org.greenpole.hibernate.entity.IpoApplication();
             if (ipoApplicationEntity.getProcessingPayment() || ipoApplicationEntity.getApproved()) {
                 // if (true) {
                 wrapper = new NotificationWrapper();
-                props = new NotifierProperties(IpoApplicationLogic.class);
-                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
                 List<IpoApplication> iAppList = new ArrayList<>();
                 iAppList.add(ipoApply);
                 wrapper.setCode(notification.createCode(login));
@@ -509,7 +509,7 @@ public class IpoApplicationLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<IpoApplication> ipoApplicationList = (List<IpoApplication>) wrapper.getModel();
             IpoApplication ipoApply = ipoApplicationList.get(0);
             // org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = hcq.getIpoApplication(ipoApply.getId());
@@ -564,13 +564,13 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if ((ipoApply.getHolderId() > 0) && (ipoApply.getInitialPublicOfferId() > 0)) {
                 ipoAppList.add(ipoApply);
                 wrapper = new NotificationWrapper();
-                props = new NotifierProperties(IpoApplicationLogic.class);
-                queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                 wrapper.setCode(notification.createCode(login));
                 wrapper.setDescription("Authenticate addition of share units for holder " + ipoApply.getHolderId());
@@ -611,7 +611,7 @@ public class IpoApplicationLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
             PrivatePlacementApplication ppApply = ppApplicationList.get(0);
 
@@ -671,7 +671,7 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if ((ipoApply.getHolderId() > 0) && (ipoApply.getInitialPublicOfferId() > 0)) {
                 if (ipoApply.getSharesSubscribed() > ipoApply.getSharesAdjusted()) {
@@ -733,7 +733,7 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if ((ipoApply.getHolderId() > 0) && (ipoApply.getInitialPublicOfferId() > 0)) {
                 if (ipoApply.getSharesSubscribed() > ipoApply.getSharesAdjusted()) {
@@ -752,8 +752,8 @@ public class IpoApplicationLogic {
                     ipoApply.setReturnMoney(returnMoney);
                     ipoAppList.add(ipoApply);
                     wrapper = new NotificationWrapper();
-                    props = new NotifierProperties(IpoApplicationLogic.class);
-                    queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                     wrapper.setCode(notification.createCode(login));
                     wrapper.setDescription("Authenticate adjusting of share units for holder " + ipoApply.getHolderId());
@@ -798,7 +798,7 @@ public class IpoApplicationLogic {
         Date date = new Date();
         double returnMoney = 0;
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<IpoApplication> ipoApplicationList = (List<IpoApplication>) wrapper.getModel();
             IpoApplication ipoApply = ipoApplicationList.get(0);
 
@@ -875,12 +875,12 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(IpoApplicationLogic.class);
-            queue = new QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             logger.info("Preparing notification for a list of Initial Public Offer applications, invoked by [{}]", login.getUserId());
             wrapper.setCode(notification.createCode(login));
@@ -933,7 +933,7 @@ public class IpoApplicationLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             List<IpoApplication> ipoAppList = (List<IpoApplication>) wrapper.getModel();
             List<IpoApplication> ipoApplications = (List<IpoApplication>) ipoAppList.get(0);
@@ -1202,7 +1202,7 @@ public class IpoApplicationLogic {
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             List<IpoApplication> iAppList = new ArrayList<>();
 

@@ -16,14 +16,20 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entirycode.jeph.model.BondOfferReport;
-import org.greenpole.entirycode.jeph.model.QueryCanceledDividend;
+import org.greenpole.entirycode.jeph.model.Certificate;
+import org.greenpole.entirycode.jeph.model.CertificateSplitReport;
+import org.greenpole.entirycode.jeph.model.QueryCorporateAction;
+import org.greenpole.entirycode.jeph.model.QueryMergedCertificate;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
+import org.greenpole.entity.model.holder.Holder;
 import org.greenpole.entity.model.taguser.TagUser;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
@@ -41,8 +47,10 @@ import org.greenpole.hibernate.entity.HolderResidentialAddress;
 import org.greenpole.hibernate.entity.HolderType;
 import org.greenpole.hibernate.entity.ShareQuotation;
 import org.greenpole.hibernate.query.ClientCompanyComponentQuery;
+import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
+import org.greenpole.notifier.sender.QueueSender;
 import org.greenpole.util.Descriptor;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
@@ -59,8 +67,9 @@ public class ClientCompanyLogic {
 
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyLogic.class);
-    NotificationProperties noteProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private static final Logger logger = LoggerFactory.getLogger(ClientCompanyLogic.class);
     SimpleDateFormat formatter = new SimpleDateFormat();
 
@@ -77,7 +86,7 @@ public class ClientCompanyLogic {
         try {
             if (bondOfferReport.getClientCompanyId() > 0 && bondOfferReport.getClientCompanyId() != 0) {
                 if (bondOfferReport.getTitle() != null && !"".equals(bondOfferReport.getTitle())) {
-                    // BondOffer chkBondOffer = cq.checkBondOffer(bondOfferReport.getClientCompanyId(), bondOfferReport.getId());
+                    // boolean chkBondOffer = cq.checkBondOffer(bondOfferReport.getClientCompanyId(), bondOfferReport.getId());
                     if (true) {
                         // List<BondOffer> bo = cq.getBondOffer(bondOfferReport.getClientCompanyId(), bondOfferReport.getId());
                         List<BondOffer> bondOfferList = new ArrayList<>();
@@ -143,15 +152,15 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
             List<ShareBonus> shareBonusList = new ArrayList();
             if (shareBonus.getTitle() != null && !"".equals(shareBonus.getTitle())) {
                 if (shareBonus.getQualifyShareUnit() > 0) {
                     if (shareBonus.getBonusUnitPerQualifyUnit() > 0) {
                         if (shareBonus.getQualifyDate() != null && date.before(formatter.parse(shareBonus.getQualifyDate()))) {
                             wrapper = new NotificationWrapper();
-                            props = new NotifierProperties(ClientCompanyLogic.class);
-                            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                            prop = NotifierProperties.getInstance();
+                            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                             shareBonusList.add(shareBonus);
 
@@ -168,8 +177,8 @@ public class ClientCompanyLogic {
                             return resp;
                         } else if (shareBonus.getQualifyDate() != null) {
                             wrapper = new NotificationWrapper();
-                            props = new NotifierProperties(ClientCompanyLogic.class);
-                            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                            prop = NotifierProperties.getInstance();
+                            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                             shareBonusList.add(shareBonus);
 
@@ -223,14 +232,13 @@ public class ClientCompanyLogic {
      * @return response to the declare Share Bonus request
      */
     public Response declareShareBonus_Authorise(Login login, String notificationCode) {
-        logger.info("Authorise reverse stock split, invoked by [{}]", login.getUserId());
+        logger.info("Authorise declare share bonus, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
-        SimpleDateFormat formatter = new SimpleDateFormat();
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ShareBonus> shareBonusList = (List<ShareBonus>) wrapper.getModel();
             ShareBonus shareBonus = shareBonusList.get(0);
             boolean checkShareHolders = cq.checkClientCompanyForShareholders(Integer.toString(shareBonus.getClientCompanyId()));
@@ -365,7 +373,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * Processes request confirmation to Apply Stock Split
+     * Processes request confirmation for Apply Stock Split
      *
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
@@ -380,7 +388,7 @@ public class ClientCompanyLogic {
         try { // code needs to be modified to consider fractional shares account (APR)
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (cq.checkClientCompany(reconstructor.getClientCompanyId())) {
                 if (cq.checkClientCompanyForShareholders(cq.getClientCompany(reconstructor.getClientCompanyId()).getName())) {
@@ -417,8 +425,8 @@ public class ClientCompanyLogic {
                         reconstructionList.add(reconstructor);
 
                         wrapper = new NotificationWrapper();
-                        props = new NotifierProperties(ClientCompanyLogic.class);
-                        queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                        prop = NotifierProperties.getInstance();
+                        queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate Apply Stock Split confirmation process for " + reconstructor.getClientCompanyId());
@@ -469,7 +477,7 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try { // code needs to be modified to consider fractional shares account (APR)
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Reconstruction> reconstructorList = (List<Reconstruction>) wrapper.getModel();
             Reconstruction reconstructor = reconstructorList.get(0);
 
@@ -639,7 +647,7 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             if (cq.checkClientCompany(reconstructor.getClientCompanyId())) {
                 if (cq.checkClientCompanyForShareholders(cq.getClientCompany(reconstructor.getClientCompanyId()).getName())) {
@@ -676,8 +684,8 @@ public class ClientCompanyLogic {
                         reconstructionList.add(reconstructor);
 
                         wrapper = new NotificationWrapper();
-                        props = new NotifierProperties(ClientCompanyLogic.class);
-                        queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+                        prop = NotifierProperties.getInstance();
+                        queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate Reverse Stock Split process for " + reconstructor.getClientCompanyId());
@@ -729,7 +737,7 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Reconstruction> reconstructorList = (List<Reconstruction>) wrapper.getModel();
             Reconstruction reconstructor = reconstructorList.get(0);
 
@@ -806,7 +814,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * Processes request to Upload Bond Offer en-mass
+     * Processes request to Upload Bond Offer Application en-mass
      *
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
@@ -827,7 +835,7 @@ public class ClientCompanyLogic {
             NotifierProperties prop;
 
             wrapper = new NotificationWrapper();
-            prop = new NotifierProperties(ClientCompanyLogic.class);
+            prop = NotifierProperties.getInstance();
             queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
@@ -893,7 +901,7 @@ public class ClientCompanyLogic {
         Notification notification = new Notification();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<HolderBondAccount> acctList = (List<HolderBondAccount>) wrapper.getModel();
             List<HolderBondAccount> bondAccountList = (List<HolderBondAccount>) acctList.get(0);
             List<org.greenpole.hibernate.entity.HolderBondAccount> bondAccountListSend = new ArrayList<>();
@@ -930,16 +938,21 @@ public class ClientCompanyLogic {
                     respList.add(response);
                     confirm.setDetails(respList);
                     confirmationList.add(confirm);
-                }
+                }// return response object
+                return validBondApply;
             }
             // hq.createUpdateHolderBondAccount(bondAccountListSend);
-            notification.markAttended(notificationCode);
             resp.setRetn(0);
             confirm.setDetails(respList);
             confirmationList.add(confirm);
             resp.setBody(confirmationList);
             resp.setDesc("Bond Offer application successful");
             logger.info("Bond Offer application successful - [{}]", login.getUserId());
+
+            wrapper.setAttendedTo(true);
+            notification.markAttended(notificationCode);
+            // send SMS and/or Email notification
+
             return resp;
         } catch (Exception ex) {
             logger.info("error proccessing holder bond application. See error log - [{}]", login.getUserId());
@@ -959,26 +972,27 @@ public class ClientCompanyLogic {
      * @return
      */
     public Response declaredDividend_Request(Login login, String authenticator, DividendDeclared dividendDeclared) {
-        logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
+        logger.info("request to create declare dividend, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
 
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("Dividend validation failed " + res.getDesc());
                 return res;
             }
             List<DividendDeclared> dividendDeclaredList = new ArrayList<>();
             dividendDeclaredList.add(dividendDeclared);
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate declare dividend process for " + dividendDeclared.getClientCompanyId());
@@ -1001,6 +1015,9 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * Processes request to declare Dividend for Client company that has been
+     * saved in a notification file, according to the specified notification
+     * code
      *
      * @param login
      * @param notificationCode
@@ -1012,13 +1029,14 @@ public class ClientCompanyLogic {
         Response resp = new Response();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<DividendDeclared> dividendDeclaredList = (List<DividendDeclared>) wrapper.getModel();
             DividendDeclared dividendDeclared = dividendDeclaredList.get(0);
 
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("Dividend validation failed " + res.getDesc());
                 return res;
             }
             boolean status = false;
@@ -1055,31 +1073,213 @@ public class ClientCompanyLogic {
         }
     }
 
-    public Response viewCorporateActionBonusReport_Request(Login login, String authenticator, Dividend dividendDeclared) {
-        Response resp = new Response();
-
-        return resp;
-    }
-
     /**
+     * Generates a report to view corporate action on declared dividend
      *
-     * @param login
-     * @param authenticator
-     * @param dividend
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param viewDividendDeclared QueryCorporateAction object
+     * @return response to the view corporate action dividend report process
      */
-    public Response viewCorporateActionDividendReport_Request(Login login, String authenticator, Dividend dividend) {
+    public Response viewCorporateActionDividendReport_Request(Login login, String authenticator, QueryCorporateAction viewDividendDeclared) {
+        logger.info("Request to view generated report on declared dividend [{}], invoked by [{}]", login.getUserId());
         Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
 
-        return resp;
+        try {
+            if (viewDividendDeclared.getDescriptor() == null || "".equals(viewDividendDeclared.getDescriptor())) {
+                resp.setRetn(300);
+                resp.setDesc("View corporate action report on declared dividend unsuccessful, empty descriptor found.");
+                logger.info("View corporate action report on declared dividend unsuccessful. Empty descriptor - [{}]", login.getUserId());
+                return resp;
+            }
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(viewDividendDeclared.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(viewDividendDeclared.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.DividendDeclared> viewDividendList = cq.getAllDeclaredDividend(viewDividend.getDescriptor(), 
+                //           viewDividend.getStartDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.DividendDeclared> viewDividendDeclaredEntityList = new ArrayList<>();
+                List<DividendDeclared> declaredDividendModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.DividendDeclared divDeclrd : viewDividendDeclaredEntityList) {
+                    DividendDeclared veiwDividendDeclared = new DividendDeclared();
+
+                    veiwDividendDeclared.setClientCompanyId(divDeclrd.getClientCompany().getId());
+                    veiwDividendDeclared.setYearType(divDeclrd.getYearType());
+                    veiwDividendDeclared.setIssueType(divDeclrd.getIssueType());
+                    veiwDividendDeclared.setQualifyDate(divDeclrd.getQualifyDate().toString());
+                    veiwDividendDeclared.setWithholdingTaxRateInd(divDeclrd.getWithholdingTaxRateInd());
+                    veiwDividendDeclared.setWithholdingTaxRateCorp(divDeclrd.getWithholdingTaxRateCorp());
+                    veiwDividendDeclared.setYearEnding(divDeclrd.getYearEnding());
+                    veiwDividendDeclared.setDatePayable(divDeclrd.getDatePayable().toString());
+                    veiwDividendDeclared.setRate(divDeclrd.getRate());
+
+                    List<org.greenpole.entity.model.holder.Holder> holderListSend = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
+                    // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders(dividendDeclared.getClientCompanyId());
+                    for (org.greenpole.hibernate.entity.Holder h : holderList) {
+                        org.greenpole.entity.model.holder.Holder hold = new org.greenpole.entity.model.holder.Holder();
+                        hold.setHolderAcctNumber(h.getHolderAcctNumber());
+                        hold.setChn(h.getChn());
+                        hold.setFirstName(h.getFirstName());
+                        hold.setMiddleName(h.getMiddleName());
+                        hold.setLastName(h.getLastName());
+                        hold.setGender(h.getGender());
+                        hold.setDob(h.getDob().toString());
+                        hold.setTaxExempted(h.getTaxExempted());
+                        hold.setPryAddress(h.getPryAddress());
+
+                        holderListSend.add(hold);
+                    }
+                    veiwDividendDeclared.setHolders(holderListSend);
+                    declaredDividendModelList.add(veiwDividendDeclared);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(viewDividendDeclared);
+                tag.setResult(declaredDividendModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Generation of Report on Corporate Action: Declared Dividend Successful");
+                resp.setRetn(0);
+                logger.info("Generation of Report on Corporate Action: Declared Dividend Successful - [{}]", login.getUserId());
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on declared dividends. Contact system administrator.");
+            logger.info("Error generating report on declared dividends. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on declared dividends - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
     /**
+     * Generates a report to view corporate action on share bonus
      *
-     * @param login
-     * @param authenticator
-     * @param dividend
-     * @return
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param viewShareBonus QueryCorporateAction object
+     * @return response to the view corporate action bonus report process
+     */
+    public Response viewCorporateActionBonusReport_Request(Login login, String authenticator, QueryCorporateAction viewShareBonus) {
+        logger.info("Request to view generated report on declared share bonus [{}], invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
+
+        try {
+            if (viewShareBonus.getDescriptor() == null || "".equals(viewShareBonus.getDescriptor())) {
+                resp.setRetn(300);
+                resp.setDesc("View corporate action report on declared bonus unsuccessful, empty descriptor found.");
+                logger.info("View corporate action report on declared bonus unsuccessful. Empty descriptor - [{}]", login.getUserId());
+                return resp;
+            }
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(viewShareBonus.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(viewShareBonus.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.ShareBonus> viewShareBonusEntityList = cq.getAllShareBonus(viewDividend.getDescriptor(), 
+                //           viewDividend.getStartDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.ShareBonus> viewShareBonusEntityList = new ArrayList<>();
+                List<ShareBonus> shareBonusModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.ShareBonus bonus : viewShareBonusEntityList) {
+                    ShareBonus viewBonus = new ShareBonus();
+
+                    viewBonus.setClientCompanyId(bonus.getClientCompany().getId());
+                    viewBonus.setTitle(bonus.getTitle());
+                    viewBonus.setQualifyDate(bonus.getQualifyDate().toString());
+                    viewBonus.setQualifyShareUnit(bonus.getQualifyShareUnit());
+                    viewBonus.setBonusUnitPerQualifyUnit(bonus.getBonusUnitPerQualifyUnit());
+
+                    List<org.greenpole.entity.model.holder.Holder> holderListSend = new ArrayList<>();
+                    List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
+                    // List<org.greenpole.hibernate.entity.Holder> holderList = cq.getAllHolders(viewShareBonus.getClientCompanyId());
+                    for (org.greenpole.hibernate.entity.Holder h : holderList) {
+                        org.greenpole.entity.model.holder.Holder hold = new org.greenpole.entity.model.holder.Holder();
+                        hold.setHolderAcctNumber(h.getHolderAcctNumber());
+                        hold.setChn(h.getChn());
+                        hold.setFirstName(h.getFirstName());
+                        hold.setMiddleName(h.getMiddleName());
+                        hold.setLastName(h.getLastName());
+                        hold.setGender(h.getGender());
+                        hold.setDob(h.getDob().toString());
+                        hold.setTaxExempted(h.getTaxExempted());
+                        hold.setPryAddress(h.getPryAddress());
+
+                        holderListSend.add(hold);
+                    }
+                    viewBonus.setHolders(holderListSend);
+                    shareBonusModelList.add(viewBonus);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(viewShareBonus);
+                tag.setResult(shareBonusModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Generation of Report on Corporate Action: Declared Share Bonus Successful");
+                resp.setRetn(0);
+                logger.info("Generation of Report on Corporate Action: Declared Share Bonus Successful - [{}]", login.getUserId());
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on Share Bonus dividends. Contact system administrator.");
+            logger.info("Error generating report on declared Share Bonus. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on declared Share Bonus - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to cancel shareholder dividend
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividend Dividend object
+     * @return response to the Cancel Dividend request
      */
     public Response cancelDividend_Request(Login login, String authenticator, Dividend dividend) {
         logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
@@ -1089,11 +1289,12 @@ public class ClientCompanyLogic {
         try {
             NotificationWrapper wrapper;
             org.greenpole.notifier.sender.QueueSender queue;
-            NotifierProperties props;
+            NotifierProperties prop;
 
             Response res = checkDividendStatus(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("check dividend status failed " + res.getDesc());
                 return res;
             }
             // set cancelled to true - authorise
@@ -1102,8 +1303,8 @@ public class ClientCompanyLogic {
             dividendList.add(dividend);
 
             wrapper = new NotificationWrapper();
-            props = new NotifierProperties(ClientCompanyLogic.class);
-            queue = new org.greenpole.notifier.sender.QueueSender(props.getNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            prop = NotifierProperties.getInstance();
+            queue = new org.greenpole.notifier.sender.QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
 
             wrapper.setCode(notification.createCode(login));
             wrapper.setDescription("Authenticate cancel dividend process for " + dividend.getClientCompanyId());
@@ -1123,14 +1324,15 @@ public class ClientCompanyLogic {
             logger.error("Error processing client company creation - [" + login.getUserId() + "]", ex);
             return resp;
         }
-
     }
 
     /**
+     * Processes request to cancel shareholder dividend that has been saved in a
+     * notification file, according to the specified notification code
      *
-     * @param login
-     * @param notificationCode
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the Cancel Dividend request
      */
     public Response cancelDividend_Authorise(Login login, String notificationCode) {
         logger.info("Authorise cancel dividend process, invoked by [{}]", login.getUserId());
@@ -1139,13 +1341,14 @@ public class ClientCompanyLogic {
         Date date = new Date();
 
         try {
-            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
             Dividend dividend = dividendList.get(0);
 
             Response res = checkDividendStatus(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("check dividend status validation failed " + res.getDesc());
                 return res;
             }
             dividend.setCancelled(true);
@@ -1185,13 +1388,20 @@ public class ClientCompanyLogic {
         }
     }
 
-    public Response viewCanceledDividend_Request(Login login, QueryCanceledDividend queryCanceledDividend) {
-        logger.info("Request to view generated report on cancelled dividends [{}], invoked by [{}]", login.getUserId());
+    /**
+     * Generates a report of canceled dividend
+     *
+     * @param login the user's login details
+     * @param queryCanceledDividend QueryCorporateAction object
+     * @return response to the View Canceled Dividend Report query
+     */
+    public Response viewCanceledDividendReport_Request(Login login, QueryCorporateAction queryCanceledDividend) {
+        logger.info("Request to view generated report on canceled dividends, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Descriptor descriptorUtil = new Descriptor();
 
         try {
-            
+
             Map<String, String> descriptors = descriptorUtil.decipherDescriptor(queryCanceledDividend.getDescriptor());
             if (descriptors.size() == 1) {
                 //check start date is properly formatted
@@ -1220,27 +1430,56 @@ public class ClientCompanyLogic {
                         return resp;
                     }
                 }
-                // List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = hq.getAllCanceledDividend(queryCanceledDividend.getDescriptor(), queryCanceledDividend.getStartDate(),
-                //         queryCanceledDividend.getEndDate(), greenProp.getDateFormat());
-                
-                List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = new ArrayList<>();
-                
+                // List<org.greenpole.hibernate.entity.Dividend> canceledDividendList = hq.getAllCanceledDividend(queryCanceledDividend.getDescriptor(), 
+                //           queryCanceledDividend.getStartDate(), queryCanceledDividend.getEndDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.Dividend> canceledDividendEntityList = new ArrayList<>();
+                List<Dividend> canceledDividendLModelList = new ArrayList<>();
                 TagUser tag = new TagUser();
-                
-                for (org.greenpole.hibernate.entity.Dividend div : canceledDividendList) {
-                    
-                }                
+
+                for (org.greenpole.hibernate.entity.Dividend div : canceledDividendEntityList) {
+                    Dividend canceledDividend = new Dividend();
+                    canceledDividend.setClientCompName(div.getClientCompName());
+                    canceledDividend.setDividendDeclaredId(div.getDividendDeclared().getId());
+                    // canceledDividend.setHolderCompanyAccountId();
+                    canceledDividend.setWarrantNumber(div.getWarrantNumber().intValue());
+                    canceledDividend.setIssueType(div.getIssueType());
+                    canceledDividend.setIssueDate(div.getIssueDate().toString());
+                    canceledDividend.setDivNumber(div.getDivNumber());
+                    canceledDividend.setYearType(div.getYearType());
+                    canceledDividend.setYearEnding(div.getYearEnding().toString());
+                    canceledDividend.setSHolderMailingAddr(div.getSHolderMailingAddr());
+                    canceledDividend.setRate(div.getRate());
+                    canceledDividend.setCompAccHoldings(div.getCompAccHoldings());
+                    canceledDividend.setWithldingTaxRate(div.getWithldingTaxRate());
+                    canceledDividend.setGrossAmount(div.getGrossAmount());
+                    canceledDividend.setTax(div.getTax());
+                    canceledDividend.setPayableAmount(div.getPayableAmount());
+                    canceledDividend.setPayableDate(div.getPayableDate().toString());
+                    canceledDividend.setIssued(div.getIssued());
+                    canceledDividend.setIssueDate(div.getIssueDate().toString());
+                    // canceledDividend.setReIssued(div.getReIssued());
+                    // canceledDividend.setReIssuedDate(div.getReIssuedDate().toString());
+                    // canceledDividend.setPaid(div.getPaid());
+                    // canceledDividend.setPaidDate(div.getPaidDate().toString());
+                    // canceledDividend.setPaymentMethod(div.getPaymentMethod());
+                    // canceledDividend.setUnclaimed(div.getUnclaimed());
+                    // canceledDividend.setUnclaimedDate(div.getUnclaimedDate().toString());
+                    // canceledDividend.setCancelled(div.getCancelled());
+                    canceledDividend.setCanelledDate(div.getCanelledDate().toString());
+
+                    canceledDividendLModelList.add(canceledDividend);
+                }
                 List<TagUser> tagList = new ArrayList<>();
 
                 tag.setQueryParam(queryCanceledDividend);
-                tag.setResult(new ArrayList<>());
+                tag.setResult(canceledDividendLModelList);
                 tagList.add(tag);
 
                 resp.setBody(tagList);
-                resp.setDesc("Query Successful");
+                resp.setDesc("Canceled Dividend Query Report Generation Successful");
                 resp.setRetn(0);
-                logger.info("Query successful - [{}]", login.getUserId());
-                // send SMS and/or Email notification
+                logger.info("Canceled Dividend Query Report Generation - [{}]", login.getUserId());
                 return resp;
             }
             logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
@@ -1250,23 +1489,737 @@ public class ClientCompanyLogic {
 
         } catch (Exception ex) {
             resp.setRetn(99);
-            resp.setDesc("General error. Unable to view generated report on cancelled dividends. Contact system administrator.");
-            logger.info("Error generating report on cancelled dividends. See error log - [{}]", login.getUserId());
-            logger.error("Error generating report on cancelled dividends - [" + login.getUserId() + "]", ex);
+            resp.setDesc("General error. Unable to view generated report on canceled dividends. Contact system administrator.");
+            logger.info("Error generating report on canceled dividends. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on canceled dividends - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
 
-    public Response viewCanceledDividend_Authorise(Login login, String notificationCode) {
+    /**
+     * Processes request to replace dividend warrant
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividend Dividend object
+     * @return response to the replace dividend warrant request
+     */
+    public Response replaceDividendWarrant_Request(Login login, String authenticator, Dividend dividend) {
+        logger.info("request to create declare dividend [{}], invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
 
-        return new Response();
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties prop;
+
+            Response res = checkDividendReplaced(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("check dividend replacement failed " + res.getDesc());
+                return res;
+            }
+            List<Dividend> dividendList = new ArrayList<>();
+            dividendList.add(dividend);
+
+            wrapper = new NotificationWrapper();
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(),
+                    prop.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate dividend warrant replacement process for " + dividend.getClientCompanyId());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(dividendList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend warrant replacement. Contact system administrator.");
+            logger.info("Error processing dividend warrant replacement. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend warrant replacement - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
     }
 
     /**
+     * Processes request to replace dividend warrant that has been saved in a
+     * notification file, according to the specified notification code
      *
-     * @param login
-     * @param holder
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the replace dividend warrant request
+     */
+    public Response replaceDividendWarrant_Authorise(Login login, String notificationCode) {
+        logger.info("Authorise replace dividend warrant process, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
+            Dividend dividend = dividendList.get(0);
+
+            Response res = checkDividendStatus(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("check dividend replacement failed " + res.getDesc());
+                return res;
+            }
+            dividend.setIssued(false);
+            dividend.setReIssued(false);
+
+            // org.greenpole.hibernate.entity.Dividend dividendEntity = hq.getShareHolderDividend(dividend.getHolderCompanyAccountId());
+            org.greenpole.hibernate.entity.Dividend dividendEntity = new org.greenpole.hibernate.entity.Dividend();
+            org.greenpole.hibernate.entity.DividenAnnotation dividendAnnotEntity = new org.greenpole.hibernate.entity.DividenAnnotation();
+
+            Set dividendAnnot = new HashSet();
+
+            dividendAnnotEntity.setAnnotation(dividend.getAnnotation());
+            dividendEntity.setIssued(dividend.isIssued());
+            dividendEntity.setReIssued(dividend.isReIssued());
+            dividendAnnot.add(dividend.getAnnotation());
+            dividendEntity.setDividenAnnotations(dividendAnnot);
+
+            boolean status = false;
+            // status = hq.updateShareholderDividend(dividendEntity);
+            if (status) {
+                resp.setRetn(0);
+                resp.setDesc("Replace dividend warrant authorisation process successful");
+                logger.info("Replace dividend warrant authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                wrapper.setAttendedTo(true);
+                notification.markAttended(notificationCode);
+                // send SMS and/or Email notification
+                return resp;
+            }
+            resp.setRetn(200);
+            resp.setDesc("Unable to process replace dividend warrant authorisation.");
+            logger.info("Unable to process replace dividend warrant authorisation - [{}]", login.getUserId());
+            return resp;
+        } catch (JAXBException ex) {
+            resp.setRetn(98);
+            resp.setDesc("Unable to process 'replace dividend warrant' authorisation request. Contact System Administrator");
+            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process 'replace dividend warrant' authorisation request. Contact system administrator.");
+            logger.info("Error processing 'replace dividend warrant' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error processing 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes recreation of a new dividend which will retain all previous
+     * information on a canceled dividend except with a new warrant number
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param dividend Dividend object
+     * @return response to the recreate dividend request
+     */
+    public Response recreateDividend_Request(Login login, String authenticator, Dividend dividend) {
+        logger.info("request to recreate dividend, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
+
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties prop;
+
+            Response res = verifyDividendDetails(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("Dividend verification process failed " + res.getDesc());
+                return res;
+            }
+            List<Dividend> dividendList = new ArrayList<>();
+            dividendList.add(dividend);
+
+            wrapper = new NotificationWrapper();
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate recreate dividend process for " + dividend.getClientCompanyId());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(dividendList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process recreate dividend process. Contact system administrator.");
+            logger.info("Error processing recreate dividend process. See error log - [{}]", login.getUserId());
+            logger.error("Error processing recreate dividend process - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to recreate dividend that has been saved in a
+     * notification file, according to the specified notification code
+     *
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the recreate dividend process
+     */
+    public Response recreateDividend_Authorise(Login login, String notificationCode) {
+        logger.info("Authorise replace dividend warrant process, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<Dividend> dividendList = (List<Dividend>) wrapper.getModel();
+            Dividend dividend = dividendList.get(0);
+
+            Response res = verifyDividendDetails(login, dividend);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("Dividend verification failed failed " + res.getDesc());
+                return res;
+            }
+
+            List<org.greenpole.hibernate.entity.Dividend> dividendEntityList = new ArrayList<>();
+            org.greenpole.hibernate.entity.Dividend dividendEntity = new org.greenpole.hibernate.entity.Dividend();
+
+            dividendEntity.setClientCompName(dividend.getClientCompName());
+            dividendEntity.setIssueType(dividend.getIssueType());
+            dividendEntity.setIssueDate(formatter.parse(dividend.getIssueDate()));
+            dividendEntity.setDivNumber(dividend.getDivNumber());
+            dividendEntity.setYearType(dividend.getYearType());
+            // TODO: warranty number to be auto generated #important
+            // dividendEntity.setWarrantNumber(warrantNumber);
+
+            // dividendEntity.setHolderCompanyAccount(hq.getHolderCompanyAccount(dividend.getHolderCompanyAccountId()));
+            dividendEntity.setSHolderMailingAddr(dividend.getSHolderMailingAddr());
+            dividendEntity.setRate(dividend.getRate());
+            dividend.setCompAccHoldings(dividend.getCompAccHoldings());
+            dividendEntity.setWithldingTaxRate(dividend.getWithldingTaxRate());
+            dividendEntity.setGrossAmount(dividend.getGrossAmount());
+            dividendEntity.setTax(dividendEntity.getTax());
+            dividendEntity.setPayableAmount(dividendEntity.getPayableAmount());
+            dividendEntity.setIssued(dividend.isIssued());
+            dividendEntity.setIssueDate(formatter.parse(dividend.getIssueDate()));
+            dividendEntity.setPayableDate(formatter.parse(dividend.getPayableDate()));
+            dividendEntityList.add(dividendEntity);
+
+            boolean status = false;
+            // status hq.createUpdateShareholderDividend(dividendEntityList);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Dividends for shareholders NOT successful");
+                logger.info("Dividends for shareholders NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Dividends for shareholders successful");
+            logger.info("Dividends for shareholders successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+
+            wrapper.setAttendedTo(true);
+            notification.markAttended(notificationCode);
+            // send SMS and/or Email notification
+
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend creation for shareholders. Contact system administrator.");
+            logger.info("Error processing dividend creation for shareholders. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend creation for shareholders - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to merge a shareholder's certificates
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param certificateList list of certificates
+     * @return response to the merge certificates request process
+     */
+    public Response mergeCertificates_Request(Login login, String authenticator, List<Certificate> certificateList) {
+        logger.info("request to merge list certificate, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
+
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties prop;
+
+            Response res = verifyCertificateDetails(login, certificateList);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("Certificate varification failed " + res.getDesc());
+                return res;
+            }
+            wrapper = new NotificationWrapper();
+            prop = NotifierProperties.getInstance();
+            queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate merge certificate process");
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(certificateList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process merge certificate process. Contact system administrator.");
+            logger.info("Error processing merge certificate process. See error log - [{}]", login.getUserId());
+            logger.error("Error processing merge certificate process - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes saved request to merge a shareholder's certificates, according
+     * to the specified notification code in notification file
+     *
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the merge certificate request
+     */
+    public Response mergeCertificates_Authorise(Login login, String notificationCode) {
+        /**
+         * Certificates are tied to only shares, as such bondholding attribute
+         * will not filled
+         */
+        logger.info("Authorise merge list of certificates, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+        int shareVolume = 0;
+        // int bondHolding = 0;
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+            List<Certificate> certificateList = (List<Certificate>) wrapper.getModel();
+
+            Response res = verifyCertificateDetails(login, certificateList);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("Certificate verification failed " + res.getDesc());
+                return res;
+            }
+
+            org.greenpole.hibernate.entity.Certificate certEntity = new org.greenpole.hibernate.entity.Certificate();
+            certEntity.setClientCompany(cq.getClientCompany(certificateList.get(0).getClientCompanyId()));
+            certEntity.setHolder(hq.getHolder(certificateList.get(0).getHolderId()));
+//            certEntity.setInitialPublicOffer(null);
+//            certEntity.setPrivatePlacement(null);
+//            certEntity.setRightsIssue(null);
+//            certEntity.setShareBonus(null);
+            certEntity.setCertificateNumber(certificateList.get(0).getCertificateNumber());
+//            sum the units of all certificates
+            for (Certificate cert : certificateList) {
+                shareVolume += cert.getShareVolume();
+                certEntity.setShareVolume(shareVolume);
+//                bondHolding += cert.getBondHolding();
+//                certEntity.setBondHolding(bondHolding);
+            }
+            certEntity.setHolderName(certificateList.get(0).getHolderName());
+            certEntity.setHolderAddress(certificateList.get(0).getHolderAddress());
+            certEntity.setIssuingCompName(certificateList.get(0).getIssuingCompName());
+            certEntity.setIssueDate(formatter.parse(certificateList.get(0).getIssueDate()));
+            // immobilise all certificates and persist it
+            List<org.greenpole.hibernate.entity.Certificate> cancelCertificates = cancelCertificates(login, certificateList);
+
+            boolean status = false;
+            // status hq.createUpdateCertificate(certEntity, cancelCertificates);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Merge certificate process NOT successful");
+                logger.info("Merge certificate process NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Merge certificate process successful");
+            logger.info("Merge certificate process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+
+            wrapper.setAttendedTo(true);
+            notification.markAttended(notificationCode);
+            // send SMS and/or Email notification
+
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process merge certificate process. Contact system administrator.");
+            logger.info("Error processing merge certificate. See error log - [{}]", login.getUserId());
+            logger.error("Error processing merge certificate - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Generates a report of merged certificates
+     *
+     * @param login the user's login details
+     * @param mergedCerts QueryMergedCertificate object
+     * @return response to the view merged certificate report process
+     */
+    public Response viewMergedCertificateReport_Request(Login login, QueryMergedCertificate mergedCerts) {
+        logger.info("Request to view generated report on merged certificates, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
+
+        try {
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(mergedCerts.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(mergedCerts.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                //check end date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("between")) {
+                    try {
+                        formatter.parse(mergedCerts.getEndDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for end date");
+                        logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.Certificate> mergedCertList = hq.getAllMergedCertificates(mergedCerts.getDescriptor(), 
+                //           mergedCerts.getStartDate(), mergedCerts.getEndDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.Certificate> mergedCertList = new ArrayList<>();
+                List<Certificate> mergedCertModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.Certificate cert : mergedCertList) {
+                    Certificate mergedCert = new Certificate();
+                    mergedCert.setClientCompanyId(cert.getClientCompany().getId());
+                    mergedCert.setHolderId(cert.getHolder().getId());
+                    mergedCert.setShareVolume(cert.getShareVolume());
+                    mergedCert.setCertificateNumber(cert.getCertificateNumber());
+                    mergedCert.setHolderName(cert.getHolderName());
+                    mergedCert.setHolderAddress(cert.getHolderAddress());
+                    mergedCert.setIssuingCompName(cert.getIssuingCompName());
+                    mergedCert.setIssueDate(cert.getIssueDate().toString());
+                    mergedCert.setCertNarration(cert.getCertNarration());
+                    mergedCert.setCancelled(cert.getCancelled());
+                    mergedCert.setClaimed(cert.getClaimed());
+                    mergedCert.setImmobStatus(cert.getImmobStatus());
+
+                    mergedCertModelList.add(mergedCert);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(mergedCerts);
+                tag.setResult(mergedCertModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Merged Certificates Query Report Generation Successful");
+                resp.setRetn(0);
+                logger.info("Merged Certificates Query Report Generation - [{}]", login.getUserId());
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on merged certificates. Contact system administrator.");
+            logger.info("Error generating report on merged certificates. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on merged certificates - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    public Response viewCertificateSplitReport_Request(Login login, String authenticator, CertificateSplitReport certSplit) {
+        logger.info("Request to view generated report on split certificates, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
+
+        try {
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(certSplit.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(certSplit.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                //check end date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("between")) {
+                    try {
+                        formatter.parse(certSplit.getEndDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for end date");
+                        logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.Certificate> certSplitList = hq.getAllCertificates(certSplit.getDescriptor(), 
+                //           certSplit.getStartDate(), certSplit.getEndDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.Certificate> certSplitList = new ArrayList<>();
+                List<Certificate> certSplitModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.Certificate cert : certSplitList) {
+                    Certificate certificateSplit = new Certificate();
+                    certificateSplit.setClientCompanyId(cert.getClientCompany().getId());
+                    certificateSplit.setHolderId(cert.getHolder().getId());
+                    certificateSplit.setCertificateNumber(cert.getCertificateNumber());
+                    certificateSplit.setShareVolume(cert.getShareVolume());
+                    certificateSplit.setHolderName(cert.getHolderName());
+                    certificateSplit.setHolderAddress(cert.getHolderAddress());
+                    certificateSplit.setIssuingCompName(cert.getIssuingCompName());
+
+                    certSplitModelList.add(certificateSplit);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(certSplit);
+                tag.setResult(certSplitModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Split Certificates Query Report Generation Successful");
+                resp.setRetn(0);
+                logger.info("Split Certificates Query Report Generation - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on merged certificates. Contact system administrator.");
+            logger.info("Error generating report on merged certificates. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on merged certificates - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to record printed certificate as claimed
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param certificate Certificate object
+     * @return response to the record claimed certificate process
+     */
+    public Response recordClaimedCertificate_Request(Login login, String authenticator, Certificate certificate) {
+        logger.info("request to record printed certificate as claimed, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+//        Notification notification = new Notification();
+        Date date = new Date();
+
+        try {
+//            NotificationWrapper wrapper;
+//            org.greenpole.notifier.sender.QueueSender queue;
+//            NotifierProperties prop;
+//
+//            wrapper = new NotificationWrapper();
+//            prop = NotifierProperties.getInstance();
+//            queue = new QueueSender(prop.getNotifierQueueFactory(),                                prop.getAuthoriserNotifierQueueName());
+            // verify certificate if certificate has been claimed
+//            Response res = checkDividendReplaced(login, dividend);
+//            if (res.getRetn() != 0) {
+//                // send SMS and/or Email notification
+//                return res;
+//            }
+            certificate.setClaimed(true);
+//            org.greenpole.hibernate.entity.Certificate certEntity = hq.getHolderCertificate(certificate.getId());
+            org.greenpole.hibernate.entity.Certificate certEntity = new org.greenpole.hibernate.entity.Certificate();
+            certEntity.setClaimed(certificate.isClaimed());
+            boolean status = false;
+            // status = hq.createUpdateHolderCertificate(certEntity);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Record claimed certificate process NOT successful");
+                logger.info("Record claimed certificate process NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+//            List<Certificate> certificateList = new ArrayList<>();
+//            certificateList.add(certificate);
+//
+//            wrapper.setCode(notification.createCode(login));
+//            wrapper.setDescription("Authenticate record claimed certificate process for " + certificate.getHolderName());
+//            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+//            wrapper.setFrom(login.getUserId());
+//            wrapper.setTo(authenticator);
+//            wrapper.setModel(certificateList);
+//            resp = queue.sendAuthorisationRequest(wrapper);
+//            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            resp.setDesc("Record claimed certificate process successful");
+            logger.info("Record claimed certificate process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to record claimed certificate. Contact system administrator.");
+            logger.info("Error recording claimed certificate. See error log - [{}]", login.getUserId());
+            logger.error("Error recording claimed certificate - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to reverse claimed certificates that has been saved in
+     * a notification file as claimed, according to the specified notification
+     * code
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param certificate Certificate object
+     * @return response to the reverse claimed certificate process
+     */
+    public Response reverseClaimedCertificate_Authorise(Login login, String authenticator, Certificate certificate) {
+        logger.info("Authorise reverse claimed certificate process, invoked by [{}]", login.getUserId());
+//        Notification notification = new Notification();
+        Response resp = new Response();
+
+        try {
+//            NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
+//            List<Certificate> CertificateList = (List<Certificate>) wrapper.getModel();
+//            Certificate certificate = CertificateList.get(0);
+//
+//            Response res = validateDividendDeclaration(login, certificate);
+//            if (res.getRetn() != 0) {
+//                // send SMS and/or Email notification
+//                return res;
+//            }
+            certificate.setClaimed(false);
+//            org.greenpole.hibernate.entity.Certificate certEntity = hq.getHolderCertificate(certificate.getId());
+            org.greenpole.hibernate.entity.Certificate certEntity = new org.greenpole.hibernate.entity.Certificate();
+            certEntity.setClaimed(certificate.isClaimed());
+            boolean status = false;
+            // status = hq.createUpdateHolderCertificate(certEntity);
+            if (!status) {// error
+                resp.setRetn(200);
+                resp.setDesc("Unable to process reverse claimed certificate request.");
+                logger.info("Unable to process reverse claimed certificate request - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Reverse claimed certificate authorisation process successful");
+            logger.info("Reverse claimed certificate authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+//            wrapper.setAttendedTo(true);
+//            notification.markAttended(notificationCode);
+//            send SMS and / or Email notification
+            return resp;
+//        } catch (JAXBException ex) {
+//            resp.setRetn(98);
+//            resp.setDesc("Unable to process 'reverse claimed certificate' authorisation request. Contact System Administrator");
+//            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+//            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+//            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process 'reverse claimed certificate' authorisation request. Contact system administrator.");
+            logger.info("Error processing 'reverse claimed certificate' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error processing 'reverse claimed certificate' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    public Response linkHolderAccountToStockbroker(Login login, /* String authenticator, */ Holder holder) {
+        logger.info("request to record printed certificate as claimed, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+//        org.greenpole.hibernate.entity.Holder holderEntity = new org.greenpole.hibernate.entity.Holder();
+//        org.greenpole.hibernate.entity.Stockbroker stockbrokerEntity = new org.greenpole.hibernate.entity.Stockbroker();
+        boolean stockbrokerExist = false;
+        boolean holderExist = false;
+        // stockbrokerExist = cq.checkStockbroker(holder.getHolderStockbroker().getId());
+        holderExist = hq.checkHolderAccount(holder.getHolderId());
+        if (stockbrokerExist) {// check if stockbroker exists
+            if (holderExist) {// check if holder exists in the first place
+                org.greenpole.hibernate.entity.Holder holderEntity = hq.getHolder(holder.getHolderId());
+                // org.greenpole.hibernate.entity.Stockbroker stockbrokerEntity = cq.getStockbroker(holder.getHolderStockbroker().getId());
+                org.greenpole.hibernate.entity.Stockbroker stockbrokerEntity = new org.greenpole.hibernate.entity.Stockbroker();
+
+                Set stockbrokerSet = new HashSet();
+                Set holderSet = new HashSet();
+
+                stockbrokerSet.add(stockbrokerEntity);
+                holderSet.add(holderEntity);
+
+                holderEntity.setStockbrokers(stockbrokerSet);
+                stockbrokerEntity.setHolders(holderSet);
+                // persist holder and stockbroker entities
+                // hq.updateHolderStockbroker(holderEntity, stockbrokerEntity);
+
+                resp.setRetn(0);
+                resp.setDesc("Reverse claimed certificate authorisation process successful");
+                logger.info("Reverse claimed certificate authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+//                wrapper.setAttendedTo(true);
+//                notification.markAttended(notificationCode);
+//                send SMS and / or Email notification
+                return resp;
+            }// holder does not exist
+            resp.setRetn(200);
+            resp.setDesc("Unable to process, holder does not exist.");
+            logger.info("Unable to process, holder does not exist - [{}]", login.getUserId());
+            return resp;
+        }// stockbroker does not exist
+        resp.setRetn(200);
+        resp.setDesc("Unable to process, stockbroker does not exist. Create stockbroker if needed.");
+        logger.info("Unable to process, stockbroker does not exist - [{}]", login.getUserId());
+        return resp;
+    }
+
+    /**
+     * Validates holder details
+     *
+     * @param login the user's login details
+     * @param holder Holder object
+     * @return response to the calling method
      */
     private Response validateHolderDetails(Login login, org.greenpole.entity.model.holder.Holder holder) {
         Response resp = new Response();
@@ -1393,6 +2346,7 @@ public class ClientCompanyLogic {
      * @return response object to the calling method
      */
     private Response createDividend(Login login, DividendDeclared dividendDeclared) {
+        logger.info("Process to create dividend, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
         List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
@@ -1404,7 +2358,7 @@ public class ClientCompanyLogic {
 
                 dividend.setClientCompName(cq.getClientCompany(dividendDeclared.getClientCompanyId()).getName());
                 dividend.setIssueType(dividendDeclared.getIssueType());
-                dividend.setIssueDate(formatter.parse(dividendDeclared.getIssueDate()));
+                dividend.setIssueDate(date);
                 // dividend.setDivNumber(Integer.MIN_VALUE);
                 dividend.setYearType(dividendDeclared.getYearType());
                 // dividend.setWarrantNumber(warrantNumber);
@@ -1455,6 +2409,160 @@ public class ClientCompanyLogic {
             resp.setDesc("General error. Unable to process dividend creation for shareholders. Contact system administrator.");
             logger.info("Error processing dividend creation for shareholders. See error log - [{}]", login.getUserId());
             logger.error("Error processing dividend creation for shareholders - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Verifies dividend details for processing Dividend recreation
+     *
+     * @param login the user's login details
+     * @param dividend Dividend object
+     * @return response to the dividend verification request
+     */
+    private Response verifyDividendDetails(Login login, Dividend dividend) {
+        logger.info("verifying dividend details, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        try {
+            if (dividend.getClientCompanyId() > 0) {// check clientcompanyid
+                if (dividend.getDividendDeclaredId() > 0) {// check dividend declared id
+                    if (true) {// check dividend issue type id
+                        if (dividend.getHolderCompanyAccountId() > 0) {// check holder company account id
+                            if (dividend.getClientCompName() != null || !"".equals(dividend.getClientCompName())) {//check client company name
+                                if (dividend.getIssueType() != null || !"".equals(dividend.getIssueType())) {// check issue type
+                                    if (dividend.getIssueDate() != null || !"".equals(dividend.getIssueDate())) {// check issue date
+                                        try {// check issue date format
+                                            formatter.parse(dividend.getIssueDate());
+                                        } catch (ParseException ex) {// issue date format is wrong
+                                            resp.setRetn(200);
+                                            resp.setDesc("Incorrect date format for issue date");
+                                            logger.info("An error was thrown while checking the issue date format. See error log invoked by [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                            logger.error("Incorrect date format for issue date invoked by [{}]", login.getUserId(), ex);
+                                            return resp;
+                                        }
+                                        if (dividend.getDivNumber() > 0) {// check dividend number
+                                            if (dividend.getYearType() != null || !"".equals(dividend.getYearType())) {// check year type
+                                                if (dividend.getYearEnding() != null || !"".equals(dividend.getYearEnding())) {// check year ending
+                                                    if (dividend.getSHolderMailingAddr() != null || !"".equals(dividend.getSHolderMailingAddr())) {// check shareholder mailing address
+                                                        if (dividend.getRate() > 0.0) {// check rate
+                                                            if (dividend.getCompAccHoldings() > 0.0) {// check company account holdings
+                                                                if (dividend.getWithldingTaxRate() > 0) {// check withholding tax rate
+                                                                    if (dividend.getGrossAmount() > 0) {// gross amount
+                                                                        if (true) {// tax
+                                                                            if (dividend.getPayableAmount() > 0) {// check payable amount
+                                                                                if (dividend.getPayableDate() != null || !"".equals(dividend.getPayableDate())) {// check payable date
+                                                                                    try {
+                                                                                        formatter.parse(dividend.getPayableDate());
+                                                                                    } catch (ParseException ex) {
+                                                                                        resp.setRetn(200);
+                                                                                        resp.setDesc("Incorrect date format for payable date");
+                                                                                        logger.info("An error was thrown while checking the payable date format. See error log invoked by [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                                                                        logger.error("Incorrect date format for payable date invoked by [{}]", login.getUserId(), ex);
+                                                                                        return resp;
+                                                                                    }
+                                                                                    if (dividend.isCancelled()) {// checks if it is canceled
+                                                                                        resp.setRetn(0);
+                                                                                        return resp;
+                                                                                    }// dividend is not canceled
+                                                                                    resp.setRetn(200);
+                                                                                    resp.setDesc("Dividend is not canceled");
+                                                                                    logger.info("Dividend is not canceled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                                    return resp;
+                                                                                }// payable date is not specified
+                                                                                resp.setRetn(200);
+                                                                                resp.setDesc("Payable date is not specified");
+                                                                                logger.info("Payable date is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                                return resp;
+                                                                            }// payable amount is not specified
+                                                                            resp.setRetn(200);
+                                                                            resp.setDesc("Payable amount is not specified");
+                                                                            logger.info("Payable amount is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                            return resp;
+                                                                        }// tax amount is missing
+                                                                        resp.setRetn(200);
+                                                                        resp.setDesc("Tax amount is not specified");
+                                                                        logger.info("Tax amount is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                        return resp;
+                                                                    }// gross amount is not specified
+                                                                    resp.setRetn(200);
+                                                                    resp.setDesc("Gross amount is not specified");
+                                                                    logger.info("Gross amount is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                    return resp;
+                                                                }// withholding tax rate is not specified
+                                                                resp.setRetn(200);
+                                                                resp.setDesc("Withholding tax rate is not specified");
+                                                                logger.info("Withholding tax rate is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                                return resp;
+                                                            }// company account holdings is not specified
+                                                            resp.setRetn(200);
+                                                            resp.setDesc("Company account holdings is not specified");
+                                                            logger.info("Company account holdings is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                            return resp;
+                                                        }// rate is not specified
+                                                        resp.setRetn(200);
+                                                        resp.setDesc("Rate is not specified");
+                                                        logger.info("Rate is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                        return resp;
+                                                    }// shareholder mailing address is not specified
+                                                    resp.setRetn(200);
+                                                    resp.setDesc("Shareholder mailing address is not specified");
+                                                    logger.info("Shareholder mailing address is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                    return resp;
+                                                }// year ending is not specified
+                                                resp.setRetn(200);
+                                                resp.setDesc("Year ending is not specified");
+                                                logger.info("Year ending is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                                return resp;
+                                            }// year type is not specified
+                                            resp.setRetn(200);
+                                            resp.setDesc("Year type is not specified");
+                                            logger.info("Year type is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                            return resp;
+                                        }// dividend number is not specified
+                                        resp.setRetn(200);
+                                        resp.setDesc("Dividend number is not specified");
+                                        logger.info("Dividend number is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                        return resp;
+                                    }// issue date is not specified
+                                    resp.setRetn(200);
+                                    resp.setDesc("Issue date is not specified");
+                                    logger.info("Issue date is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                    return resp;
+                                }// issue type is not specified
+                                resp.setRetn(200);
+                                resp.setDesc("Issue type is not specified");
+                                logger.info("Issue type is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                return resp;
+                            }// client company name is not specified
+                            resp.setRetn(200);
+                            resp.setDesc("Client company name is not specified");
+                            logger.info("Client company name is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            return resp;
+                        }// holder company account id is not specified
+                        resp.setRetn(200);
+                        resp.setDesc("Holder company account ID is not specified");
+                        logger.info("Holder company account ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                        return resp;
+                    }// dividend issue type id is not specified
+                    resp.setRetn(200);
+                    resp.setDesc("Dividend issue type ID is not specified");
+                    logger.info("Dividend issue type ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }// dividend declared id is not specified
+                resp.setRetn(200);
+                resp.setDesc("Dividend declared ID is not specified");
+                logger.info("Dividend declared ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// clientcompanyid is not specified
+            resp.setRetn(200);
+            resp.setDesc("Client company ID is not specified");
+            logger.info("Client company ID is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process dividend warrant verification. Contact system administrator.");
+            logger.info("Error processing dividend warrant verification. See error log - [{}]", login.getUserId());
+            logger.error("Error processing dividend warrant verification - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -1638,6 +2746,7 @@ public class ClientCompanyLogic {
      * @return response object to the calling method
      */
     private Response validateDividendDeclaration(Login login, DividendDeclared dividendDeclared) {
+        logger.info("validating details of declared dividend, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
         try {
@@ -1739,12 +2848,14 @@ public class ClientCompanyLogic {
     }
 
     /**
+     * checks the status of a Dividend
      *
-     * @param login
-     * @param dividend
-     * @return
+     * @param login the user's login details
+     * @param dividend Dividend object
+     * @return response to the check dividend status method
      */
     private Response checkDividendStatus(Login login, Dividend dividend) {
+        logger.info("checking dividend cancelation status, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         if (dividend.getPaid()) {// check if dividend has been NOT paid
             if (dividend.isCancelled()) {// check if it has not been cancelled already
@@ -1766,6 +2877,147 @@ public class ClientCompanyLogic {
         resp.setDesc("Dividend has been paid for and so cannot be cancelled");
         logger.info("Dividend has been paid for and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
         return resp;
+    }
+
+    /**
+     * Processes a dividend for replacement
+     *
+     * @param login the user's login details
+     * @param dividend Dividend object
+     * @return response to the check dividend replaced
+     */
+    private Response checkDividendReplaced(Login login, Dividend dividend) {
+        logger.info("checking validity of dividend replacement, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        try {
+            if (!dividend.isReIssued() || !dividend.isIssued()) {// checks if dividend is issued or re-issued
+                if ((dividend.getPaymentMethod() == null || "".equals(dividend.getPaymentMethod())) || !dividend.getPaid()) {//checks if dividend has NOT been paid for or does not belong to shareholder with a mandated e-payment
+                    if (dividend.getAnnotation() != null && !"".equals(dividend.getAnnotation())) {// check for dividend annotation
+                        resp.setRetn(0);
+                        return resp;
+                    }// dividend annotation (reason for replacing dividend warrant) is not specified
+                    resp.setRetn(200);
+                    resp.setDesc("Dividend annotation (reason for wanting to replace dividend warrant) is not specified");
+                    logger.info("Dividend annotation (reason for wanting to replace dividend warrant) is not specified. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }// dividend has been paid for or shareholder belongs with a mandated e-payment
+                resp.setRetn(200);
+                resp.setDesc("Dividend has been paid for or shareholder belongs with a mandated e-payment and so cannot replace dividend");
+                logger.info("Dividend has been paid for or shareholder belongs with a mandated e-payment and so cannot replace dividend. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// dividend has not been issued or re-issued
+            resp.setRetn(200);
+            resp.setDesc("Dividend has not been issued or re-issued and so cannot replace dividend");
+            logger.info("Dividend has not been issued or re-issued and so cannot replace dividend. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        } catch (NullPointerException ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to validate 'replace dividend warrant' authorisation request. Contact system administrator.");
+            logger.info("Error validating 'replace dividend warrant' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error validating 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to validate 'replace dividend warrant' authorisation request. Contact system administrator.");
+            logger.info("Error validating 'replace dividend warrant' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error validating 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Verifies ownership of a list of certificates with the same client company
+     *
+     * @param login the user's login details
+     * @param certificateList Certificate list object
+     * @return response to the verify certificate list process
+     */
+    private Response verifyCertificateDetails(Login login, List<Certificate> certificateList) {
+        logger.info("Verifying list of certificate details, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        int holderId = certificateList.get(0).getHolderId();
+        for (Certificate certificate : certificateList) {
+            if (cq.checkClientCompany(certificate.getClientCompanyId())) {// check client company
+                if (hq.checkHolderAccount(certificate.getHolderId())) {// check holder id
+                    boolean validCert = false;
+                    // hq.checkCertificate(certificate.getCertificateNumber());
+                    if (validCert) {// check for certificate number
+                        if (certificate.getShareVolume() > 0) {// check share volume
+                            if (certificate.getHolderName() != null || !"".equals(certificate.getHolderName())) {// check holder name
+                                if (certificate.getHolderAddress() != null || !"".equals(certificate.getHolderAddress())) {// check holder address
+                                    if (certificate.getIssuingCompName() != null || !"".equals(certificate.getIssuingCompName())) {// check issuing company name
+                                        if (certificate.isCancelled()) {// check if certificate in NOT canceled
+                                            if (!certificate.isImmobStatus()) {// check if certificate is NOT immobilised
+//                                                resp.setRetn(0);
+//                                                return resp;
+                                            }// certificate is immobilised
+                                            resp.setRetn(200);
+                                            resp.setDesc("Certificate is immobilised");
+                                            logger.info("Certificate is immobilised. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                            return resp;
+                                        }// certificate is canceled
+                                        resp.setRetn(200);
+                                        resp.setDesc("Certificate is canceled");
+                                        logger.info("Certificate is canceled. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                        return resp;
+                                    }// issuing company name is not specified
+                                    resp.setRetn(200);
+                                    resp.setDesc("Issuing company name is not specified");
+                                    logger.info("Issuing company name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                    return resp;
+                                }// holder address is not specified
+                                resp.setRetn(200);
+                                resp.setDesc("Holder address is not specified");
+                                logger.info("Holder address is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                return resp;
+                            }// holder name is not specified
+                            resp.setRetn(200);
+                            resp.setDesc("Holder name is not specified");
+                            logger.info("Holder name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                            return resp;
+                        }// share volume is not specified
+                        resp.setRetn(200);
+                        resp.setDesc("Holder name is not specified");
+                        logger.info("Holder name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                        return resp;
+                    }// certificate number is not specified
+                    resp.setRetn(200);
+                    resp.setDesc("Certificate number is not specified");
+                    logger.info("Certificate number is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }// holder id is not specified
+                resp.setRetn(200);
+                resp.setDesc("Holder id is not specified");
+                logger.info("Holder id is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// client company name is not specified
+            resp.setRetn(200);
+            resp.setDesc("Client company name is not specified");
+            logger.info("Client company name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        }
+        resp.setRetn(0);
+        return resp;
+    }
+
+    /**
+     * Cancel a set of certificates after merge
+     *
+     * @param login the user's login details
+     * @param certificateList List of Certificates
+     * @return response to the calling method
+     */
+    private List<org.greenpole.hibernate.entity.Certificate> cancelCertificates(Login login, List<Certificate> certificateList) {
+        logger.info("Immobilising certificates after merge, invoked by [{}]", login.getUserId());
+//        List<org.greenpole.hibernate.entity.Certificate> certList = hq.getHolderCertificates(certificateList.get(0).getHolderId(), certificateList.get(0).getClientCompanyId());
+        List<org.greenpole.hibernate.entity.Certificate> certList = new ArrayList<>();
+        List<org.greenpole.hibernate.entity.Certificate> certListSend = new ArrayList<>();
+
+        for (org.greenpole.hibernate.entity.Certificate c : certList) {
+            c.setCancelled(true);
+            certListSend.add(c);
+        }
+        return certListSend;
     }
 
 }
