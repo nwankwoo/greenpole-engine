@@ -22,17 +22,20 @@ import java.util.Map;
 import java.util.Set;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entirycode.jeph.model.BondOfferReport;
+import org.greenpole.entirycode.jeph.model.Certificate;
+import org.greenpole.entirycode.jeph.model.CertificateSplitReport;
 import org.greenpole.entirycode.jeph.model.QueryCorporateAction;
+import org.greenpole.entirycode.jeph.model.QueryMergedCertificate;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
+import org.greenpole.entity.model.holder.Holder;
 import org.greenpole.entity.model.taguser.TagUser;
 import org.greenpole.entity.notification.NotificationMessageTag;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entity.tags.AddressTag;
-import org.greenpole.entrycode.emmanuel.model.QueryDividend;
 import org.greenpole.hibernate.entity.BondOffer;
 import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
@@ -80,7 +83,7 @@ public class ClientCompanyLogic {
         try {
             if (bondOfferReport.getClientCompanyId() > 0 && bondOfferReport.getClientCompanyId() != 0) {
                 if (bondOfferReport.getTitle() != null && !"".equals(bondOfferReport.getTitle())) {
-                    // BondOffer chkBondOffer = cq.checkBondOffer(bondOfferReport.getClientCompanyId(), bondOfferReport.getId());
+                    // boolean chkBondOffer = cq.checkBondOffer(bondOfferReport.getClientCompanyId(), bondOfferReport.getId());
                     if (true) {
                         // List<BondOffer> bo = cq.getBondOffer(bondOfferReport.getClientCompanyId(), bondOfferReport.getId());
                         List<BondOffer> bondOfferList = new ArrayList<>();
@@ -226,10 +229,9 @@ public class ClientCompanyLogic {
      * @return response to the declare Share Bonus request
      */
     public Response declareShareBonus_Authorise(Login login, String notificationCode) {
-        logger.info("Authorise reverse stock split, invoked by [{}]", login.getUserId());
+        logger.info("Authorise declare share bonus, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
-        SimpleDateFormat formatter = new SimpleDateFormat();
         Date date = new Date();
 
         try {
@@ -368,7 +370,7 @@ public class ClientCompanyLogic {
     }
 
     /**
-     * Processes request confirmation to Apply Stock Split
+     * Processes request confirmation for Apply Stock Split
      *
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
@@ -933,16 +935,21 @@ public class ClientCompanyLogic {
                     respList.add(response);
                     confirm.setDetails(respList);
                     confirmationList.add(confirm);
-                }
+                }// return response object
+                return validBondApply;
             }
             // hq.createUpdateHolderBondAccount(bondAccountListSend);
-            notification.markAttended(notificationCode);
             resp.setRetn(0);
             confirm.setDetails(respList);
             confirmationList.add(confirm);
             resp.setBody(confirmationList);
             resp.setDesc("Bond Offer application successful");
             logger.info("Bond Offer application successful - [{}]", login.getUserId());
+
+            wrapper.setAttendedTo(true);
+            notification.markAttended(notificationCode);
+            // send SMS and/or Email notification
+
             return resp;
         } catch (Exception ex) {
             logger.info("error proccessing holder bond application. See error log - [{}]", login.getUserId());
@@ -974,6 +981,7 @@ public class ClientCompanyLogic {
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("Dividend validation failed " + res.getDesc());
                 return res;
             }
             List<DividendDeclared> dividendDeclaredList = new ArrayList<>();
@@ -1025,6 +1033,7 @@ public class ClientCompanyLogic {
             Response res = validateDividendDeclaration(login, dividendDeclared);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("Dividend validation failed " + res.getDesc());
                 return res;
             }
             boolean status = false;
@@ -1282,6 +1291,7 @@ public class ClientCompanyLogic {
             Response res = checkDividendStatus(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("check dividend status failed " + res.getDesc());
                 return res;
             }
             // set cancelled to true - authorise
@@ -1311,7 +1321,6 @@ public class ClientCompanyLogic {
             logger.error("Error processing client company creation - [" + login.getUserId() + "]", ex);
             return resp;
         }
-
     }
 
     /**
@@ -1336,6 +1345,7 @@ public class ClientCompanyLogic {
             Response res = checkDividendStatus(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("check dividend status validation failed " + res.getDesc());
                 return res;
             }
             dividend.setCancelled(true);
@@ -1383,7 +1393,7 @@ public class ClientCompanyLogic {
      * @return response to the View Canceled Dividend Report query
      */
     public Response viewCanceledDividendReport_Request(Login login, QueryCorporateAction queryCanceledDividend) {
-        logger.info("Request to view generated report on cancelled dividends [{}], invoked by [{}]", login.getUserId());
+        logger.info("Request to view generated report on canceled dividends, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Descriptor descriptorUtil = new Descriptor();
 
@@ -1476,9 +1486,9 @@ public class ClientCompanyLogic {
 
         } catch (Exception ex) {
             resp.setRetn(99);
-            resp.setDesc("General error. Unable to view generated report on cancelled dividends. Contact system administrator.");
-            logger.info("Error generating report on cancelled dividends. See error log - [{}]", login.getUserId());
-            logger.error("Error generating report on cancelled dividends - [" + login.getUserId() + "]", ex);
+            resp.setDesc("General error. Unable to view generated report on canceled dividends. Contact system administrator.");
+            logger.info("Error generating report on canceled dividends. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on canceled dividends - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
@@ -1504,6 +1514,7 @@ public class ClientCompanyLogic {
             Response res = checkDividendReplaced(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("check dividend replacement failed " + res.getDesc());
                 return res;
             }
             List<Dividend> dividendList = new ArrayList<>();
@@ -1555,6 +1566,7 @@ public class ClientCompanyLogic {
             Response res = checkDividendStatus(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("check dividend replacement failed " + res.getDesc());
                 return res;
             }
             dividend.setIssued(false);
@@ -1624,6 +1636,7 @@ public class ClientCompanyLogic {
             Response res = verifyDividendDetails(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("Dividend verification process failed " + res.getDesc());
                 return res;
             }
             List<Dividend> dividendList = new ArrayList<>();
@@ -1657,9 +1670,9 @@ public class ClientCompanyLogic {
      * Processes request to recreate dividend that has been saved in a
      * notification file, according to the specified notification code
      *
-     * @param login
-     * @param notificationCode
-     * @return
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the recreate dividend process
      */
     public Response recreateDividend_Authorise(Login login, String notificationCode) {
         logger.info("Authorise replace dividend warrant process, invoked by [{}]", login.getUserId());
@@ -1675,6 +1688,7 @@ public class ClientCompanyLogic {
             Response res = verifyDividendDetails(login, dividend);
             if (res.getRetn() != 0) {
                 // send SMS and/or Email notification
+                logger.info("Dividend verification failed failed " + res.getDesc());
                 return res;
             }
 
@@ -1713,6 +1727,11 @@ public class ClientCompanyLogic {
             resp.setRetn(0);
             resp.setDesc("Dividends for shareholders successful");
             logger.info("Dividends for shareholders successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+
+            wrapper.setAttendedTo(true);
+            notification.markAttended(notificationCode);
+            // send SMS and/or Email notification
+
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
@@ -1721,6 +1740,474 @@ public class ClientCompanyLogic {
             logger.error("Error processing dividend creation for shareholders - [" + login.getUserId() + "]", ex);
             return resp;
         }
+    }
+
+    /**
+     * Processes request to merge a shareholder's certificates
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param certificateList list of certificates
+     * @return response to the merge certificates request process
+     */
+    public Response mergeCertificates_Request(Login login, String authenticator, List<Certificate> certificateList) {
+        logger.info("request to merge list certificate, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Notification notification = new Notification();
+
+        try {
+            NotificationWrapper wrapper;
+            org.greenpole.notifier.sender.QueueSender queue;
+            NotifierProperties props;
+
+            Response res = verifyCertificateDetails(login, certificateList);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("Certificate varification failed " + res.getDesc());
+                return res;
+            }
+            wrapper = new NotificationWrapper();
+            props = new NotifierProperties(ClientCompanyLogic.class);
+            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authenticate merge certificate process");
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+            wrapper.setFrom(login.getUserId());
+            wrapper.setTo(authenticator);
+            wrapper.setModel(certificateList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process merge certificate process. Contact system administrator.");
+            logger.info("Error processing merge certificate process. See error log - [{}]", login.getUserId());
+            logger.error("Error processing merge certificate process - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes saved request to merge a shareholder's certificates, according
+     * to the specified notification code in notification file
+     *
+     * @param login the user's login details
+     * @param notificationCode the notification code
+     * @return response to the merge certificate request
+     */
+    public Response mergeCertificates_Authorise(Login login, String notificationCode) {
+        /**
+         * Certificates are tied to only shares, as such bondholding attribute
+         * will not filled
+         */
+        logger.info("Authorise merge list of certificates, invoked by [{}]", login.getUserId());
+        Notification notification = new Notification();
+        Response resp = new Response();
+        Date date = new Date();
+        int shareVolume = 0;
+        // int bondHolding = 0;
+
+        try {
+            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+            List<Certificate> certificateList = (List<Certificate>) wrapper.getModel();
+
+            Response res = verifyCertificateDetails(login, certificateList);
+            if (res.getRetn() != 0) {
+                // send SMS and/or Email notification
+                logger.info("Certificate verification failed " + res.getDesc());
+                return res;
+            }
+
+            org.greenpole.hibernate.entity.Certificate certEntity = new org.greenpole.hibernate.entity.Certificate();
+            certEntity.setClientCompany(cq.getClientCompany(certificateList.get(0).getClientCompanyId()));
+            certEntity.setHolder(hq.getHolder(certificateList.get(0).getHolderId()));
+//            certEntity.setInitialPublicOffer(null);
+//            certEntity.setPrivatePlacement(null);
+//            certEntity.setRightsIssue(null);
+//            certEntity.setShareBonus(null);
+            certEntity.setCertificateNumber(certificateList.get(0).getCertificateNumber());
+//            sum the units of all certificates
+            for (Certificate cert : certificateList) {
+                shareVolume += cert.getShareVolume();
+                certEntity.setShareVolume(shareVolume);
+//                bondHolding += cert.getBondHolding();
+//                certEntity.setBondHolding(bondHolding);
+            }
+            certEntity.setHolderName(certificateList.get(0).getHolderName());
+            certEntity.setHolderAddress(certificateList.get(0).getHolderAddress());
+            certEntity.setIssuingCompName(certificateList.get(0).getIssuingCompName());
+            certEntity.setIssueDate(formatter.parse(certificateList.get(0).getIssueDate()));
+            // immobilise all certificates and persist it
+            List<org.greenpole.hibernate.entity.Certificate> cancelCertificates = cancelCertificates(login, certificateList);
+
+            boolean status = false;
+            // status hq.createUpdateCertificate(certEntity, cancelCertificates);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Merge certificate process NOT successful");
+                logger.info("Merge certificate process NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Merge certificate process successful");
+            logger.info("Merge certificate process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+
+            wrapper.setAttendedTo(true);
+            notification.markAttended(notificationCode);
+            // send SMS and/or Email notification
+
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process merge certificate process. Contact system administrator.");
+            logger.info("Error processing merge certificate. See error log - [{}]", login.getUserId());
+            logger.error("Error processing merge certificate - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Generates a report of merged certificates
+     *
+     * @param login the user's login details
+     * @param mergedCerts QueryMergedCertificate object
+     * @return response to the view merged certificate report process
+     */
+    public Response viewMergedCertificateReport_Request(Login login, QueryMergedCertificate mergedCerts) {
+        logger.info("Request to view generated report on merged certificates, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
+
+        try {
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(mergedCerts.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(mergedCerts.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                //check end date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("between")) {
+                    try {
+                        formatter.parse(mergedCerts.getEndDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for end date");
+                        logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.Certificate> mergedCertList = hq.getAllMergedCertificates(mergedCerts.getDescriptor(), 
+                //           mergedCerts.getStartDate(), mergedCerts.getEndDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.Certificate> mergedCertList = new ArrayList<>();
+                List<Certificate> mergedCertModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.Certificate cert : mergedCertList) {
+                    Certificate mergedCert = new Certificate();
+                    mergedCert.setClientCompanyId(cert.getClientCompany().getId());
+                    mergedCert.setHolderId(cert.getHolder().getId());
+                    mergedCert.setShareVolume(cert.getShareVolume());
+                    mergedCert.setCertificateNumber(cert.getCertificateNumber());
+                    mergedCert.setHolderName(cert.getHolderName());
+                    mergedCert.setHolderAddress(cert.getHolderAddress());
+                    mergedCert.setIssuingCompName(cert.getIssuingCompName());
+                    mergedCert.setIssueDate(cert.getIssueDate().toString());
+                    mergedCert.setCertNarration(cert.getCertNarration());
+                    mergedCert.setCancelled(cert.getCancelled());
+                    mergedCert.setClaimed(cert.getClaimed());
+                    mergedCert.setImmobStatus(cert.getImmobStatus());
+
+                    mergedCertModelList.add(mergedCert);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(mergedCerts);
+                tag.setResult(mergedCertModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Merged Certificates Query Report Generation Successful");
+                resp.setRetn(0);
+                logger.info("Merged Certificates Query Report Generation - [{}]", login.getUserId());
+                return resp;
+            }
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on merged certificates. Contact system administrator.");
+            logger.info("Error generating report on merged certificates. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on merged certificates - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    public Response viewCertificateSplitReport_Request(Login login, String authenticator, CertificateSplitReport certSplit) {
+        logger.info("Request to view generated report on split certificates, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        Descriptor descriptorUtil = new Descriptor();
+
+        try {
+
+            Map<String, String> descriptors = descriptorUtil.decipherDescriptor(certSplit.getDescriptor());
+            if (descriptors.size() == 1) {
+                //check start date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("none")) {
+                    try {
+                        formatter.parse(certSplit.getStartDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log invoked by [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for start date");
+                        logger.error("Incorrect date format for start date invoked by [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                //check end date is properly formatted
+                if (descriptors.get("date").equalsIgnoreCase("between")) {
+                    try {
+                        formatter.parse(certSplit.getEndDate());
+                    } catch (ParseException ex) {
+                        logger.info("an error was thrown while checking the start date. See error log - [{}]", login.getUserId());
+                        resp.setRetn(300);
+                        resp.setDesc("Incorrect date format for end date");
+                        logger.error("Incorrect date format for end date - [{}]", login.getUserId(), ex);
+
+                        return resp;
+                    }
+                }
+                // List<org.greenpole.hibernate.entity.Certificate> certSplitList = hq.getAllCertificates(certSplit.getDescriptor(), 
+                //           certSplit.getStartDate(), certSplit.getEndDate(), greenProp.getDateFormat());
+
+                List<org.greenpole.hibernate.entity.Certificate> certSplitList = new ArrayList<>();
+                List<Certificate> certSplitModelList = new ArrayList<>();
+                TagUser tag = new TagUser();
+
+                for (org.greenpole.hibernate.entity.Certificate cert : certSplitList) {
+                    Certificate certificateSplit = new Certificate();
+                    certificateSplit.setClientCompanyId(cert.getClientCompany().getId());
+                    certificateSplit.setHolderId(cert.getHolder().getId());
+                    certificateSplit.setCertificateNumber(cert.getCertificateNumber());
+                    certificateSplit.setShareVolume(cert.getShareVolume());
+                    certificateSplit.setHolderName(cert.getHolderName());
+                    certificateSplit.setHolderAddress(cert.getHolderAddress());
+                    certificateSplit.setIssuingCompName(cert.getIssuingCompName());
+
+                    certSplitModelList.add(certificateSplit);
+                }
+                List<TagUser> tagList = new ArrayList<>();
+
+                tag.setQueryParam(certSplit);
+                tag.setResult(certSplitModelList);
+                tagList.add(tag);
+
+                resp.setBody(tagList);
+                resp.setDesc("Split Certificates Query Report Generation Successful");
+                resp.setRetn(0);
+                logger.info("Split Certificates Query Report Generation - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(330);
+            resp.setDesc("Descriptor length does not match expected required length");
+            logger.info("Descriptor length does not match expected required length - [{}]", login.getUserId());
+            return resp;
+
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to view generated report on merged certificates. Contact system administrator.");
+            logger.info("Error generating report on merged certificates. See error log - [{}]", login.getUserId());
+            logger.error("Error generating report on merged certificates - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to record printed certificate as claimed
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param certificate Certificate object
+     * @return response to the record claimed certificate process
+     */
+    public Response recordClaimedCertificate_Request(Login login, String authenticator, Certificate certificate) {
+        logger.info("request to record printed certificate as claimed, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+//        Notification notification = new Notification();
+        Date date = new Date();
+
+        try {
+//            NotificationWrapper wrapper;
+//            org.greenpole.notifier.sender.QueueSender queue;
+//            NotifierProperties props;
+//
+//            wrapper = new NotificationWrapper();
+//            props = new NotifierProperties(ClientCompanyLogic.class);
+//            queue = new org.greenpole.notifier.sender.QueueSender(props.getAuthoriserNotifierQueueFactory(), props.getAuthoriserNotifierQueueName());
+            // verify certificate if certificate has been claimed
+//            Response res = checkDividendReplaced(login, dividend);
+//            if (res.getRetn() != 0) {
+//                // send SMS and/or Email notification
+//                return res;
+//            }
+            certificate.setClaimed(true);
+//            org.greenpole.hibernate.entity.Certificate certEntity = hq.getHolderCertificate(certificate.getId());
+            org.greenpole.hibernate.entity.Certificate certEntity = new org.greenpole.hibernate.entity.Certificate();
+            certEntity.setClaimed(certificate.isClaimed());
+            boolean status = false;
+            // status = hq.createUpdateHolderCertificate(certEntity);
+            if (!status) {
+                resp.setRetn(200);
+                resp.setDesc("Record claimed certificate process NOT successful");
+                logger.info("Record claimed certificate process NOT successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+//            List<Certificate> certificateList = new ArrayList<>();
+//            certificateList.add(certificate);
+//
+//            wrapper.setCode(notification.createCode(login));
+//            wrapper.setDescription("Authenticate record claimed certificate process for " + certificate.getHolderName());
+//            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+//            wrapper.setFrom(login.getUserId());
+//            wrapper.setTo(authenticator);
+//            wrapper.setModel(certificateList);
+//            resp = queue.sendAuthorisationRequest(wrapper);
+//            logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp.setRetn(0);
+            resp.setDesc("Record claimed certificate process successful");
+            logger.info("Record claimed certificate process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+            // send SMS and/or Email notification
+            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to record claimed certificate. Contact system administrator.");
+            logger.info("Error recording claimed certificate. See error log - [{}]", login.getUserId());
+            logger.error("Error recording claimed certificate - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    /**
+     * Processes request to reverse claimed certificates that has been saved in
+     * a notification file as claimed, according to the specified notification
+     * code
+     *
+     * @param login the user's login details
+     * @param authenticator the authenticator meant to receive the notification
+     * @param certificate Certificate object
+     * @return response to the reverse claimed certificate process
+     */
+    public Response reverseClaimedCertificate_Authorise(Login login, String authenticator, Certificate certificate) {
+        logger.info("Authorise reverse claimed certificate process, invoked by [{}]", login.getUserId());
+//        Notification notification = new Notification();
+        Response resp = new Response();
+
+        try {
+//            NotificationWrapper wrapper = notification.loadNotificationFile(noteProp.getNotificationLocation(), notificationCode);
+//            List<Certificate> CertificateList = (List<Certificate>) wrapper.getModel();
+//            Certificate certificate = CertificateList.get(0);
+//
+//            Response res = validateDividendDeclaration(login, certificate);
+//            if (res.getRetn() != 0) {
+//                // send SMS and/or Email notification
+//                return res;
+//            }
+            certificate.setClaimed(false);
+//            org.greenpole.hibernate.entity.Certificate certEntity = hq.getHolderCertificate(certificate.getId());
+            org.greenpole.hibernate.entity.Certificate certEntity = new org.greenpole.hibernate.entity.Certificate();
+            certEntity.setClaimed(certificate.isClaimed());
+            boolean status = false;
+            // status = hq.createUpdateHolderCertificate(certEntity);
+            if (!status) {// error
+                resp.setRetn(200);
+                resp.setDesc("Unable to process reverse claimed certificate request.");
+                logger.info("Unable to process reverse claimed certificate request - [{}]", login.getUserId());
+                return resp;
+            }
+            resp.setRetn(0);
+            resp.setDesc("Reverse claimed certificate authorisation process successful");
+            logger.info("Reverse claimed certificate authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+//            wrapper.setAttendedTo(true);
+//            notification.markAttended(notificationCode);
+//            send SMS and / or Email notification
+            return resp;
+//        } catch (JAXBException ex) {
+//            resp.setRetn(98);
+//            resp.setDesc("Unable to process 'reverse claimed certificate' authorisation request. Contact System Administrator");
+//            logger.info("Error loading notification xml file. See error log - [{}]", login.getUserId());
+//            logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
+//            return resp;
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to process 'reverse claimed certificate' authorisation request. Contact system administrator.");
+            logger.info("Error processing 'reverse claimed certificate' authorisation request. See error log - [{}]", login.getUserId());
+            logger.error("Error processing 'reverse claimed certificate' authorisation request - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+
+    public Response linkHolderAccountToStockbroker(Login login, /* String authenticator, */ Holder holder) {
+        logger.info("request to record printed certificate as claimed, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+//        org.greenpole.hibernate.entity.Holder holderEntity = new org.greenpole.hibernate.entity.Holder();
+//        org.greenpole.hibernate.entity.Stockbroker stockbrokerEntity = new org.greenpole.hibernate.entity.Stockbroker();
+        boolean stockbrokerExist = false;
+        boolean holderExist = false;
+        // stockbrokerExist = cq.checkStockbroker(holder.getHolderStockbroker().getId());
+        holderExist = hq.checkHolderAccount(holder.getHolderId());
+        if (stockbrokerExist) {// check if stockbroker exists
+            if (holderExist) {// check if holder exists in the first place
+                org.greenpole.hibernate.entity.Holder holderEntity = hq.getHolder(holder.getHolderId());
+                // org.greenpole.hibernate.entity.Stockbroker stockbrokerEntity = cq.getStockbroker(holder.getHolderStockbroker().getId());
+                org.greenpole.hibernate.entity.Stockbroker stockbrokerEntity = new org.greenpole.hibernate.entity.Stockbroker();
+
+                Set stockbrokerSet = new HashSet();
+                Set holderSet = new HashSet();
+
+                stockbrokerSet.add(stockbrokerEntity);
+                holderSet.add(holderEntity);
+
+                holderEntity.setStockbrokers(stockbrokerSet);
+                stockbrokerEntity.setHolders(holderSet);
+                // persist holder and stockbroker entities
+                // hq.updateHolderStockbroker(holderEntity, stockbrokerEntity);
+
+                resp.setRetn(0);
+                resp.setDesc("Reverse claimed certificate authorisation process successful");
+                logger.info("Reverse claimed certificate authorisaton process successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
+//                wrapper.setAttendedTo(true);
+//                notification.markAttended(notificationCode);
+//                send SMS and / or Email notification
+                return resp;
+            }// holder does not exist
+            resp.setRetn(200);
+            resp.setDesc("Unable to process, holder does not exist.");
+            logger.info("Unable to process, holder does not exist - [{}]", login.getUserId());
+            return resp;
+        }// stockbroker does not exist
+        resp.setRetn(200);
+        resp.setDesc("Unable to process, stockbroker does not exist. Create stockbroker if needed.");
+        logger.info("Unable to process, stockbroker does not exist - [{}]", login.getUserId());
+        return resp;
     }
 
     /**
@@ -1855,6 +2342,7 @@ public class ClientCompanyLogic {
      * @return response object to the calling method
      */
     private Response createDividend(Login login, DividendDeclared dividendDeclared) {
+        logger.info("Process to create dividend, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
         List<org.greenpole.hibernate.entity.Holder> holderList = new ArrayList<>();
@@ -1929,7 +2417,7 @@ public class ClientCompanyLogic {
      * @return response to the dividend verification request
      */
     private Response verifyDividendDetails(Login login, Dividend dividend) {
-        logger.info("process to verify dividend details, invoked by [{}]", login.getUserId());
+        logger.info("verifying dividend details, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         try {
             if (dividend.getClientCompanyId() > 0) {// check clientcompanyid
@@ -2254,6 +2742,7 @@ public class ClientCompanyLogic {
      * @return response object to the calling method
      */
     private Response validateDividendDeclaration(Login login, DividendDeclared dividendDeclared) {
+        logger.info("validating details of declared dividend, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
         try {
@@ -2362,6 +2851,7 @@ public class ClientCompanyLogic {
      * @return response to the check dividend status method
      */
     private Response checkDividendStatus(Login login, Dividend dividend) {
+        logger.info("checking dividend cancelation status, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         if (dividend.getPaid()) {// check if dividend has been NOT paid
             if (dividend.isCancelled()) {// check if it has not been cancelled already
@@ -2393,6 +2883,7 @@ public class ClientCompanyLogic {
      * @return response to the check dividend replaced
      */
     private Response checkDividendReplaced(Login login, Dividend dividend) {
+        logger.info("checking validity of dividend replacement, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         try {
             if (!dividend.isReIssued() || !dividend.isIssued()) {// checks if dividend is issued or re-issued
@@ -2428,6 +2919,101 @@ public class ClientCompanyLogic {
             logger.error("Error validating 'replace dividend warrant' authorisation request - [" + login.getUserId() + "]", ex);
             return resp;
         }
+    }
+
+    /**
+     * Verifies ownership of a list of certificates with the same client company
+     *
+     * @param login the user's login details
+     * @param certificateList Certificate list object
+     * @return response to the verify certificate list process
+     */
+    private Response verifyCertificateDetails(Login login, List<Certificate> certificateList) {
+        logger.info("Verifying list of certificate details, invoked by [{}]", login.getUserId());
+        Response resp = new Response();
+        int holderId = certificateList.get(0).getHolderId();
+        for (Certificate certificate : certificateList) {
+            if (cq.checkClientCompany(certificate.getClientCompanyId())) {// check client company
+                if (hq.checkHolderAccount(certificate.getHolderId())) {// check holder id
+                    boolean validCert = false;
+                    // hq.checkCertificate(certificate.getCertificateNumber());
+                    if (validCert) {// check for certificate number
+                        if (certificate.getShareVolume() > 0) {// check share volume
+                            if (certificate.getHolderName() != null || !"".equals(certificate.getHolderName())) {// check holder name
+                                if (certificate.getHolderAddress() != null || !"".equals(certificate.getHolderAddress())) {// check holder address
+                                    if (certificate.getIssuingCompName() != null || !"".equals(certificate.getIssuingCompName())) {// check issuing company name
+                                        if (certificate.isCancelled()) {// check if certificate in NOT canceled
+                                            if (!certificate.isImmobStatus()) {// check if certificate is NOT immobilised
+//                                                resp.setRetn(0);
+//                                                return resp;
+                                            }// certificate is immobilised
+                                            resp.setRetn(200);
+                                            resp.setDesc("Certificate is immobilised");
+                                            logger.info("Certificate is immobilised. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                            return resp;
+                                        }// certificate is canceled
+                                        resp.setRetn(200);
+                                        resp.setDesc("Certificate is canceled");
+                                        logger.info("Certificate is canceled. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                        return resp;
+                                    }// issuing company name is not specified
+                                    resp.setRetn(200);
+                                    resp.setDesc("Issuing company name is not specified");
+                                    logger.info("Issuing company name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                    return resp;
+                                }// holder address is not specified
+                                resp.setRetn(200);
+                                resp.setDesc("Holder address is not specified");
+                                logger.info("Holder address is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                                return resp;
+                            }// holder name is not specified
+                            resp.setRetn(200);
+                            resp.setDesc("Holder name is not specified");
+                            logger.info("Holder name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                            return resp;
+                        }// share volume is not specified
+                        resp.setRetn(200);
+                        resp.setDesc("Holder name is not specified");
+                        logger.info("Holder name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                        return resp;
+                    }// certificate number is not specified
+                    resp.setRetn(200);
+                    resp.setDesc("Certificate number is not specified");
+                    logger.info("Certificate number is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                    return resp;
+                }// holder id is not specified
+                resp.setRetn(200);
+                resp.setDesc("Holder id is not specified");
+                logger.info("Holder id is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }// client company name is not specified
+            resp.setRetn(200);
+            resp.setDesc("Client company name is not specified");
+            logger.info("Client company name is not specified. [{}] - [{}]", login.getUserId(), resp.getRetn());
+            return resp;
+        }
+        resp.setRetn(0);
+        return resp;
+    }
+
+    /**
+     * Cancel a set of certificates after merge
+     *
+     * @param login the user's login details
+     * @param certificateList List of Certificates
+     * @return response to the calling method
+     */
+    private List<org.greenpole.hibernate.entity.Certificate> cancelCertificates(Login login, List<Certificate> certificateList) {
+        logger.info("Immobilising certificates after merge, invoked by [{}]", login.getUserId());
+//        List<org.greenpole.hibernate.entity.Certificate> certList = hq.getHolderCertificates(certificateList.get(0).getHolderId(), certificateList.get(0).getClientCompanyId());
+        List<org.greenpole.hibernate.entity.Certificate> certList = new ArrayList<>();
+        List<org.greenpole.hibernate.entity.Certificate> certListSend = new ArrayList<>();
+
+        for (org.greenpole.hibernate.entity.Certificate c : certList) {
+            c.setCancelled(true);
+            certListSend.add(c);
+        }
+        return certListSend;
     }
 
 }
