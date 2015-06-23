@@ -31,6 +31,7 @@ import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.entity.model.clientcompany.ClientCompany;
+import org.greenpole.entity.notification.NotificationType;
 import org.greenpole.entrycode.emmanuel.model.ClientCompanyMerger;
 import org.greenpole.entrycode.emmanuel.model.IpoApplication;
 import org.greenpole.entrycode.emmanuel.model.PrivatePlacementApplication;
@@ -59,8 +60,8 @@ public class ClientCompanyLogic {
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyLogic.class);
-    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();//not needed
 
     /**
@@ -92,9 +93,9 @@ public class ClientCompanyLogic {
                             if (rightIssue.getOpeningDate() != null || !"".equals(rightIssue.getOpeningDate())) {
                                 if (rightIssue.getClosingDate() != null || !"".equals(rightIssue.getClosingDate())) {
                                     wrapper = new NotificationWrapper();
-                                    prop = new NotifierProperties(ClientCompanyLogic.class);
-                                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                                            prop.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                            prop.getAuthoriserNotifierQueueName());
                                     List<RightsIssue> rights_list = new ArrayList();
                                     rights_list.add(rightIssue);
                                     wrapper.setCode(notification.createCode(login));
@@ -157,7 +158,6 @@ public class ClientCompanyLogic {
         logger.info("authorise set up of rights issue, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
-        NotificationProperties noteProps = new NotificationProperties(ClientCompanyLogic.class);
         try {
 
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
@@ -356,9 +356,9 @@ public class ClientCompanyLogic {
             }
             if (primaryCheck && secondaryCheck) {
                 wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(ClientCompanyLogic.class);
-                qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                        prop.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                                    prop.getAuthoriserNotifierQueueName());
                 logger.info("clients companies qualify for merge - [{}]", login.getUserId());
                 List<ClientCompanyMerger> ccMerger_list = new ArrayList<>();
                 ccMerger_list.add(companiesToMerge);
@@ -421,7 +421,6 @@ public class ClientCompanyLogic {
         Response resp = new Response();
         Notification notification = new Notification();
         logger.info("authorise client companies accounts merge, invoked by [{}] - notification code: [{}]", login.getUserId(), notificationCode);
-        NotificationProperties noteProps = new NotificationProperties(ClientCompanyLogic.class);
         try {
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ClientCompanyMerger> merger_list = (List<ClientCompanyMerger>) wrapper.getModel();
@@ -577,9 +576,9 @@ public class ClientCompanyLogic {
                 if (!cq.checkClientCompanyForShareholders(clientCompany.getName())) {
                     logger.info("client company [{}] is checked for shareholders - [{}]", clientCompany.getName(), login.getUserId());
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(ClientCompanyLogic.class);
-                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                            prop.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                                    prop.getAuthoriserNotifierQueueName());
                     List<ClientCompany> cc_list = new ArrayList();
                     cc_list.add(clientCompany);
                     wrapper.setCode(notification.createCode(login));
@@ -600,15 +599,16 @@ public class ClientCompanyLogic {
                         logger.info("client company [{}] invalidation came from merge - [{}]", clientCompany.getName(), login.getUserId());
                         return resp;
                     } else if (!clientCompany.isMerged()) {
-                        wrapper = new NotificationWrapper();
-                        prop = new NotifierProperties(ClientCompanyLogic.class);
-                        qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                                prop.getAuthoriserNotifierQueueName());
+                        prop = NotifierProperties.getInstance();
+                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                                    prop.getAuthoriserNotifierQueueName());
                         List<ClientCompany> cc_list = new ArrayList();
                         cc_list.add(clientCompany);
+                        wrapper = new NotificationWrapper();
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("Authenticate invalidation of client company " + clientCompany.getName());
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                        wrapper.setNotificationType(NotificationType.create_client_company.toString());
                         wrapper.setFrom(login.getUserId());
                         wrapper.setTo(authenticator);
                         wrapper.setModel(cc_list);
@@ -642,7 +642,6 @@ public class ClientCompanyLogic {
         logger.info("request to invalidate client company, invoked by: [{}] ", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
-        NotificationProperties noteProps = new NotificationProperties(ClientCompanyLogic.class);
         try {
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<ClientCompany> cc_list = (List<ClientCompany>) wrapper.getModel();
@@ -1287,9 +1286,9 @@ public class ClientCompanyLogic {
                 org.greenpole.hibernate.entity.RightsIssue rightIssue = hd.getRightsIssueById(rightApp.getRightsIssueId(), rightApp.getClientCompanyId());
                 if (rightIssue.getRightsClosed() && rightIssue.getClosingDate().before(current_date)) {
                     wrapper = new NotificationWrapper();
-                    prop = new NotifierProperties(ClientCompanyLogic.class);
-                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                            prop.getAuthoriserNotifierQueueName());
+                    prop = NotifierProperties.getInstance();
+                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                                    prop.getAuthoriserNotifierQueueName());
                     List<RightsIssueApplication> rightApp_list = new ArrayList<>();
                     rightApp_list.add(rightApp);
                     wrapper.setCode(notification.createCode(login));
