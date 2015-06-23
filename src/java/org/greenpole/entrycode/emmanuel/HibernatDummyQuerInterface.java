@@ -73,6 +73,10 @@ public interface HibernatDummyQuerInterface {
     public List getAllBondholderNubanAccounts();
 
     public void addShareholderNubanAccount();
+    /**
+     * Creates a new  holder company account (for shareholder).
+     * @param holderAccount the holder company account to be created
+     */
 
     public void createNubanAccount(HolderCompanyAccount holderAccount);
 
@@ -356,4 +360,122 @@ public interface HibernatDummyQuerInterface {
     public boolean revalidateDividend(int dividendId, int holderCompanyAccountId);
 
     public boolean checkAgainstUploadingSameDivRecord(int clientCompanyId, int dividendDeclaredId, long warrantNumber);
+
+    public org.greenpole.hibernate.entity.DividendDeclared getDeclaredDividend(int dividendDeclaredId, int clientCompanyId);
+
+    public org.greenpole.hibernate.entity.DividendIssueType getDividendType(int dividendIssueTypeId);
+
+    public boolean uploadDividendsViaUDividend(List<org.greenpole.hibernate.entity.Dividend> divList);
+
+    /**
+     * Transfers share units from one holder company account to another.
+     *
+     * @param sender the holder company account sending the share units
+     * @param receiver the holder company account receiving the share units
+     * @param shareUnits the share units to be sent
+     * @param transferTypeId the type of transfer
+     * @return true, if transaction was successful. Otherwise, false
+     */
+    public boolean transferShareUnits(HolderCompanyAccount sender, HolderCompanyAccount receiver, int shareUnits, int transferTypeId);
+
+    /**
+     * gets a particular shareholder dividend details
+     *
+     * @param clientCompanyId the client company that declared the dividend
+     * @param holderCompAcctId shareholder account tied to this dividend
+     * @return hibernate entity for a particular shareholder dividend details
+     */
+    public org.greenpole.hibernate.entity.Dividend getDividendByClientCompanyIdAndHCAId(int clientCompanyId, int holderCompAcctId);
+
+    /**
+     * get list of dividend settlement report by a client company
+     *
+     * @param dividendDeclaredId the declared dividend details
+     * @param clientCompanyId the client company that declared the dividend
+     * @return hibernate list of dividend settlement report
+     */
+    public List<org.greenpole.hibernate.entity.DividendSettlement> getDividendSettlementReport(int dividendDeclaredId, int clientCompanyId);
+
+    /**
+     * get list of all dividends under a particular client company
+     *
+     * @param clientCompanyId the client company to get its dividend records
+     * @param dividendDeclaredId the declared dividend records
+     * @return list of hibernate dividend records
+     */
+    public List<org.greenpole.hibernate.entity.Dividend> getAllDividendsByCCIdAndDividendDeclaredId(int clientCompanyId, int dividendDeclaredId);
+
+    /**
+     * creates a certificate for a holder
+     *
+     * @param cert certificate details to be created
+     * @return true if certificate is created else false
+     */
+    public boolean createCertificate(org.greenpole.hibernate.entity.Certificate cert);
+
+    /**
+     * Searches for list of certificates according to the search parameters
+     *
+     * @param descriptor the description of the type of search to carry out
+     * @param cert the certificate search parameter
+     * @param shareVolume the volume of shares to search
+     * @param startDate the start date
+     * @param endDate the end date
+     * @return list of certificate details from hibernate
+     */
+    public List<org.greenpole.hibernate.entity.Certificate> queryCertificates(String descriptor, org.greenpole.hibernate.entity.Certificate cert, Map<String, Integer> shareVolume, String startDate, String endDate);
+
+    /**
+     * checks for the existence of a holder certificate
+     *
+     * @param certificateNumber the certificate been verified
+     * @param holderId the owner of the certificate
+     * @return true if certificate exists for the holder else false
+     */
+    public boolean checkCertificate(int certificateNumber, int holderId);
+    /**
+     * retrieves certificate of a particular holder by the certificate number and the holder Id
+     * @param certificateNumber
+     * @param holderId
+     * @return 
+     */
+    public org.greenpole.hibernate.entity.Certificate getCertificate(int certificateNumber, int holderId);
+    /**
+     * updates certificate record by 
+     * @param cert the details of the certificate to be transfered
+     * @return true is successfully transfered else false 
+     */
+    public boolean updateCertOwnership(org.greenpole.hibernate.entity.Certificate cert);
+    /**
+     * views certificate lodgement report
+     * @param descriptor the description of the type of search to carry out
+     * @param startDate the start date search
+     * @param endDate the end date search
+     * @param dateFormat the date formatter
+     * @return list of hibernate certificate lodgement reports 
+     */
+    public List<org.greenpole.hibernate.entity.CertificateLodgement> viewCertLodgementReport(String descriptor, String startDate, String endDate, String dateFormat);
+    /**
+     * stores the details of a splitted certificate
+     * @param certEvet the certificate split record to be stored
+     */
+    public void createCertEvent(org.greenpole.hibernate.entity.CertificateEvent certEvet);
+    /**
+     * checks the existence of a certificate by the certificate number
+     * @param certNumber the certificate number
+     * @return true if found else false
+     */
+    public boolean checkCertByCertNo(int certNumber);
+    /**
+     * retrieve a certificate by its number
+     * @param certificateNo number of the certificate to be retrieved
+     * @return hibernate certificate entity
+     */
+    public org.greenpole.hibernate.entity.Certificate getCertByCertNumber(int certificateNo);
+    /**
+     * processes request to persist certificate verification details
+     * @param certVeri the certificate verification details
+     * @return true if verification details are saved else false
+     */
+    public boolean saveCertificateVerification(org.greenpole.hibernate.entity.CertificateVerification certVeri);
 }

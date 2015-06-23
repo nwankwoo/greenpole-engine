@@ -20,13 +20,19 @@ import org.greenpole.hibernate.entity.AdministratorResidentialAddress;
 import org.greenpole.hibernate.entity.BondOffer;
 import org.greenpole.hibernate.entity.BondType;
 import org.greenpole.hibernate.entity.Caution;
+import org.greenpole.hibernate.entity.Certificate;
+import org.greenpole.hibernate.entity.CertificateEvent;
+import org.greenpole.hibernate.entity.CertificateLodgement;
+import org.greenpole.hibernate.entity.CertificateVerification;
 import org.greenpole.hibernate.entity.ClearingHouse;
 import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.CompanyAccountConsolidation;
 import org.greenpole.hibernate.entity.Coupon;
 import org.greenpole.hibernate.entity.DividenAnnotation;
 import org.greenpole.hibernate.entity.Dividend;
+import org.greenpole.hibernate.entity.DividendDeclared;
 import org.greenpole.hibernate.entity.DividendIssueType;
+import org.greenpole.hibernate.entity.DividendSettlement;
 import org.greenpole.hibernate.entity.HolderBondAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderEmailAddress;
@@ -635,5 +641,89 @@ public class HibernateDummyQuery extends GeneralisedAbstractDao implements Hiber
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    
+    @Override
+    public DividendDeclared getDeclaredDividend(int dividendDeclaredId, int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public DividendIssueType getDividendType(int dividendIssueTypeId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean uploadDividendsViaUDividend(List<Dividend> divList) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean transferShareUnits(HolderCompanyAccount sender, HolderCompanyAccount receiver, int shareUnits, int transferTypeId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public Dividend getDividendByClientCompanyIdAndHCAId(int clientCompanyId, int holderCompAcctId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<DividendSettlement> getDividendSettlementReport(int dividendDeclaredId, int clientCompanyId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<Dividend> getAllDividendsByCCIdAndDividendDeclaredId(int clientCompanyId, int dividendDeclaredId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean createCertificate(Certificate cert) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<Certificate> queryCertificates(String descriptor, Certificate cert, Map<String, Integer> shareVolume, String startDate, String endDate) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkCertificate(int certificateNumber, int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public Certificate getCertificate(int certificateNumber, int holderId) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean updateCertOwnership(Certificate cert) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public List<CertificateLodgement> viewCertLodgementReport(String descriptor, String startDate, String endDate, String dateFormat) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void createCertEvent(CertificateEvent certEvet) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean checkCertByCertNo(int certNumber) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public Certificate getCertByCertNumber(int certificateNo) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean saveCertificateVerification(CertificateVerification certVeri) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+   
 }
