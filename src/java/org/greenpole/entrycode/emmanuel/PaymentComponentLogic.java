@@ -56,9 +56,9 @@ public class PaymentComponentLogic {
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final NotificationProperties notificationProp =  NotificationProperties.getInstance();
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(org.greenpole.logic.HolderComponentLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
     private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();//not needed
 
     /**
@@ -622,9 +622,9 @@ public class PaymentComponentLogic {
                             }
                         } else {
                             wrapper = new NotificationWrapper();
-                            prop = new NotifierProperties(PaymentComponentLogic.class);
-                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                                    prop.getAuthoriserNotifierQueueName());
+                            prop = NotifierProperties.getInstance();
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                            prop.getAuthoriserNotifierQueueName());
                             List<Dividend> divList = new ArrayList();
                             divList.add(dividend);
                             wrapper.setCode(notification.createCode(login));
@@ -770,9 +770,9 @@ public class PaymentComponentLogic {
             }
             if (!exists) {
                 wrapper = new NotificationWrapper();
-                prop = new NotifierProperties(PaymentComponentLogic.class);
-                qSender = new QueueSender(prop.getNotifierQueueFactory(),
-                        prop.getAuthoriserNotifierQueueName());
+                prop = NotifierProperties.getInstance();
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                            prop.getAuthoriserNotifierQueueName());
 
                 logger.info("dividend record does not exist - [{}]", login.getUserId());
                 wrapper.setCode(notification.createCode(login));
@@ -982,9 +982,9 @@ public class PaymentComponentLogic {
                         List<Holder> holder_list = new ArrayList();
                         holder_list.add(holder);
                         wrapper = new NotificationWrapper();
-                        prop = new NotifierProperties(PaymentComponentLogic.class);
-                        qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
-                                prop.getAuthoriserNotifierQueueName());
+                        prop = NotifierProperties.getInstance();
+                    qSender = new QueueSender(prop.getNotifierQueueFactory(),
+                            prop.getAuthoriserNotifierQueueName());
                         wrapper.setCode(notification.createCode(login));
                         wrapper.setDescription("request to disable e-payment of dividend of a shareholder ");
                         wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());

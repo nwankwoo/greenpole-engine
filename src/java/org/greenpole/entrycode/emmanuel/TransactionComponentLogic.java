@@ -57,11 +57,18 @@ public class TransactionComponentLogic {
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(ClientCompanyLogic.class);
-    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();//not needed
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
-
+/**
+ * processes request to upload transfer of share units from transaction file
+ * @param login the user details
+ * @param authenticator the user meant to receive this notification
+ * @param transferList list of transfer records from uploaded file
+ * @param holder the details of the buyer and the seller
+ * @return response to the upload transaction request
+ */
     public Response uploadTransaction_Request(Login login, String authenticator, List<UnitTransfer> transferList, List<Holder> holder) {
         Response resp = new Response();
         logger.info("request to upload transaction files invoked by [{}]", login.getUserId());
@@ -97,12 +104,12 @@ public class TransactionComponentLogic {
                                 org.greenpole.hibernate.entity.HolderCompanyAccount sellerHCA = hq.getHolderCompanyAccount(transferList.get(counter).getHolderIdFrom(), transferList.get(counter).getClientCompanyId());
                                 if (checkBuyerCompAcct) {
                                     org.greenpole.hibernate.entity.HolderCompanyAccount buyerHCA = hq.getHolderCompanyAccount(transferList.get(counter).getHolderIdTo(), transferList.get(counter).getClientCompanyId());
-                                    if (transferList.get(counter).getChnFrom() != transferList.get(counter).getChnTo()) {//check that the seller is not the buyer
+                                    if (!transferList.get(counter).getChnFrom().equals(transferList.get(counter).getChnTo()) ) {//check that the seller is not the buyer
                                         if (sellerHCA.getShareUnits() >= transferList.get(counter).getUnits()) {
                                             if (!sellerHCA.getEsop()) {
                                                 if (!buyerHCA.getEsop()) {
                                                     wrapper = new NotificationWrapper();
-                                                    prop = new NotifierProperties(TransactionComponentLogic.class);
+                                                    prop = NotifierProperties.getInstance();
                                                     qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                                             prop.getAuthoriserNotifierQueueName());
                                                     wrapper.setCode(notification.createCode(login));
@@ -226,97 +233,94 @@ public class TransactionComponentLogic {
                         if (buyerHolderExists) {//checks if buyer exists
                             org.greenpole.hibernate.entity.Holder buyerHolder = hq.getHolder(unitTransferList.get(counter).getChnTo());
                             String buyerName = buyerHolder.getFirstName() + " " + buyerHolder.getLastName();
-                                        checkSellerCompAcct = hq.checkHolderCompanyAccount(unitTransferList.get(counter).getHolderIdFrom(), unitTransferList.get(counter).getClientCompanyId());
-                                        if (checkSellerCompAcct) {
-                                            logger.info("seller holder has company account - [{}]", login.getUserId());
-                                            boolean buyerHolderChnExists = buyerHolder.getChn() != null && !"".equals(buyerHolder.getChn());
-                                            checkBuyerCompAcct = hq.checkHolderCompanyAccount(unitTransferList.get(counter).getHolderIdTo(), unitTransferList.get(counter).getClientCompanyId());
-                                            org.greenpole.hibernate.entity.HolderCompanyAccount sellerHCA = hq.getHolderCompanyAccount(unitTransferList.get(counter).getHolderIdFrom(), unitTransferList.get(counter).getClientCompanyId());
-                                            if (checkBuyerCompAcct) {
-                                                logger.info("buyer holder has company account - [{}]", login.getUserId());
-                                                org.greenpole.hibernate.entity.HolderCompanyAccount buyerHCA = hq.getHolderCompanyAccount(unitTransferList.get(counter).getHolderIdTo(), unitTransferList.get(counter).getClientCompanyId());
-                                                    if (!sellerHCA.getEsop() && !buyerHCA.getEsop()) {
-                                                        UnitTransfer unit = unitTransferList.get(counter);
-                                                        org.greenpole.hibernate.entity.TransactionType tt = hd.getTransactionType(unitTransferList.get(counter).getTransferTypeId());
-                                                        cc = cq.getClientCompany(unitTransferList.get(counter).getClientCompanyId());
-                                                        pt_hib.setClientCompany(cc);
-                                                        pt_hib.setCompanyName(unitTransferList.get(counter).getClientCompanyName());
-                                                        pt_hib.setCscsTransactionId(unitTransferList.get(counter).getCscsTransactionId());
-                                                        pt_hib.setTransactionType(tt);
-                                                        for (ProcessedTransactionHolder pth_holder : pt.getProcessedTransactionHolder()) {
-                                                            org.greenpole.hibernate.entity.Holder h_hib = hq.getHolder(pth_holder.getHolderChn());
-                                                            pth_hib.setHolder(h_hib);
-                                                            pth_hib.setHolderName(pth_holder.getHolderName());
-                                                            pth_hib.setHolderChn(pth_holder.getHolderChn());
-                                                            pth_hib.setFromTo(pth_holder.getFromTo());
-                                                            pth_hib.setUnitType(pth_holder.getUnitType());
-                                                            pth_hib.setUnits(pth_holder.getUnits());
-                                                            processedTransactionHolderSet.add(pth_hib);
-                                                        }
-                                                        pt_hib.setProcessedTransactionHolders(processedTransactionHolderSet);
-                                                        return invokeTransfer(sellerHCA, unit, buyerHCA, resp, sellerName, buyerName, login,
-                                                                notificationCode, notification);
-                                                    }
-                                                    else {
-                                                        org.greenpole.hibernate.entity.SuspendedTransaction suspendTrans = new org.greenpole.hibernate.entity.SuspendedTransaction();
-                                                        org.greenpole.hibernate.entity.SuspendedTransactionHolder suspendTranHolder = new org.greenpole.hibernate.entity.SuspendedTransactionHolder();
-                                                        org.greenpole.hibernate.entity.SuspendedTransactionHolderId suspendTranHolderId = new org.greenpole.hibernate.entity.SuspendedTransactionHolderId();
-                                                        if (sellerHCA.getEsop()) {
-                                                            suspendTrans.setClientCompany(cc);
-                                                            suspendTrans.setCompanyName(unitTransferList.get(counter).getClientCompanyName());
-                                                            suspendTrans.setCscsTransactionId(unitTransferList.get(counter).getCscsTransactionId());
-                                                            suspendTrans.setReconciled(false);
-                                                            suspendTrans.setSuspensionDate(current_date);
-                                                            suspendTrans.setSuspensionReason("Seller Holder account has Esop");
-                                                            suspendTrans.setTransactionDate(current_date);
-                                                            suspendTranHolderId.setHolderId(unitTransferList.get(counter).getHolderIdFrom());
-                                                                    //suspendTranHolder.setFromTo(pth_holder.);
-                                                            //suspendTranHolder.setHolderChn((String)unitTransferList.get(counter).getChnFrom());
-                                                        }
-                                                        if (buyerHCA.getEsop()) {
-                                                            suspendTrans.setClientCompany(cc);
-                                                            suspendTrans.setCompanyName(unitTransferList.get(counter).getClientCompanyName());
-                                                            suspendTrans.setCscsTransactionId(unitTransferList.get(counter).getCscsTransactionId());
-                                                            suspendTrans.setReconciled(false);
-                                                            suspendTrans.setSuspensionDate(current_date);
-                                                            suspendTrans.setSuspensionReason("Buyer Holder account has Esop");
-                                                            suspendTrans.setTransactionDate(current_date);
-                                                            suspendTranHolderId.setHolderId(unitTransferList.get(counter).getHolderIdTo());
-                                                        }
-                                                    }
-                                               // }
-                                            }
-                                            else if(!checkBuyerCompAcct){
-                                            org.greenpole.hibernate.entity.HolderCompanyAccount newHolderCompAcct = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-                                            org.greenpole.hibernate.entity.HolderCompanyAccountId buyerCompAccId_hib = new org.greenpole.hibernate.entity.HolderCompanyAccountId(unitTransferList.get(counter).getHolderIdTo(), unitTransferList.get(counter).getClientCompanyId());
-                                            //buyerCompAccId_hib = unitTransferList.get(counter).getChnTo();
-                                            newHolderCompAcct.setId(buyerCompAccId_hib);
-                                            newHolderCompAcct.setClientCompany(cc);
-                                            newHolderCompAcct.setEsop(false);
-                                            newHolderCompAcct.setHolder(holder_hib);
-                                            newHolderCompAcct.setHolderCompAccPrimary(true);
-                                            newHolderCompAcct.setMerged(false);
-                                            newHolderCompAcct.setNubanAccount(buyerName);//put the correct info
-                                            newHolderCompAcct.setShareUnits(unitTransferList.get(counter).getUnits());
-                                            hd.createNubanAccount(newHolderCompAcct);
-                                            logger.info("buyer holder now has company account - [{}]", login.getUserId());
-                                            UnitTransfer unit = unitTransferList.get(counter);
-                                            return invokeTransfer(sellerHCA, unit, newHolderCompAcct, resp, sellerName, buyerName, login,
-                                                                notificationCode, notification);
-                                            }
-                                        } else {
-                                            org.greenpole.hibernate.entity.HolderCompanyAccount sellerHolderCompAcct = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-                                            org.greenpole.hibernate.entity.HolderCompanyAccountId sellerCompAccId_hib = new org.greenpole.hibernate.entity.HolderCompanyAccountId(unitTransferList.get(counter).getHolderIdFrom(), unitTransferList.get(counter).getClientCompanyId());
-                                            sellerHolderCompAcct.setId(sellerCompAccId_hib);
-                                            sellerHolderCompAcct.setClientCompany(cc);
-                                            sellerHolderCompAcct.setEsop(false);
-                                            sellerHolderCompAcct.setHolder(holder_hib);
-                                            sellerHolderCompAcct.setHolderCompAccPrimary(true);
-                                            sellerHolderCompAcct.setMerged(false);
-                                            sellerHolderCompAcct.setNubanAccount(buyerName);//put the correct info
-                                            sellerHolderCompAcct.setShareUnits(0); //needs to know the actual share units left from the seller account
-                                            hd.createNubanAccount(sellerHolderCompAcct);
+                            checkSellerCompAcct = hq.checkHolderCompanyAccount(unitTransferList.get(counter).getHolderIdFrom(), unitTransferList.get(counter).getClientCompanyId());
+                            if (checkSellerCompAcct) {
+                                logger.info("seller holder has company account - [{}]", login.getUserId());
+                                boolean buyerHolderChnExists = buyerHolder.getChn() != null && !"".equals(buyerHolder.getChn());
+                                checkBuyerCompAcct = hq.checkHolderCompanyAccount(unitTransferList.get(counter).getHolderIdTo(), unitTransferList.get(counter).getClientCompanyId());
+                                org.greenpole.hibernate.entity.HolderCompanyAccount sellerHCA = hq.getHolderCompanyAccount(unitTransferList.get(counter).getHolderIdFrom(), unitTransferList.get(counter).getClientCompanyId());
+                                if (checkBuyerCompAcct) {
+                                    logger.info("buyer holder has company account - [{}]", login.getUserId());
+                                    org.greenpole.hibernate.entity.HolderCompanyAccount buyerHCA = hq.getHolderCompanyAccount(unitTransferList.get(counter).getHolderIdTo(), unitTransferList.get(counter).getClientCompanyId());
+                                    if (!sellerHCA.getEsop() && !buyerHCA.getEsop()) {
+                                        UnitTransfer unit = unitTransferList.get(counter);
+                                        org.greenpole.hibernate.entity.TransactionType tt = hd.getTransactionType(unitTransferList.get(counter).getTransferTypeId());
+                                        cc = cq.getClientCompany(unitTransferList.get(counter).getClientCompanyId());
+                                        pt_hib.setClientCompany(cc);
+                                        pt_hib.setCompanyName(unitTransferList.get(counter).getClientCompanyName());
+                                        pt_hib.setCscsTransactionId(unitTransferList.get(counter).getCscsTransactionId());
+                                        pt_hib.setTransactionType(tt);
+                                        for (ProcessedTransactionHolder pth_holder : pt.getProcessedTransactionHolder()) {
+                                            org.greenpole.hibernate.entity.Holder h_hib = hq.getHolder(pth_holder.getHolderChn());
+                                            pth_hib.setHolder(h_hib);
+                                            pth_hib.setHolderName(pth_holder.getHolderName());
+                                            pth_hib.setHolderChn(pth_holder.getHolderChn());
+                                            pth_hib.setFromTo(pth_holder.getFromTo());
+                                            pth_hib.setUnitType(pth_holder.getUnitType());
+                                            pth_hib.setUnits(pth_holder.getUnits());
+                                            processedTransactionHolderSet.add(pth_hib);
                                         }
+                                        pt_hib.setProcessedTransactionHolders(processedTransactionHolderSet);
+                                        return invokeTransfer(sellerHCA, unit, buyerHCA, resp, sellerName, buyerName, login,
+                                                notificationCode, notification);
+                                    } else {
+                                        org.greenpole.hibernate.entity.SuspendedTransaction suspendTrans = new org.greenpole.hibernate.entity.SuspendedTransaction();
+                                        org.greenpole.hibernate.entity.SuspendedTransactionHolder suspendTranHolder = new org.greenpole.hibernate.entity.SuspendedTransactionHolder();
+                                        org.greenpole.hibernate.entity.SuspendedTransactionHolderId suspendTranHolderId = new org.greenpole.hibernate.entity.SuspendedTransactionHolderId();
+                                        if (sellerHCA.getEsop()) {
+                                            suspendTrans.setClientCompany(cc);
+                                            suspendTrans.setCompanyName(unitTransferList.get(counter).getClientCompanyName());
+                                            suspendTrans.setCscsTransactionId(unitTransferList.get(counter).getCscsTransactionId());
+                                            suspendTrans.setReconciled(false);
+                                            suspendTrans.setSuspensionDate(current_date);
+                                            suspendTrans.setSuspensionReason("Seller Holder account has Esop");
+                                            suspendTrans.setTransactionDate(current_date);
+                                            suspendTranHolderId.setHolderId(unitTransferList.get(counter).getHolderIdFrom());
+                                                                    //suspendTranHolder.setFromTo(pth_holder.);
+                                            //suspendTranHolder.setHolderChn((String)unitTransferList.get(counter).getChnFrom());
+                                        }
+                                        if (buyerHCA.getEsop()) {
+                                            suspendTrans.setClientCompany(cc);
+                                            suspendTrans.setCompanyName(unitTransferList.get(counter).getClientCompanyName());
+                                            suspendTrans.setCscsTransactionId(unitTransferList.get(counter).getCscsTransactionId());
+                                            suspendTrans.setReconciled(false);
+                                            suspendTrans.setSuspensionDate(current_date);
+                                            suspendTrans.setSuspensionReason("Buyer Holder account has Esop");
+                                            suspendTrans.setTransactionDate(current_date);
+                                            suspendTranHolderId.setHolderId(unitTransferList.get(counter).getHolderIdTo());
+                                        }
+                                    }
+                                    // }
+                                } else if (!checkBuyerCompAcct) {
+                                    org.greenpole.hibernate.entity.HolderCompanyAccount newHolderCompAcct = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                                    org.greenpole.hibernate.entity.HolderCompanyAccountId buyerCompAccId_hib = new org.greenpole.hibernate.entity.HolderCompanyAccountId(unitTransferList.get(counter).getHolderIdTo(), unitTransferList.get(counter).getClientCompanyId());
+                                    //buyerCompAccId_hib = unitTransferList.get(counter).getChnTo();
+                                    newHolderCompAcct.setId(buyerCompAccId_hib);
+                                    newHolderCompAcct.setClientCompany(cc);
+                                    newHolderCompAcct.setEsop(false);
+                                    newHolderCompAcct.setHolder(holder_hib);
+                                    newHolderCompAcct.setHolderCompAccPrimary(true);
+                                    newHolderCompAcct.setMerged(false);
+                                    newHolderCompAcct.setShareUnits(unitTransferList.get(counter).getUnits());
+                                    hd.createNubanAccount(newHolderCompAcct);
+                                    logger.info("buyer holder now has company account - [{}]", login.getUserId());
+                                    UnitTransfer unit = unitTransferList.get(counter);
+                                    return invokeTransfer(sellerHCA, unit, newHolderCompAcct, resp, sellerName, buyerName, login,
+                                            notificationCode, notification);
+                                }
+                            } else {
+                                org.greenpole.hibernate.entity.HolderCompanyAccount sellerHolderCompAcct = new org.greenpole.hibernate.entity.HolderCompanyAccount();
+                                org.greenpole.hibernate.entity.HolderCompanyAccountId sellerCompAccId_hib = new org.greenpole.hibernate.entity.HolderCompanyAccountId(unitTransferList.get(counter).getHolderIdFrom(), unitTransferList.get(counter).getClientCompanyId());
+                                sellerHolderCompAcct.setId(sellerCompAccId_hib);
+                                sellerHolderCompAcct.setClientCompany(cc);
+                                sellerHolderCompAcct.setEsop(false);
+                                sellerHolderCompAcct.setHolder(holder_hib);
+                                sellerHolderCompAcct.setHolderCompAccPrimary(true);
+                                sellerHolderCompAcct.setMerged(false);
+                                sellerHolderCompAcct.setNubanAccount(buyerName);//put the correct info
+                                sellerHolderCompAcct.setShareUnits(0); //needs to know the actual share units left from the seller account
+                                hd.createNubanAccount(sellerHolderCompAcct);
+                            }
                         } else {//creating a new holder
                             String desc = "";
                             boolean flag = false;

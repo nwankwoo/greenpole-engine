@@ -43,9 +43,9 @@ public class HolderComponentLogic {
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(org.greenpole.logic.HolderComponentLogic.class);
     private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();//not needed
 
     /**
@@ -444,7 +444,7 @@ public class HolderComponentLogic {
                                     checkForQualifyShares = rightsIssueApp.getSharesSubscribed() % ri.getQualifyShareUnit();
                                     if (checkForQualifyShares == 0) {
                                         wrapper = new NotificationWrapper();
-                                        prop = new NotifierProperties(HolderComponentLogic.class);
+                                        prop = NotifierProperties.getInstance();
                                         qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                                 prop.getAuthoriserNotifierQueueName());
                                         List<RightsIssueApplication> riList = new ArrayList();
@@ -633,6 +633,7 @@ public class HolderComponentLogic {
 
     /**
      * processes request to cancel a holder rights issue application
+     *
      * @param login details of the user
      * @param authenticator the user meant to receive the authentication
      * @param holderRightsIssue the holder application to be cancelled
@@ -657,7 +658,7 @@ public class HolderComponentLogic {
                     logger.info("Holder company account checks out " + login.getUserId());
                     if (!riApp.getApproved() || !riApp.getProcessingPayment()) {//checks that application is not approved and not processed for payment also
                         wrapper = new NotificationWrapper();
-                        prop = new NotifierProperties(HolderComponentLogic.class);
+                        prop = NotifierProperties.getInstance();
                         qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                 prop.getAuthoriserNotifierQueueName());
                         List<RightsIssueApplication> riList = new ArrayList();
@@ -700,6 +701,7 @@ public class HolderComponentLogic {
 
     /**
      * processes request to cancel a holder rights issue application
+     *
      * @param login details of the user
      * @param notificationCode the user meant to receive the authentication
      * @return request to the cancellation of holder application
@@ -764,6 +766,7 @@ public class HolderComponentLogic {
 
     /**
      * processes confirmation request to upload rights issue en - mass
+     *
      * @param login details of the user
      * @param authenticator the user meant to receive this notification
      * @param holdersRightApp the list of holders applying for rights issue
@@ -841,7 +844,7 @@ public class HolderComponentLogic {
                                     //rightApp_model.setApplicationType();
                                     rightApp_model.setIssuer(right.getClientCompany().getName());
                                     rightApp_model.setTotalRightsAvailable(availableRights);//assuming before subscription
-                                    rightApp_model.setTotalSharesSubscribed((int)sumOfSharesSubscribe);//is total shares sub (to include this current one?)
+                                    rightApp_model.setTotalSharesSubscribed((int) sumOfSharesSubscribe);//is total shares sub (to include this current one?)
                                     rightApp_model.setValueOfAdditionalShares(valueOfSharesSub);
                                     rightApp_model.setAdditionalSharesAwaitingSub(additionalSharesAwaitingSub);
                                     rightApp_model.setValueOfAdditionalShares(additionalSharesAwaitingSub * right.getIssuePrice());//value of additional shares awaiting subscription
@@ -887,13 +890,15 @@ public class HolderComponentLogic {
         }
         return resp;
     }
-/**
- * Processes request to upload rights issue en - mass
- * @param login the user details
- * @param authenticator the user to receive the notification
- * @param holdersRightApp the holders details applying for the rights issue
- * @return response to the rights issue application
- */
+
+    /**
+     * Processes request to upload rights issue en - mass
+     *
+     * @param login the user details
+     * @param authenticator the user to receive the notification
+     * @param holdersRightApp the holders details applying for the rights issue
+     * @return response to the rights issue application
+     */
     public Response uploadShareholderRightsIssueEnmass_Request(Login login, String authenticator, List<RightsIssueApplication> holdersRightApp) {
         logger.info("request to upload shareholders rights issue en-mass invoked by [{}]", login.getUserId());
         Response resp = new Response();
@@ -929,7 +934,7 @@ public class HolderComponentLogic {
                         if (checkHolderCompAcct) {
                             if (ri.getTotalSharesOnIssue() >= sumOfSharesSubscribe) {
                                 wrapper = new NotificationWrapper();
-                                prop = new NotifierProperties(HolderComponentLogic.class);
+                                prop = NotifierProperties.getInstance();
                                 qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                         prop.getAuthoriserNotifierQueueName());
                                 wrapper.setCode(notification.createCode(login));
@@ -982,12 +987,15 @@ public class HolderComponentLogic {
             return resp;
         }
     }
-/**
- * Processes a request for the authorisation of rights issue application en - mass
- * @param login the user details
- * @param notificationCode the notification code
- * @return response to the authorisation request
- */
+
+    /**
+     * Processes a request for the authorisation of rights issue application en
+     * - mass
+     *
+     * @param login the user details
+     * @param notificationCode the notification code
+     * @return response to the authorisation request
+     */
     public Response uploadShareholderRightsIssueEnmass_Authorise(Login login, String notificationCode) {
         Response resp = new Response();
         logger.info("authorise upload of rights application en-mass, invoked by [{}]", login.getUserId());

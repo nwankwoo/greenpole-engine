@@ -49,9 +49,9 @@ public class CertificateComponentLogic {
     private static final Logger logger = LoggerFactory.getLogger(HolderComponentLogic.class);
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
-    private final NotificationProperties notificationProp = new NotificationProperties(ClientCompanyLogic.class);
+    private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
+    private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
-    private final GreenpoleProperties greenProp = new GreenpoleProperties(org.greenpole.logic.HolderComponentLogic.class);
     private final HibernatDummyQuerInterface hd = HibernateDummyQueryFactory.getHibernateDummyQuery();
 
     /**
@@ -273,8 +273,8 @@ public class CertificateComponentLogic {
                     if (cert.getClientCompanyId() == newhca.getClientCompany().getId()) {
                         if (cert.getCertificateNumber() > 0) {
                             wrapper = new NotificationWrapper();
-                            prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                            qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                            prop = NotifierProperties.getInstance();
+                            qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                     prop.getAuthoriserNotifierQueueName());
                             List<Certificate> certlist = new ArrayList<>();
                             certlist.add(cert);
@@ -504,8 +504,8 @@ public class CertificateComponentLogic {
 
                             if (splitCert.getOriginalCertificate().getClientCompanyId() == splitCert.getCreatedCetificates().get(counter).getClientCompanyId()) {//check if shareholders are of the same account type
                                 wrapper = new NotificationWrapper();
-                                prop = new NotifierProperties(ClientCompanyComponentLogic.class);
-                                qSender = new QueueSender(prop.getAuthoriserNotifierQueueFactory(),
+                                prop = NotifierProperties.getInstance();
+                                qSender = new QueueSender(prop.getNotifierQueueFactory(),
                                         prop.getAuthoriserNotifierQueueName());
                                 List<ProcessCertificateSplit> certlist = new ArrayList<>();
                                 certlist.add(splitCert);
@@ -705,7 +705,7 @@ public class CertificateComponentLogic {
             logger.info("No certificate found for lodgement operation ", login.getUserId());
             return resp;
         } catch (Exception ex) {
-          logger.info("error lodging certificate. See error log - [{}]", login.getUserId());
+            logger.info("error lodging certificate. See error log - [{}]", login.getUserId());
             logger.error("error lodging certificate - [" + login.getUserId() + "]", ex);
 
             resp.setRetn(99);
@@ -713,7 +713,7 @@ public class CertificateComponentLogic {
                     + "\nMessage: " + ex.getMessage());
             return resp;
         }
-    
+
     }
 
     /**
