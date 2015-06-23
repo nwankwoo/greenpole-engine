@@ -669,14 +669,14 @@ public class CertificateComponentLogic {
     }
 
     /**
-     * processes request to lodge or dematerialize a certificate
+     * processes confirmation request to lodge or dematerialize a certificate
      *
      * @param login the user details
      * @param authenticator the user meant to receive this notification
-     * @param cert the certificate to be lodged
+     * @param certList list of certificates for lodgement
      * @return response to the certificate lodgement request
      */
-    public Response lodgeCertificate_Request(Login login, String authenticator, CertificateLodgement cert) {
+    public Response lodgeCertificateConfirm_Request(Login login, String authenticator, List<Certificate> certList) {
         Response resp = new Response();
         logger.info(" request to lodge / dematerialise certificate ", login.getUserId());
         Notification notification = new Notification();
@@ -684,11 +684,36 @@ public class CertificateComponentLogic {
         NotificationWrapper wrapper;
         QueueSender queue;
         NotifierProperties prop;
+        List<CertificateLodgement> certLodgeList = new ArrayList<>();
         try {
-
+            if (certList != null && !certList.isEmpty()) {
+                for (Certificate cert : certList) {
+                    org.greenpole.hibernate.entity.Holder holder = hd.getHolder(cert.getHolderId());
+                    if (holder.getChn() != null && !"".equals(holder.getChn())) {
+                        CertificateLodgement cl = new CertificateLodgement();
+                        cl.setTitle(cert.getCertificateLodgement().getTitle());
+                        cl.setChn(holder.getChn());
+                        certLodgeList.add(cl);
+                    }
+                }
+                resp.setRetn(0);
+                resp.setBody(certList);
+                return resp;
+            }
+            resp.setRetn(300);
+            resp.setDesc("No certificate found for lodgement operation");
+            logger.info("No certificate found for lodgement operation ", login.getUserId());
+            return resp;
         } catch (Exception ex) {
+          logger.info("error lodging certificate. See error log - [{}]", login.getUserId());
+            logger.error("error lodging certificate - [" + login.getUserId() + "]", ex);
+
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable to lodge certificate. Contact system administrator."
+                    + "\nMessage: " + ex.getMessage());
+            return resp;
         }
-        return resp;
+    
     }
 
     /**
