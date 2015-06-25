@@ -1832,7 +1832,7 @@ public class ClientCompanyLogic {
 //            certEntity.setPrivatePlacement(null);
 //            certEntity.setRightsIssue(null);
 //            certEntity.setShareBonus(null);
-            certEntity.setCertificateNumber(certificateList.get(0).getCertificateNumber());
+            //certEntity.setCertificateNumber(certificateList.get(0).getCertificateNumber());
 //            sum the units of all certificates
             for (Certificate cert : certificateList) {
                 shareVolume += cert.getShareVolume();
@@ -1927,7 +1927,7 @@ public class ClientCompanyLogic {
                     mergedCert.setClientCompanyId(cert.getClientCompany().getId());
                     mergedCert.setHolderId(cert.getHolder().getId());
                     mergedCert.setShareVolume(cert.getShareVolume());
-                    mergedCert.setCertificateNumber(cert.getCertificateNumber());
+                    //mergedCert.setCertificateNumber(cert.getCertificateNumber());
                     mergedCert.setHolderName(cert.getHolderName());
                     mergedCert.setHolderAddress(cert.getHolderAddress());
                     mergedCert.setIssuingCompName(cert.getIssuingCompName());
@@ -2011,7 +2011,7 @@ public class ClientCompanyLogic {
                     Certificate certificateSplit = new Certificate();
                     certificateSplit.setClientCompanyId(cert.getClientCompany().getId());
                     certificateSplit.setHolderId(cert.getHolder().getId());
-                    certificateSplit.setCertificateNumber(cert.getCertificateNumber());
+                    //certificateSplit.setCertificateNumber(cert.getCertificateNumber());
                     certificateSplit.setShareVolume(cert.getShareVolume());
                     certificateSplit.setHolderName(cert.getHolderName());
                     certificateSplit.setHolderAddress(cert.getHolderAddress());

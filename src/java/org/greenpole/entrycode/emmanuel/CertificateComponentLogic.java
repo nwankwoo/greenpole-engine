@@ -82,7 +82,6 @@ public class CertificateComponentLogic {
                                     if (cert.getCertNarration() != null && !cert.getCertNarration().isEmpty()) {
                                         if (cert.getIssueDate() != null && !cert.getIssueDate().isEmpty()) {
                                             if (cert.isIsShareholder()) {//holder is a shareholder
-                                                cert_hib.setCertificateNumber(cert.getCertificateNumber());
                                                 cert_hib.setShareVolume(cert.getShareVolume());
                                                 cert_hib.setHolder(holder);
                                                 cert_hib.setHolderName(cert.getHolderName());
@@ -94,7 +93,7 @@ public class CertificateComponentLogic {
                                                 cert_hib.setClaimed(false);
                                                 created = hd.createCertificate(cert_hib);
                                             } else if (!cert.isIsShareholder()) {
-                                                cert_hib.setCertificateNumber(cert.getCertificateNumber());
+                                                //cert_hib.setCertificateNumber(cert.getCertificateNumber());
                                                 cert_hib.setBondHolding(cert.getBondHolding());
                                                 cert_hib.setHolder(holder);
                                                 cert_hib.setHolderName(cert.getHolderName());
@@ -190,7 +189,7 @@ public class CertificateComponentLogic {
                 if (queryParams.getCertificate() != null) {
                     cert_model_serach = queryParams.getCertificate();
                     org.greenpole.hibernate.entity.Holder holder = hq.getHolder(queryParams.getCertificate().getHolderId());
-                    cert_hib_search.setCertificateNumber(cert_model_serach.getCertificateNumber());
+                    //cert_hib_search.setCertificateNumber(cert_model_serach.getCertificateNumber());
                     cert_hib_search.setHolder(holder);//search by holder APR account number
                     cert_hib_search.setHolderAddress(cert_model_serach.getHolderAddress());
                     cert_hib_search.setIssuingCompName(cert_model_serach.getIssuingCompName());
@@ -214,7 +213,6 @@ public class CertificateComponentLogic {
                     List<org.greenpole.hibernate.entity.Certificate> cert_hib_list = hd.queryCertificates(queryParams.getDescriptor(), cert_hib_search, shareVolume_search, queryParams.getStartDate(), queryParams.getEndDate());
                     for (org.greenpole.hibernate.entity.Certificate cert : cert_hib_list) {
                         Certificate cert_model = new Certificate();
-                        cert_model.setCertificateNumber(cert.getCertificateNumber());
                         cert_model.setHolderId(cert.getHolder().getId());
                         cert_model.setHolderAddress(cert.getHolderAddress());
                         cert_model.setIssuingCompName(cert.getIssuingCompName());
@@ -607,7 +605,6 @@ public class CertificateComponentLogic {
                         ac = Integer.parseInt(certificateNo);
                         if (holderCompAccExists && chnExists) {
                             if (certModel.getOriginalCertificate().getClientCompanyId() == certModel.getCreatedCetificates().get(counter).getClientCompanyId()) {
-                                cert_hib.setCertificateNumber(ac);
                                 cert_hib.setShareVolume(certModel.getCreatedCetificates().get(counter).getShareVolume());
                                 cert_hib.setHolder(h);
                                 cert_hib.setHolderName(certModel.getCreatedCetificates().get(counter).getHolderName());
@@ -780,13 +777,13 @@ public class CertificateComponentLogic {
                 TagUser tag = new TagUser();
                 for (org.greenpole.hibernate.entity.CertificateLodgement cl : certLodge_hib_list) {
                     CertificateLodgement cert_model = new CertificateLodgement();
-                    cert_model.setCertificateNumber(cl.getCertificateNumber());
-                    cert_model.setChn(cl.getChn());
-                    cert_model.setControlNumber(cl.getControlNumber());
+                    //cert_model.setCertificateNumber(cl.getCertificateNumber());
+                    //cert_model.setChn(cl.getChn());
+                    //cert_model.setControlNumber(cl.getControlNumber());
                     cert_model.setDate(formatter.format(cl.getDate()));
-                    cert_model.setHoldings(cl.getHoldings());
+                    //cert_model.setHoldings(cl.getHoldings());
                     cert_model.setProcessed(cl.getProcessed());
-                    cert_model.setShareholderName(cl.getShareholderName());
+                    //cert_model.setShareholderName(cl.getShareholderName());
                     cert_model.setTitle(cl.getStatus());
                     certLodge_model_list_out.add(cert_model);
                 }
@@ -887,30 +884,30 @@ public class CertificateComponentLogic {
             if (exists) {//checks for certificate existence
                 logger.info("certificate checks out by [{}] ", login.getUserId());
                 org.greenpole.hibernate.entity.Certificate cert = hd.getCertByCertNumber(certVerification.getCertificateId());
-                if (cert.getCertificateNumber() > 0) {
-                    if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && certVerification.getStatus().equals("irregular")) {
-                        cv_hib.setCertificate(cert);
-                        cv_hib.setNote(certVerification.getNote());
-                        cv_hib.setStatus(certVerification.getStatus());
-                        saved = hd.saveCertificateVerification(cv_hib);
-                    } else if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && !certVerification.getStatus().equals("irregular")) {
-                        cv_hib.setCertificate(cert);
-                        cv_hib.setStatus(certVerification.getStatus());
-                        saved = hd.saveCertificateVerification(cv_hib);
-                    }
-                    if (saved) {
-                        resp.setRetn(0);
-                        resp.setDesc("Successful");
-                        logger.info("Successful ", login.getUserId());
-                        return resp;
-                    }
-                    if (!saved) {
-                        resp.setRetn(300);
-                        resp.setDesc("Certification verification failed");
-                        logger.info("Certification verification failed ", login.getUserId());
-                        return resp;
-                    }
+                /*if (cert.getCertificateNumber() > 0) {
+                if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && certVerification.getStatus().equals("irregular")) {
+                cv_hib.setCertificate(cert);
+                cv_hib.setNote(certVerification.getNote());
+                cv_hib.setStatus(certVerification.getStatus());
+                saved = hd.saveCertificateVerification(cv_hib);
+                } else if (certVerification.getStatus() != null && !"".equals(certVerification.getStatus()) && !certVerification.getStatus().equals("irregular")) {
+                cv_hib.setCertificate(cert);
+                cv_hib.setStatus(certVerification.getStatus());
+                saved = hd.saveCertificateVerification(cv_hib);
                 }
+                if (saved) {
+                resp.setRetn(0);
+                resp.setDesc("Successful");
+                logger.info("Successful ", login.getUserId());
+                return resp;
+                }
+                if (!saved) {
+                resp.setRetn(300);
+                resp.setDesc("Certification verification failed");
+                logger.info("Certification verification failed ", login.getUserId());
+                return resp;
+                }
+                }*/
                 resp.setRetn(300);
                 resp.setDesc("Certificate number not specified");
                 logger.info("Certificate number not specified ", login.getUserId());

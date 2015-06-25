@@ -144,25 +144,25 @@ public class ClientCompanyComponentLogic {
                     }
                 }
 
-                if (flag && cc.getEmailAddresses() != null && !cc.getEmailAddresses().isEmpty()) {
-                    for (EmailAddress email : cc.getEmailAddresses()) {
-                        if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-                            desc += "\nEmail address should not be empty. Delete email entry if you must";
-                            flag = false;
-                            break;
-                        }
-                    }
+                /*if (flag && cc.getEmailAddresses() != null && !cc.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : cc.getEmailAddresses()) {
+                if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                flag = false;
+                break;
                 }
-
+                }
+                }
+                
                 if (flag && cc.getPhoneNumbers() != null && !cc.getPhoneNumbers().isEmpty()) {
-                    for (PhoneNumber phone : cc.getPhoneNumbers()) {
-                        if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-                            desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                            flag = false;
-                            break;
-                        }
-                    }
+                for (PhoneNumber phone : cc.getPhoneNumbers()) {
+                if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                flag = false;
+                break;
                 }
+                }
+                }*/
                 
                 if (flag) {
                     wrapper = new NotificationWrapper();
@@ -289,25 +289,25 @@ public class ClientCompanyComponentLogic {
                     }
                 }
 
-                if (flag && ccModel.getEmailAddresses() != null && !ccModel.getEmailAddresses().isEmpty()) {
-                    for (EmailAddress email : ccModel.getEmailAddresses()) {
-                        if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-                            desc += "\nEmail address should not be empty. Delete email entry if you must";
-                            flag = false;
-                            break;
-                        }
-                    }
+                /*if (flag && ccModel.getEmailAddresses() != null && !ccModel.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : ccModel.getEmailAddresses()) {
+                if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                flag = false;
+                break;
                 }
-
+                }
+                }
+                
                 if (flag && ccModel.getPhoneNumbers() != null && !ccModel.getPhoneNumbers().isEmpty()) {
-                    for (PhoneNumber phone : ccModel.getPhoneNumbers()) {
-                        if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-                            desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                            flag = false;
-                            break;
-                        }
-                    }
+                for (PhoneNumber phone : ccModel.getPhoneNumbers()) {
+                if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                flag = false;
+                break;
                 }
+                }
+                }*/
                 
                 if (flag) {
                     boolean created = cq.createClientCompany(retrieveClientCompanyModel(ccModel, freshCreation), retrieveAddressModel(ccModel),
@@ -437,25 +437,25 @@ public class ClientCompanyComponentLogic {
                         }
                     }
                     
-                    if (flag && cc.getEmailAddresses() != null && !cc.getEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : cc.getEmailAddresses()) {
-                            if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
-                                desc += "\nEmail address should not be empty. Delete email entry if you must";
-                                flag = false;
-                                break;
-                            }
-                        }
+                    /*if (flag && cc.getEmailAddresses() != null && !cc.getEmailAddresses().isEmpty()) {
+                    for (EmailAddress email : cc.getEmailAddresses()) {
+                    if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                    desc += "\nEmail address should not be empty. Delete email entry if you must";
+                    flag = false;
+                    break;
+                    }
+                    }
                     }
                     
                     if (flag && cc.getPhoneNumbers() != null && !cc.getPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : cc.getPhoneNumbers()) {
-                            if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
-                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                                flag = false;
-                                break;
-                            }
-                        }
+                    for (PhoneNumber phone : cc.getPhoneNumbers()) {
+                    if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                    desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                    flag = false;
+                    break;
                     }
+                    }
+                    }*/
 
                     if (flag) {
                         wrapper = new NotificationWrapper();
@@ -589,25 +589,25 @@ public class ClientCompanyComponentLogic {
                         }
                     }
                     
-                    if (flag && ccModel.getEmailAddresses() != null && !ccModel.getEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : ccModel.getEmailAddresses()) {
-                            if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
-                                desc += "\nEmail address should not be empty. Delete email entry if you must";
-                                flag = false;
-                                break;
-                            }
-                        }
+                    /*if (flag && ccModel.getEmailAddresses() != null && !ccModel.getEmailAddresses().isEmpty()) {
+                    for (EmailAddress email : ccModel.getEmailAddresses()) {
+                    if ("".equals(email.getEmailAddress()) || email.getEmailAddress() == null) {
+                    desc += "\nEmail address should not be empty. Delete email entry if you must";
+                    flag = false;
+                    break;
+                    }
+                    }
                     }
                     
                     if (flag && ccModel.getPhoneNumbers() != null && !ccModel.getPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : ccModel.getPhoneNumbers()) {
-                            if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
-                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                                flag = false;
-                                break;
-                            }
-                        }
+                    for (PhoneNumber phone : ccModel.getPhoneNumbers()) {
+                    if ("".equals(phone.getPhoneNumber()) || phone.getPhoneNumber() == null) {
+                    desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                    flag = false;
+                    break;
                     }
+                    }
+                    }*/
                     
                     if (flag) {
                         boolean edited = cq.updateClientCompany(retrieveClientCompanyModel(ccModel, freshCreation), retrieveAddressModel(ccModel),

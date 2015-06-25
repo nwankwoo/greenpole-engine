@@ -6,8 +6,6 @@
 package org.greenpole.notifier.sender;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -100,6 +98,26 @@ public class QueueSender {
     }
     
     /**
+     * Sends a rejection request to the rejecter notifier.
+     * @param wrapper the notification rejection request
+     * @return response from the rejecter notifier
+     */
+    public Response sendRejectionRequest(NotificationWrapper wrapper) {
+        Response resp = new Response();
+        try {
+            ObjectMessage om = qsession.createObjectMessage(wrapper);
+            return processRequest(om, resp, "rejection");
+        } catch (JMSException ex) {
+            logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
+            logger.error("An error(s) was thrown in the QueueSender", ex);
+            resp.setRetn(100);
+            resp.setDesc("An error occurred while sending rejection request.\n"
+                    + "Contact system administrator");
+            return resp;
+        }
+    }
+    
+    /**
      * Sends an authorisation request to the authoriser notifier.
      * @param wrapper the notification request
      * @return response from the authoriser notifier
@@ -128,7 +146,7 @@ public class QueueSender {
         Response resp = new Response();
         try {
             ObjectMessage om = qsession.createObjectMessage(toSend);
-            return processRequest(om, resp, "authorisation");
+            return processRequest(om, resp, "text message");
         } catch (JMSException ex) {
             logger.info("Error thrown in QueueSender initialisation-preparation process. See error log");
             logger.error("An error(s) was thrown in the QueueSender", ex);

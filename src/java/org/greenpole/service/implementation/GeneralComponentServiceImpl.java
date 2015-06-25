@@ -6,6 +6,7 @@
 package org.greenpole.service.implementation;
 
 import javax.jws.WebService;
+import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
 import org.greenpole.logic.GeneralComponentLogic;
@@ -26,10 +27,21 @@ public class GeneralComponentServiceImpl implements GeneralComponentService {
     }
 
     @Override
-    public Response rejectNotification(Login login, String notificationCode) {
+    public Response rejectNotification(Login login, String notificationCode, String rejectionReason) {
         Response resp = new Response();
         return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
-                request.rejectNotification(login, notificationCode);
+                request.rejectNotification(login, notificationCode, rejectionReason);
     }
-    
+
+    @Override
+    public Response writeOffNotification(Login login, String notificationCode) {
+        Response resp = new Response();
+        return SecurityCheck.securityFailChecker(login, notificationCode, resp) ? resp : 
+                request.writeOffNotification(login, notificationCode);
+    }
+
+    @Override
+    public Response resendNotification(Login login, NotificationWrapper wrapper) {
+        return request.resendNotification(login, wrapper);
+    }
 }

@@ -10,6 +10,8 @@ import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;
 import org.greenpole.hibernate.query.GeneralComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Web application lifecycle listener.
@@ -18,13 +20,17 @@ import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
  */
 @WebListener()
 public class ServletListener implements ServletContextListener {
+    private static final Logger logger = LoggerFactory.getLogger(ServletListener.class);
     private final GeneralComponentQuery gq = ComponentQueryFactory.getGeneralComponentQuery();
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         gq.testConnection();
+        logger.info("greenpole-engine started");
     }
 
     @Override
-    public void contextDestroyed(ServletContextEvent sce) {}
+    public void contextDestroyed(ServletContextEvent sce) {
+        logger.info("greenpole-engine destroyed");
+    }
 }
