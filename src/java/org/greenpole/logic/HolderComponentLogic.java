@@ -360,7 +360,7 @@ public class HolderComponentLogic {
                                 for (org.greenpole.hibernate.entity.HolderCompanyAccount sec_hca : secCompAccts) {
                                     secHolderCompAccts.add(sec_hca);//add secondary company accounts to list
                                 }
-
+ 
                                 for (org.greenpole.hibernate.entity.HolderBondAccount sec_hba : secBondAccts) {
                                     if ((sec_hba.getRemainingPrincipalValue() != null && sec_hba.getRemainingPrincipalValue() > 0) ||
                                             (sec_hba.getBondUnits() != null && sec_hba.getBondUnits() > 0)) {
@@ -409,19 +409,15 @@ public class HolderComponentLogic {
 
                     if (merged) {
                         notification.markAttended(notificationCode);
-                        String holderPhone = hq.getHolderPryPhoneNumber(pryHolder.getId());
-                        if (!"".equals(holderPhone)) {
-                            SMSProperties smsProp = SMSProperties.getInstance();
-                            
-                            TextSend textSend = new TextSend();
-                            textSend.setMessage_id(notificationCode);
-                            textSend.setIsFlash(false);
-                            textSend.setPhoneNumber(holderPhone);
-                            textSend.setText(smsProp.getTextMerge());
-                            textSend.setIsBulk(false);
-                            textSend.setPurpose(NotificationType.merge_accounts.toString());
-                            textSend.setHolderId(pryHolder.getId());
-                        }
+                        SMSProperties smsProp = SMSProperties.getInstance();
+                        int holderId = pryHolder.getId();
+                        String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                        
+                        String text = smsProp.getTextMerge();
+                        String notificationType = NotificationType.merge_accounts.toString();
+                        boolean function_status = Boolean.valueOf(smsProp.getTextMergeSend());
+                        
+                        sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
                         
                         resp.setRetn(0);
                         resp.setDesc("Successful merge");
@@ -1546,6 +1542,11 @@ public class HolderComponentLogic {
                     h_hib_search.setGender(h_model_search.getGender());
                     if (h_model_search.getDob() != null && !"".equals(h_model_search.getDob()))
                         h_hib_search.setDob(formatter.parse(h_model_search.getDob()));
+                    h_hib_search.setMaritalStatus(h_model_search.getMaritalStatus());
+                    h_hib_search.setOccupation(h_model_search.getOccupation());
+                    h_hib_search.setReligion(h_model_search.getReligion());
+                    h_hib_search.setStateOfOrigin(h_model_search.getStateOfOrigin());
+                    h_hib_search.setLga(h_model_search.getLga());
                     h_hib_search.setChn(h_model_search.getChn());
                     if (h_model_search.getHolderAcctNumber() > 0)
                         h_hib_search.setHolderAcctNumber(h_model_search.getHolderAcctNumber());
@@ -1714,6 +1715,11 @@ public class HolderComponentLogic {
                     h.setLastName(h_hib_out.getLastName());
                     h.setGender(h_hib_out.getGender());
                     h.setDob(formatter.format(h_hib_out.getDob()));
+                    h.setMaritalStatus(h_hib_out.getMaritalStatus());
+                    h.setOccupation(h_hib_out.getOccupation());
+                    h.setReligion(h_hib_out.getReligion());
+                    h.setStateOfOrigin(h_hib_out.getStateOfOrigin());
+                    h.setLga(h_hib_out.getLga());
                     h.setChn(h_hib_out.getChn());
                     if (h_hib_out.getHolderAcctNumber() != null)
                         h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
@@ -1996,25 +2002,25 @@ public class HolderComponentLogic {
                             }
                         }
                         
-                        /*if (flag && admin.getEmailAddresses() != null && !admin.getEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : admin.getEmailAddresses()) {
-                        if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-                        desc += "\nEmail address should not be empty";
-                        flag = false;
-                        break;
+                        if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                            for (EmailAddress email : holder.getEmailAddresses()) {
+                                if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                                    desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                    flag = false;
+                                    break;
+                                }
+                            }
                         }
+
+                        if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
+                            for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                                if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                                    desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                    flag = false;
+                                    break;
+                                }
+                            }
                         }
-                        }*/
-                        
-                        /*if (flag && admin.getPhoneNumbers() != null && !admin.getPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : admin.getPhoneNumbers()) {
-                        if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-                        desc += "\nPhone number should not be empty";
-                        flag = false;
-                        break;
-                        }
-                        }
-                        }*/
                     }
                     
                     if (flag) {
@@ -2136,25 +2142,25 @@ public class HolderComponentLogic {
                             }
                         }
                         
-                        /*if (flag && admin.getEmailAddresses() != null && !admin.getEmailAddresses().isEmpty()) {
-                        for (EmailAddress email : admin.getEmailAddresses()) {
-                        if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-                        desc += "\nEmail address should not be empty";
-                        flag = false;
-                        break;
+                        if (flag && admin.getEmailAddresses() != null && !admin.getEmailAddresses().isEmpty()) {
+                            for (EmailAddress email : admin.getEmailAddresses()) {
+                                if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                                    desc += "\nEmail address should not be empty";
+                                    flag = false;
+                                    break;
+                                }
+                            }
                         }
+
+                        if (flag && admin.getPhoneNumbers() != null && !admin.getPhoneNumbers().isEmpty()) {
+                            for (PhoneNumber phone : admin.getPhoneNumbers()) {
+                                if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                                    desc += "\nPhone number should not be empty";
+                                    flag = false;
+                                    break;
+                                }
+                            }
                         }
-                        }*/
-                        
-                        /*if (flag && admin.getPhoneNumbers() != null && !admin.getPhoneNumbers().isEmpty()) {
-                        for (PhoneNumber phone : admin.getPhoneNumbers()) {
-                        if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-                        desc += "\nPhone number should not be empty";
-                        flag = false;
-                        break;
-                        }
-                        }
-                        }*/
                     }
              
                     if (flag) {
@@ -2949,10 +2955,10 @@ public class HolderComponentLogic {
                 flag = true;
             } 
             
-            if (flag && (!"".equals(holder.getChn()) || holder.getChn() != null)) {
+            if (flag && (!"".equals(holder.getChn()) && holder.getChn() != null)) {
                 if (hq.checkHolderAccount(holder.getChn())) {
                     desc += "\nThe CHN already exists";
-                    flag = true;
+                    flag = false;
                 }
             }
             
@@ -2973,7 +2979,8 @@ public class HolderComponentLogic {
                 flag = false;
             }
             
-            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                    holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
                 for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -2991,7 +2998,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                    holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
                 for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3009,25 +3017,25 @@ public class HolderComponentLogic {
                 }
             }
             
-            /*if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
-            for (EmailAddress email : holder.getEmailAddresses()) {
-            if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-            desc += "\nEmail address should not be empty. Delete email entry if you must";
-            flag = false;
-            break;
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
+                    if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }
-            
+
             if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
-            for (PhoneNumber phone : holder.getPhoneNumbers()) {
-            if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-            desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-            flag = false;
-            break;
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                    if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }*/
             
             if (flag) {
                 
@@ -3104,10 +3112,10 @@ public class HolderComponentLogic {
                 flag = true;
             } 
             
-            if (flag && (!"".equals(holder.getChn()) || holder.getChn() != null)) {
+            if (flag && (!"".equals(holder.getChn()) && holder.getChn() != null)) {
                 if (hq.checkHolderAccount(holder.getChn())) {
                     desc += "\nThe CHN already exists";
-                    flag = true;
+                    flag = false;
                 }
             }
             
@@ -3128,7 +3136,8 @@ public class HolderComponentLogic {
                 flag = false;
             }
             
-            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                    holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
                 for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3146,7 +3155,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                    holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
                 for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3164,25 +3174,25 @@ public class HolderComponentLogic {
                 }
             }
             
-            /*if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
-            for (EmailAddress email : holder.getEmailAddresses()) {
-            if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-            desc += "\nEmail address should not be empty. Delete email entry if you must";
-            flag = false;
-            break;
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
+                    if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }
-            
+
             if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
-            for (PhoneNumber phone : holder.getPhoneNumbers()) {
-            if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-            desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-            flag = false;
-            break;
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                    if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }*/
             
             if (flag) {
                 org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
@@ -3194,6 +3204,11 @@ public class HolderComponentLogic {
                 holdEntity.setHolderType(typeEntity);
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
+                holdEntity.setMaritalStatus(holder.getMaritalStatus());
+                holdEntity.setOccupation(holder.getOccupation());
+                holdEntity.setReligion(holder.getReligion());
+                holdEntity.setStateOfOrigin(holder.getStateOfOrigin());
+                holdEntity.setLga(holder.getLga());
                 holdEntity.setPryAddress(holder.getPryAddress());
                 holdEntity.setTaxExempted(holder.isTaxExempted());
                 holdEntity.setPryHolder(true);
@@ -3309,7 +3324,8 @@ public class HolderComponentLogic {
                 flag = false;
             }
             
-            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                    holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
                 for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3327,7 +3343,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                    holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
                 for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3345,25 +3362,25 @@ public class HolderComponentLogic {
                 }
             }
             
-            /*if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
-            for (EmailAddress email : holder.getEmailAddresses()) {
-            if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-            desc += "\nEmail address should not be empty. Delete email entry if you must";
-            flag = false;
-            break;
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
+                    if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }
-            
+
             if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
-            for (PhoneNumber phone : holder.getPhoneNumbers()) {
-            if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-            desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-            flag = false;
-            break;
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                    if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }*/
 
             if (flag) {
                 wrapper = new NotificationWrapper();
@@ -3458,7 +3475,8 @@ public class HolderComponentLogic {
                 flag = false;
             }
             
-            if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString()) && 
+                    holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
                 for (Address addr : holder.getResidentialAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3476,7 +3494,8 @@ public class HolderComponentLogic {
                 }
             }
             
-            if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+            if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString()) && 
+                    holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
                 for (Address addr : holder.getPostalAddresses()) {
                     if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                         desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -3494,25 +3513,25 @@ public class HolderComponentLogic {
                 }
             }
             
-            /*if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
-            for (EmailAddress email : holder.getEmailAddresses()) {
-            if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-            desc += "\nEmail address should not be empty. Delete email entry if you must";
-            flag = false;
-            break;
+            if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                for (EmailAddress email : holder.getEmailAddresses()) {
+                    if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                        desc += "\nEmail address should not be empty. Delete email entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }
-            
+
             if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
-            for (PhoneNumber phone : holder.getPhoneNumbers()) {
-            if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-            desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-            flag = false;
-            break;
+                for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                    if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                        desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                        flag = false;
+                        break;
+                    }
+                }
             }
-            }
-            }*/
             
             if (flag) {
                 org.greenpole.hibernate.entity.Holder holdEntity = new org.greenpole.hibernate.entity.Holder();
@@ -3524,6 +3543,11 @@ public class HolderComponentLogic {
                 holdEntity.setHolderType(typeEntity);
                 holdEntity.setGender(holder.getGender());
                 holdEntity.setDob(formatter.parse(holder.getDob()));
+                holdEntity.setMaritalStatus(holder.getMaritalStatus());
+                holdEntity.setOccupation(holder.getOccupation());
+                holdEntity.setReligion(holder.getReligion());
+                holdEntity.setStateOfOrigin(holder.getStateOfOrigin());
+                holdEntity.setLga(holder.getLga());
                 holdEntity.setChn(holder.getChn());
                 holdEntity.setPryAddress(holder.getPryAddress());
                 holdEntity.setTaxExempted(holder.isTaxExempted());
@@ -4039,7 +4063,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                    if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
                         for (Address addr : holder.getResidentialAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -4057,7 +4082,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                    if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                            && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
                         for (Address addr : holder.getPostalAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -4075,27 +4101,27 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    /*if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
-                    for (EmailAddress email : holder.getEmailAddresses()) {
-                    if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-                    desc += "\nEmail address should not be empty. Delete email entry if you must";
-                    flag = false;
-                    break;
+                    if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : holder.getEmailAddresses()) {
+                            if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
                     }
-                    }
-                    }
-                    
+
                     if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
-                    for (PhoneNumber phone : holder.getPhoneNumbers()) {
-                    if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-                    desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                    flag = false;
-                    break;
+                        for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                            if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
                     }
-                    }
-                    }*/
    
-                    if (flag && (holderEntity.getChn() != null || "".equals(holderEntity.getChn()))
+                    if (flag && (holderEntity.getChn() != null && "".equals(holderEntity.getChn()))
                             && (holder.getChn() == null || "".equals(holder.getChn()))) {
                         desc += "\nCHN cannot be erased";
                         flag = false;
@@ -4223,7 +4249,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+                    if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                            && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
                         for (Address addr : holder.getResidentialAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -4241,7 +4268,8 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+                    if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                            && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
                         for (Address addr : holder.getPostalAddresses()) {
                             if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                                 desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -4259,27 +4287,27 @@ public class HolderComponentLogic {
                         }
                     }
 
-                    /*if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
-                    for (EmailAddress email : holder.getEmailAddresses()) {
-                    if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
-                    desc += "\nEmail address should not be empty. Delete email entry if you must";
-                    flag = false;
-                    break;
+                    if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
+                        for (EmailAddress email : holder.getEmailAddresses()) {
+                            if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
+                                desc += "\nEmail address should not be empty. Delete email entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
                     }
-                    }
-                    }
-                    
+
                     if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
-                    for (PhoneNumber phone : holder.getPhoneNumbers()) {
-                    if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
-                    desc += "\nPhone number should not be empty. Delete phone number entry if you must";
-                    flag = false;
-                    break;
+                        for (PhoneNumber phone : holder.getPhoneNumbers()) {
+                            if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
+                                desc += "\nPhone number should not be empty. Delete phone number entry if you must";
+                                flag = false;
+                                break;
+                            }
+                        }
                     }
-                    }
-                    }*/
    
-                    if (flag && (holderEntity.getChn() != null || "".equals(holderEntity.getChn()))
+                    if (flag && (holderEntity.getChn() != null && "".equals(holderEntity.getChn()))
                             && (holder.getChn() == null || "".equals(holder.getChn()))) {
                         desc += "\nCHN cannot be erased";
                         flag = false;
@@ -4294,6 +4322,11 @@ public class HolderComponentLogic {
                         holderEntity.setHolderType(typeEntity);
                         holderEntity.setGender(holder.getGender());
                         holderEntity.setDob(formatter.parse(holder.getDob()));
+                        holderEntity.setMaritalStatus(holder.getMaritalStatus());
+                        holderEntity.setOccupation(holder.getOccupation());
+                        holderEntity.setReligion(holder.getReligion());
+                        holderEntity.setStateOfOrigin(holder.getStateOfOrigin());
+                        holderEntity.setLga(holder.getLga());
                         holderEntity.setChn(holder.getChn());
                         holderEntity.setPryAddress(holder.getPryAddress());
                         List<org.greenpole.hibernate.entity.HolderChanges> holderChangesList = new ArrayList<>();
@@ -4552,7 +4585,7 @@ public class HolderComponentLogic {
      * @return response to the bond offer application request
      */
     public Response applyForBondOffer_Authorise(Login login, String notificationCode) {
-        logger.info("request authorisation to persist holder details. Invoked by [{}]", login.getUserId());
+        logger.info("request authorisation to persist holder details. Invoked by - [{}]", login.getUserId());
         Response resp = new Response();
         Notification notification = new Notification();
 
@@ -4879,6 +4912,11 @@ public class HolderComponentLogic {
             h.setLastName(h_hib_out.getLastName());
             h.setGender(h_hib_out.getGender());
             h.setDob(formatter.format(h_hib_out.getDob()));
+            h.setMaritalStatus(h_hib_out.getMaritalStatus());
+            h.setOccupation(h_hib_out.getOccupation());
+            h.setReligion(h_hib_out.getReligion());
+            h.setStateOfOrigin(h_hib_out.getStateOfOrigin());
+            h.setLga(h_hib_out.getLga());
             h.setChn(h_hib_out.getChn());
             if (h_hib_out.getHolderAcctNumber() != null) {
                 h.setHolderAcctNumber(h_hib_out.getHolderAcctNumber());
@@ -5519,5 +5557,37 @@ public class HolderComponentLogic {
         bondAccountEntity.setMerged(false);
         
         return bondAccountEntity;
+    }
+    
+    /**
+     * Sends a text message object to the text notifier.
+     * @param holderPhone the holder's phone number
+     * @param notificationCode the notification code
+     * @param text the text message
+     * @param notificationType the notification type
+     * @param holderId the holder id
+     * @param function_status the status of the text message function (whether it should be sent or not)
+     * @param login the user's login details
+     */
+    private void sendTextMessage(String holderPhone, String notificationCode, String text, String notificationType, int holderId, boolean function_status, boolean hasDbInfo, Login login) {
+        if (!"".equals(holderPhone)) {
+            NotifierProperties prop = NotifierProperties.getInstance();
+            QueueSender qSender = new QueueSender(prop.getNotifierQueueFactory(), prop.getTextNotifierQueueName());
+            
+            TextSend textSend = new TextSend();
+            textSend.setMessage_id(notificationCode);
+            textSend.setIsFlash(false);
+            textSend.setPhoneNumber(holderPhone);
+            textSend.setText(text);
+            textSend.setIsBulk(false);
+            textSend.setPurpose(notificationType);
+            textSend.setHolderId(holderId);
+            textSend.setAllowText(function_status);
+            textSend.setWithDbInfo(hasDbInfo);
+            
+            Response textResp = qSender.sendTextMessageRequest(textSend);
+            logger.info("response from text notifier - [{}] : [{}]",
+                    textResp.getRetn() + " - " + textResp.getDesc(), login.getUserId());
+        }
     }
 }

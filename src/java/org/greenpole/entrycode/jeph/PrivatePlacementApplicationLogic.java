@@ -5,22 +5,28 @@
  */
 package org.greenpole.entrycode.jeph;
 
+import java.text.MessageFormat;
 import org.greenpole.entirycode.jeph.model.ConfirmationDetails;
 import org.greenpole.entirycode.jeph.model.PrivatePlacementApplication;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.notification.NotificationMessageTag;
+import org.greenpole.entity.notification.NotificationType;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entity.sms.TextSend;
 import org.greenpole.entity.tags.AddressTag;
 import org.greenpole.hibernate.entity.ClearingHouse;
+import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
@@ -39,6 +45,7 @@ import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
+import org.greenpole.util.properties.SMSProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +56,7 @@ import org.slf4j.LoggerFactory;
 public class PrivatePlacementApplicationLogic {
 
     private final HolderComponentQuery hcq = new HolderComponentQueryImpl();
+    private final HolderComponentQuery hq = ComponentQueryFactory.getHolderComponentQuery();
     private final ClientCompanyComponentQuery cq = ComponentQueryFactory.getClientCompanyQuery();
     private final NotificationProperties notificationProp = NotificationProperties.getInstance();
     private final GreenpoleProperties greenProp = GreenpoleProperties.getInstance();
@@ -59,81 +67,51 @@ public class PrivatePlacementApplicationLogic {
      * Processes request to validate Private Placement application before
      * creation
      * @param login the user's login details
-     * @param ppApply the Private Placement application object to be validated
+     * @param ppApp the Private Placement application object to be validated
      * @return response to the Private Placement validation request
      */
-    public Response privatePlacementApplication_Request(Login login, PrivatePlacementApplication ppApply) {
-        logger.info("Request to create Private Placement application of [{}] for [{}], invoked by [{}]", ppApply.getIssuer(), ppApply.getHolderId(), login.getUserId());
+    public Response applyForPrivatePlacement_Confirmation_Request(Login login, PrivatePlacementApplication ppApp) {
+        logger.info("Request to create Private Placement application, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
 
-        double amtPaid = 0;
-        long continuingShares = 0;
-        long remainingSharesNotBought = 0;
+        double amtToBePaid = 0;
+        long remainingSharesNotBought;
         long totalSharesBought = 0;
-        long continuingSharesAvailable = 0;
-        long continuingSharesSubscribed = 0;
-        long subscribedShares = 0;
-        double returnMoney = 0;
+        long continuingSharesSubscribed;
         double sharesSubscribedValue = 0;
         List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
 
         try {
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
-                if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
-                    // booleand openPP = cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {// checks if private placement is still opened 
-                        // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
-                        PrivatePlacement pp = new PrivatePlacement();
-                        if (date.before(pp.getClosingDate())) {
-                            if (ppApply.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
-                                continuingSharesSubscribed = ppApply.getSharesSubscribed() - pp.getStartingMinSubscrptn();
+            if (hq.checkHolderAccount(ppApp.getHolderId())) {
+                if (cq.checkActivePrivatePlacement(ppApp.getPrivatePlacementId())) {//check if private placement exists
+                    PrivatePlacement pp = cq.getPrivatePlacement(ppApp.getPrivatePlacementId());
+                    if (hq.checkHolderCompanyAccount(ppApp.getHolderId(), pp.getClientCompany().getId())) {//check if holder has account with company
+                        if (!pp.getPlacementClosed()) {//checks if private placement is still opened
+                            if (ppApp.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
+                                continuingSharesSubscribed = ppApp.getSharesSubscribed() - pp.getStartingMinSubscrptn();
                                 if (continuingSharesSubscribed % pp.getContinuingMinSubscrptn() == 0) {
-                                    amtPaid = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                    if (ppApply.getAmountPaid() == amtPaid) {
-                                        // List<org.greenpole.hibernate.entity.PrivatePlacementApplication> ppList = hcq.getPrivatePlacementApplication(ppApply.getPrivatePlacementId());
-                                        List<org.greenpole.hibernate.entity.PrivatePlacementApplication> ppList = new ArrayList<>();
-                                        for (org.greenpole.hibernate.entity.PrivatePlacementApplication ppApp : ppList) {
-                                            totalSharesBought += ppApp.getSharesSubscribed();
+                                    amtToBePaid = ppApp.getSharesSubscribed() * pp.getOfferPrice();
+                                    if (ppApp.getAmountPaid() == amtToBePaid) {
+                                        List<org.greenpole.hibernate.entity.PrivatePlacementApplication> appList = cq.getAllActivePrivatePlacementApplications(ppApp.getPrivatePlacementId());
+                                        for (org.greenpole.hibernate.entity.PrivatePlacementApplication app : appList) {
+                                            totalSharesBought += app.getSharesSubscribed();
                                         }
                                         remainingSharesNotBought = pp.getTotalSharesOnOffer() - totalSharesBought;
-                                        if (ppApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                            sharesSubscribedValue = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                            ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ppApply.setDateApplied(date.toString());
-                                            ppAppList.add(ppApply);
+                                        if (ppApp.getSharesSubscribed() <= remainingSharesNotBought) {//just a check for information
                                             resp.setRetn(0);
-                                            resp.setDesc("Private Placement Application Details for confirmation.");
-                                            resp.setBody(ppAppList);
-                                            logger.info("Private Placement Application Details for confirmation. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                            // send SMS and/or Email notification
-                                            return resp;
-                                        } else if ((ppApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= pp.getStartingMinSubscrptn())) {
-                                            continuingSharesAvailable = remainingSharesNotBought - pp.getStartingMinSubscrptn();
-                                            if (continuingSharesAvailable % pp.getContinuingMinSubscrptn() == 0) {
-                                                continuingSharesSubscribed = (int) (Math.ceil(continuingSharesAvailable / pp.getContinuingMinSubscrptn()) * pp.getContinuingMinSubscrptn());
-                                                subscribedShares = pp.getStartingMinSubscrptn() + continuingSharesSubscribed;
-                                                sharesSubscribedValue = subscribedShares * pp.getOfferPrice();
-                                                returnMoney = (ppApply.getSharesSubscribed() - subscribedShares) * pp.getOfferPrice();
-                                                ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                                // ppApply.setReturnMoney(returnMoney);
-                                                ppAppList.add(ppApply);
-                                                String respDesc = "Private Placement Application Details for confirmation.";
-                                                resp.setBody(ppAppList);
-                                                // send SMS and/or Email notification
-                                                resp.setRetn(200);
-                                                resp.setDesc(respDesc + "\nInsufficient quantity of shares. Number of shares available is: " + subscribedShares);
-                                                logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                                return resp;
-                                            }
-                                            resp.setRetn(200);
-                                            resp.setDesc("Insufficient quantity of shares. Number of shares available is: " + pp.getStartingMinSubscrptn());
-                                            logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                            return resp;
+                                            resp.setDesc("Private Placement Application checks out.");
+                                            logger.info("Private Placement Application checks out - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                        } else {
+                                            resp.setRetn(0);
+                                            resp.setDesc("Private Placement Application's subscription is greater than available shares.");
+                                            logger.info("Private Placement Application's subscription is greater than available shares - [{}]: [{}]", login.getUserId(), resp.getRetn());
                                         }
-                                        resp.setRetn(200);
-                                        resp.setDesc("There is not enough shares to buy.");
-                                        logger.info("There is not enough shares to buy. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                        sharesSubscribedValue = ppApp.getSharesSubscribed() * pp.getOfferPrice();
+                                        ppApp.setSharesSubscribedValue(sharesSubscribedValue);
+                                        ppApp.setDateApplied(formatter.format(date));
+                                        ppAppList.add(ppApp);
+                                        resp.setBody(ppAppList);
                                         return resp;
                                     }
                                     resp.setRetn(200);
@@ -153,17 +131,17 @@ public class PrivatePlacementApplicationLogic {
                         }
                         resp.setRetn(200);
                         resp.setDesc("Application for Private placement is past closing date and so holder cannot apply");
-                        logger.info("Application for Private placement is past closing date and so holder cannot apply [{}] - [{}]", login.getUserId(), resp.getRetn());
+                        logger.info("Application for Private placement is past closing date and so holder cannot apply - [{}]: [{}]", login.getUserId(), resp.getRetn());
                         return resp;
                     }
                     resp.setRetn(200);
-                    resp.setDesc("Client company has not declared Private Placement and so holder cannot apply.");
-                    logger.info("Client company does not declared Private Placement and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    resp.setDesc("Holder has no account with Client company and so cannot apply for Private Placement.");
+                    logger.info("Holder has no account with Client company and so cannot apply for Private Placement - [{}]: [{}]", login.getUserId(), resp.getRetn());
                     return resp;
                 }
                 resp.setRetn(200);
-                resp.setDesc("Holder does not have and account with Client company and so holder cannot apply for Private Placement.");
-                logger.info("Holder does not have and account with Client company and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                resp.setDesc("Private placement does not exist.");
+                logger.info("Private placement does not exist - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
@@ -173,7 +151,7 @@ public class PrivatePlacementApplicationLogic {
         } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process Private Placement Application request. Contact system administrator.");
-            logger.info("error processing Private Placement Application request. See error log [{}] - [{}]", login.getUserId(), resp.getRetn());
+            logger.info("error processing Private Placement Application request. See error log - [{}]: [{}]", login.getUserId(), resp.getRetn());
             logger.error("error processing Private Placement Application request. - [" + login.getUserId() + "]", ex);
             return resp;
         }
@@ -185,110 +163,60 @@ public class PrivatePlacementApplicationLogic {
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the
      * notification
-     * @param ppApply the Private Placement application object to be created
+     * @param ppApp the Private Placement application object to be created
      * @return response to the Private Placement application creation
      * request
      */
-    public Response privatePlacementApplicationConfirmation_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
+    public Response applyForPrivatePlacement_Request(Login login, String authenticator, PrivatePlacementApplication ppApp) {
         logger.info("request to confirm private placement application [{}], invoked by", login.getUserId());
         Response resp = new Response();
-        Notification notification = new Notification();
-        Date date = new Date();
-        List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
-
-        double amtPaid = 0;
-        long continuingShares = 0;
-        long remainingSharesNotBought = 0;
-        long totalSharesBought = 0;
-        long continuingSharesAvailable = 0;
-        long continuingSharesSubscribed = 0;
-        long sharesSubscribed = 0;
-        double returnMoney = 0;
-        double sharesSubscribedValue = 0;
-
+        
         try {
+            Notification notification = new Notification();
+            List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
+            
             NotificationWrapper wrapper;
             QueueSender queue;
             NotifierProperties prop;
 
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
-                if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
-                    // booleand openPP = cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {// checks if private placement is still opened                        
-                        // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
-                        PrivatePlacement pp = new PrivatePlacement();
-                        if (date.before(pp.getClosingDate())) {
-                            if (ppApply.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
-                                continuingShares = ppApply.getSharesSubscribed() - pp.getStartingMinSubscrptn();
-                                if (continuingShares % pp.getContinuingMinSubscrptn() == 0) {
-                                    amtPaid = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                    if (ppApply.getAmountPaid() == amtPaid) {
-                                        // List<org.greenpole.hibernate.entity.PrivatePlacementApplication> ppList = hcq.getPrivatePlacementApplication(ppApply.getPrivatePlacementId());
-                                        List<org.greenpole.hibernate.entity.PrivatePlacementApplication> ppList = new ArrayList<>();
-                                        for (org.greenpole.hibernate.entity.PrivatePlacementApplication ppApp : ppList) {
-                                            totalSharesBought += ppApp.getSharesSubscribed();
-                                        }
-                                        remainingSharesNotBought = pp.getTotalSharesOnOffer() - totalSharesBought;
-                                        if (ppApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                            sharesSubscribedValue = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                            ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ppAppList.add(ppApply);
+            if (hq.checkHolderAccount(ppApp.getHolderId())) {// check if holder has company account with a particular client company
+                wrapper = new NotificationWrapper();
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                
+                //set necessary variables
+                ppApp.setCanceled(false);
+                ppApp.setApproved(false);
+                ppApp.setProcessingPayment(true);
+                
+                Holder h = hq.getHolder(ppApp.getHolderId());
+                ppAppList.add(ppApp);
 
-                                        } else if ((ppApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= pp.getStartingMinSubscrptn())) {
-                                            continuingSharesAvailable = remainingSharesNotBought - pp.getStartingMinSubscrptn();
-                                            if (continuingSharesAvailable % pp.getContinuingMinSubscrptn() == 0) {
-                                                continuingSharesSubscribed = (int) (Math.ceil(continuingSharesAvailable / pp.getContinuingMinSubscrptn()) * pp.getContinuingMinSubscrptn());
-                                                sharesSubscribed = pp.getStartingMinSubscrptn() + continuingSharesSubscribed;
-                                                sharesSubscribedValue = sharesSubscribed * pp.getOfferPrice();
-                                                returnMoney = (ppApply.getSharesSubscribed() - sharesSubscribed) * pp.getOfferPrice();
-                                                ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                                // ppApply.setReturnMoney(returnMoney);
-                                                ppAppList.add(ppApply);
-                                            }
-                                        }
-                                        wrapper = new NotificationWrapper();
-                                        prop = NotifierProperties.getInstance();
-                                        queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-
-                                        wrapper.setCode(notification.createCode(login));
-                                        wrapper.setDescription("Authenticate creation of Private Placement Application for holder " + ppApply.getHolderId());
-                                        wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
-                                        wrapper.setFrom(login.getUserId());
-                                        wrapper.setTo(authenticator);
-                                        wrapper.setModel(ppAppList);
-                                        resp = queue.sendAuthorisationRequest(wrapper);
-                                        logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                                        // send SMS and/or Email confirmation
-                                        return resp;
-                                    }
-                                    resp.setRetn(200);
-                                    resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                    logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                    return resp;
-                                }
-                                resp.setRetn(200);
-                                resp.setDesc("Continuing shares should be in multiples of " + pp.getContinuingMinSubscrptn());
-                                logger.info("Continuing shares is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                return resp;
-                            }
-                            resp.setRetn(200);
-                            resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement.");
-                            logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                            return resp;
-                        }
-                        resp.setRetn(200);
-                        resp.setDesc("Private placement is past closing date and so holder cannot apply");
-                        logger.info("Private placement is past closing date and so holder cannot apply [{}] - [{}]", login.getUserId(), resp.getRetn());
-                        return resp;
-                    }
-                    resp.setRetn(200);
-                    resp.setDesc("Client company has not declared Private Placement and so holder cannot apply.");
-                    logger.info("Client company does not declared Private Placement and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                    return resp;
+                wrapper.setCode(notification.createCode(login));
+                wrapper.setDescription("Authorise confirmation of Private Placement Application for " + 
+                        h.getFirstName() + " " + h.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.apply_for_private_placement.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(ppAppList);
+                
+                logger.info("Notification forwarded to queue - notification code: [{}]  [{}]", wrapper.getCode(), login.getUserId());
+                resp = queue.sendAuthorisationRequest(wrapper);
+                
+                if (resp.getRetn() == 0) {
+                    SMSProperties smsProp = SMSProperties.getInstance();
+                    int holderId = ppApp.getHolderId();
+                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                    ClientCompany cc = cq.getPrivatePlacementClientCompany(ppApp.getPrivatePlacementId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextPlacementProcessing(), cc.getName());
+                    String notificationType = NotificationType.apply_for_private_placement.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextPlacementSend());
+                    
+                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
                 }
-                resp.setRetn(200);
-                resp.setDesc("Holder does not have and account with Client company and so holder cannot apply for Private Placement.");
-                logger.info("Holder does not have and account with Client company and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                
                 return resp;
             }
             resp.setRetn(200);
@@ -298,7 +226,7 @@ public class PrivatePlacementApplicationLogic {
         } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process Initial Public Offer Application request. Contact system administrator.");
-            logger.info("error processing Initial Public Offer Application request. See error log [{}] - [{}]", login.getUserId(), resp.getRetn());
+            logger.info("error processing Initial Public Offer Application request. See error log - [{}]: [{}]", login.getUserId(), resp.getRetn());
             logger.error("error processing Initial Public Offer Application request. - [" + login.getUserId() + "]", ex);
             return resp;
         }
@@ -311,135 +239,119 @@ public class PrivatePlacementApplicationLogic {
      * @param notificationCode the notification code
      * @return response to the Private Placement application creation request
      */
-    public Response privatePlacementApplication_Authorise(Login login, String notificationCode) {
+    public Response applyForPrivatePlacement_Authorise(Login login, String notificationCode) {
         logger.info("Authorisation request to private placement application, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
         Response resp = new Response();
-        Date date = new Date();
-        long continuingShares = 0;
-        double amtPaid = 0;
-        long totalSharesBought = 0;
-        long availableShares = 0;
-        long remainigSharesNotBought = 0;
-        double returnMoney = 0;
-        double sharesSubscribedValue = 0;
-
+        long continuingSharesSubscribed = 0;
+        double amtToBePaid = 0;
+        
         try {
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
-            PrivatePlacementApplication ppApply = ppApplicationList.get(0);
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {// check if holder has company account with a particular client company                
-                if (true) {// check if there is open private placement// check if holder has company account with a particular client company                    
-                    // booleand openPP = cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {// checks if private placement is still opened                        
-                        // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
-                        PrivatePlacement pp = new PrivatePlacement();
-                        if (date.before(pp.getClosingDate())) {
-                            if (ppApply.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
-                                continuingShares = ppApply.getSharesSubscribed() - pp.getStartingMinSubscrptn();
-                                if (continuingShares % pp.getContinuingMinSubscrptn() == 0) {
-                                    amtPaid = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                    if (ppApply.getAmountPaid() == amtPaid) {
-                                        // List<org.greenpole.hibernate.entity.PrivatePlacementApplication> ppList = hcq.getPrivatePlacementApplication(ppApply.getPrivatePlacementId());
-                                        List<org.greenpole.hibernate.entity.PrivatePlacementApplication> ppList = new ArrayList<>();
-                                        for (org.greenpole.hibernate.entity.PrivatePlacementApplication ppApp : ppList) {
-                                            totalSharesBought += ppApp.getSharesSubscribed();
-                                        }
-                                        remainigSharesNotBought = pp.getTotalSharesOnOffer() - totalSharesBought;
-                                        if (ppApply.getSharesSubscribed() <= remainigSharesNotBought) {
-                                            sharesSubscribedValue = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                            ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ppApply.setReturnMoney(returnMoney);
-                                            ppApply.setCanceled(false);
-                                        } else if ((ppApply.getSharesSubscribed() > remainigSharesNotBought) && (remainigSharesNotBought >= pp.getStartingMinSubscrptn())) {
-                                            long continuingSharesAvailable = remainigSharesNotBought - pp.getStartingMinSubscrptn();
-                                            if (continuingSharesAvailable % pp.getContinuingMinSubscrptn() == 0) {
-                                                availableShares = (int) (pp.getStartingMinSubscrptn() + (Math.ceil(continuingSharesAvailable / pp.getContinuingMinSubscrptn()) * pp.getContinuingMinSubscrptn()));
-                                                sharesSubscribedValue = availableShares * pp.getOfferPrice();
-                                                returnMoney = (ppApply.getSharesSubscribed() - availableShares) * pp.getOfferPrice();
-                                                ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                                ppApply.setReturnMoney(returnMoney);
-                                                ppApply.setCanceled(false);
-                                            }
-                                        }
+            PrivatePlacementApplication ppApp = ppApplicationList.get(0);
+            
+            if (hq.checkHolderAccount(ppApp.getHolderId())) {
+                if (cq.checkPrivatePlacement(ppApp.getPrivatePlacementId())) {//check if private placement exists
+                    PrivatePlacement pp = cq.getPrivatePlacement(ppApp.getPrivatePlacementId());
+                    if (hq.checkHolderCompanyAccount(ppApp.getHolderId(), pp.getClientCompany().getId())) {//check if holder has account with company
+                        if (!pp.getPlacementClosed()) {//checks if private placement is still opened
+                            if (ppApp.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
+                                continuingSharesSubscribed = ppApp.getSharesSubscribed() - pp.getStartingMinSubscrptn();
+                                if (continuingSharesSubscribed % pp.getContinuingMinSubscrptn() == 0) {
+                                    amtToBePaid = ppApp.getSharesSubscribed() * pp.getOfferPrice();
+                                    if (ppApp.getAmountPaid() == amtToBePaid) {
                                         org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = new org.greenpole.hibernate.entity.PrivatePlacementApplication();
-
-                                        ClearingHouse clHouse = new ClearingHouse();
-                                        clHouse.setId(ppApply.getClearingHouseId());
-
-                                        Holder holder = new Holder();
-                                        holder.setId(ppApply.getHolderId());
-
-                                        PrivatePlacement ppEntity = new PrivatePlacement();
-                                        ppEntity.setId(ppApply.getPrivatePlacementId());
+                                        
+                                        ClearingHouse clHouse = cq.getClearingHouse(ppApp.getClearingHouseId());
+                                        Holder holder = hq.getHolder(ppApp.getHolderId());
+                                        PrivatePlacement ppEntity = cq.getPrivatePlacement(ppApp.getPrivatePlacementId());
 
                                         ppApplicationEntity.setClearingHouse(clHouse);
                                         ppApplicationEntity.setHolder(holder);
                                         ppApplicationEntity.setPrivatePlacement(ppEntity);
-                                        ppApplicationEntity.setIssuer(ppApply.getIssuer());
-                                        ppApplicationEntity.setSharesSubscribed(ppApply.getSharesSubscribed());
-                                        ppApplicationEntity.setAmountPaid(ppApply.getAmountPaid());
-                                        ppApplicationEntity.setIssuingHouse(ppApply.getIssuingHouse());
-                                        ppApplicationEntity.setSharesSubscribedValue(ppApply.getSharesSubscribedValue());
-                                        ppApplicationEntity.setReturnMoney(ppApply.getReturnMoney());
-                                        ppApplicationEntity.setProcessingPayment(ppApply.isProcessingPayment());
-                                        ppApplicationEntity.setApproved(ppApply.isApproved());
-                                        ppApplicationEntity.setCanceled(ppApply.isCanceled());
-                                        ppApplicationEntity.setDateApplied(formatter.parse(ppApply.getDateApplied()));
-                                        // hcq.createPrivatePlacementApplication(ppApplicationEntity);
-                                        resp.setRetn(0);
-                                        resp.setDesc("Application for Private Placement Successful ");
-                                        logger.info("Application for Private Placement Successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
-                                        wrapper.setAttendedTo(true);
-                                        notification.markAttended(notificationCode);
-                                        // send SMS and/or Email confirmation
+                                        ppApplicationEntity.setIssuer(ppApp.getIssuer());
+                                        ppApplicationEntity.setSharesSubscribed(ppApp.getSharesSubscribed());
+                                        ppApplicationEntity.setAmountPaid(ppApp.getAmountPaid());
+                                        ppApplicationEntity.setIssuingHouse(ppApp.getIssuingHouse());
+                                        ppApplicationEntity.setSharesSubscribedValue(ppApp.getSharesSubscribedValue());
+                                        ppApplicationEntity.setReturnMoney(ppApp.getReturnMoney());
+                                        ppApplicationEntity.setProcessingPayment(true);
+                                        ppApplicationEntity.setApproved(true);
+                                        ppApplicationEntity.setCanceled(false);
+                                        ppApplicationEntity.setDateApplied(formatter.parse(ppApp.getDateApplied()));
+                                        
+                                        boolean applied = hq.applyForPrivatePlacement(ppApplicationEntity);
+                                        
+                                        if (applied) {
+                                            resp.setRetn(0);
+                                            resp.setDesc("Application for Private Placement Successful.");
+                                            logger.info("Application for Private Placement Successful - [{}]", login.getUserId());
+                                            
+                                            notification.markAttended(notificationCode);
+                                            SMSProperties smsProp = SMSProperties.getInstance();
+                                            int holderId = ppApp.getHolderId();
+                                            String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                                            ClientCompany cc = cq.getPrivatePlacementClientCompany(ppApp.getPrivatePlacementId());
+
+                                            String text = MessageFormat.format(smsProp.getTextPlacementPaymentSuccess(), cc.getName());
+                                            String notificationType = NotificationType.apply_for_private_placement.toString();
+                                            boolean function_status = Boolean.valueOf(smsProp.getTextPlacementSend());
+                                            
+                                            sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
+                                            
+                                            return resp;
+                                        }
+                                        resp.setRetn(200);
+                                        resp.setDesc("Application for Private Placement failed. Please contact Administrator.");
+                                        logger.info("Application for Private Placement failed. Please contact Administrator - [{}]: [{}]", resp.getRetn(), login.getUserId());
                                         return resp;
                                     }
                                     resp.setRetn(200);
                                     resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                    logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                    logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", resp.getRetn(), login.getUserId());
                                     return resp;
                                 }
                                 resp.setRetn(200);
-                                resp.setDesc("Continuing shares subscribed should be in multiples of " + pp.getContinuingMinSubscrptn());
-                                logger.info("Continuing shares subscribed is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                resp.setDesc("Continuing shares should be in multiples of " + pp.getContinuingMinSubscrptn());
+                                logger.info("Continuing shares is not in multiples of continuing minimum subscription - [{}]: [{}]", resp.getRetn(), login.getUserId());
                                 return resp;
                             }
                             resp.setRetn(200);
                             resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement.");
-                            logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement. - [{}]: [{}]", resp.getRetn(), login.getUserId());
                             return resp;
                         }
                         resp.setRetn(200);
                         resp.setDesc("Application for Private placement is past closing date and so holder cannot apply");
-                        logger.info("Application for Private placement is past closing date and so holder cannot apply [{}] - [{}]", login.getUserId(), resp.getRetn());
+                        logger.info("Application for Private placement is past closing date and so holder cannot apply [{}] - [{}]", resp.getRetn(), login.getUserId());
                         return resp;
                     }
                     resp.setRetn(200);
-                    resp.setDesc("Client company has not declared Private Placement and so holder cannot apply.");
-                    logger.info("Client company does not declared Private Placement and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    resp.setDesc("Holder has no account with Client company and so cannot apply for Private Placement.");
+                    logger.info("Holder has no account with Client company and so cannot apply for Private Placement - [{}]: [{}]", resp.getRetn(), login.getUserId());
                     return resp;
                 }
                 resp.setRetn(200);
-                resp.setDesc("Holder does not have and account with Client company and so holder cannot apply for Private Placement.");
-                logger.info("Holder does not have and account with Client company and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                resp.setDesc("Private placement does not exist.");
+                logger.info("Private placement does not exist - [{}]: [{}]", resp.getRetn(), login.getUserId());
                 return resp;
             }
             resp.setRetn(200);
             resp.setDesc("Holder does not exists and so cannot apply for Private Placement.");
-            logger.info("Holder does not exists so cannot apply for Private Placement - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            logger.info("Holder does not exists so cannot apply for Private Placement - [{}]: [{}]", resp.getRetn(), login.getUserId());
             return resp;
         } catch (JAXBException ex) {
             resp.setRetn(98);
             resp.setDesc("Unable to process Private Placement application. Contact System Administrator");
-            logger.info("Error loading notification xml file. See error log [{}] - [{}]", login.getUserId(), resp.getRetn());
+            logger.info("Error loading notification xml file. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
             logger.error("Error loading notification xml file to object - [" + login.getUserId() + "]", ex);
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
             resp.setDesc("General error. Unable to process Private Placement Application request. Contact system administrator."
                     + "\nMessage: " + ex.getMessage());
-            logger.info("Error processing Private Placement Application request. See error log [{}] - [{}]", login.getUserId(), resp.getRetn());
+            logger.info("Error processing Private Placement Application request. See error log [{}] - [{}]", resp.getRetn(), login.getUserId());
             logger.error("Error processing Private Placement Application request. - [" + login.getUserId() + "]", ex);
             return resp;
         }
@@ -449,11 +361,11 @@ public class PrivatePlacementApplicationLogic {
      * Processes request to cancel a shareholder's Private Placement application
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
-     * @param ppApply the Private Placement application object to be canceled
+     * @param ppApp the Private Placement application object to be cancelled
      * @return response to the Private Placement application cancel request
      */
-    public Response cancelPrivatePlacementApplication_Request(Login login, String authenticator, PrivatePlacementApplication ppApply) {
-        logger.info("Request to cancel Private Placement application [{}], invoked by", login.getUserId());
+    public Response cancelPrivatePlacementApplication_Request(Login login, String authenticator, PrivatePlacementApplication ppApp) {
+        logger.info("Request to cancel Private Placement application, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
         Response resp = new Response();
 
@@ -461,30 +373,45 @@ public class PrivatePlacementApplicationLogic {
             NotificationWrapper wrapper;
             QueueSender queue;
             NotifierProperties prop;
-            // org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = hcq.getPrivatePlacementApplication(ipoApply.getId());
-            org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = new org.greenpole.hibernate.entity.PrivatePlacementApplication();
-            if (ppApplicationEntity.getProcessingPayment() || ppApplicationEntity.getApproved()) {
-                // if (true) {
+            org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = hq.getPrivatePlacementApplication(ppApp.getId());
+            if (!ppApplicationEntity.getApproved()) {
                 wrapper = new NotificationWrapper();
                 prop = NotifierProperties.getInstance();
                 queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                
                 List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
-                ppAppList.add(ppApply);
+                ppAppList.add(ppApp);
+                
+                Holder h = hq.getHolder(ppApp.getHolderId());
+                
                 wrapper.setCode(notification.createCode(login));
-                wrapper.setDescription("Authenticate cancellation of Private Placement Application for " + ppApply.getHolderId());
+                wrapper.setDescription("Authorise cancellation of Private Placement Application for " + 
+                        h.getFirstName() + " " + h.getLastName());
                 wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+                wrapper.setNotificationType(NotificationType.cancel_private_placement.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(ppAppList);
-                resp = queue.sendAuthorisationRequest(wrapper);
                 logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                // send SMS and/or Email notification
+                resp = queue.sendAuthorisationRequest(wrapper);
+                if (resp.getRetn() == 0) {
+                    SMSProperties smsProp = SMSProperties.getInstance();
+                    int holderId = ppApp.getHolderId();
+                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                    ClientCompany cc = cq.getPrivatePlacementClientCompany(ppApp.getPrivatePlacementId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextPlacementCancelProcessing(), cc.getName());
+                    String notificationType = NotificationType.cancel_private_placement.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextPlacementSend());
+
+                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
+                }
+                
                 return resp;
             }
             resp.setRetn(200);
             resp.setDesc("Payment for Private Placement Application is being processed or has been approved and so cannot be cancelled");
             logger.info("Payment for Private Placement Application is being processed or has been approved and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-            // send SMS and/or Email notification
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
@@ -510,26 +437,42 @@ public class PrivatePlacementApplicationLogic {
         try {
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<PrivatePlacementApplication> ppApplicationList = (List<PrivatePlacementApplication>) wrapper.getModel();
-            PrivatePlacementApplication ppApply = ppApplicationList.get(0);
-            // org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = hcq.getPrivatePlacementApplication(ppApply.getId());
-            org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = new org.greenpole.hibernate.entity.PrivatePlacementApplication();
-            if (ppApplicationEntity.getProcessingPayment() || ppApplicationEntity.getApproved()) {
-                // if (true) {
-                ppApply.setCanceled(true);
-                ppApplicationEntity.setCanceled(ppApply.isCanceled());
-                // hcq.updatePrivatePlacementApplication(ppApplicationEntity);
-                resp.setRetn(0);
-                resp.setDesc("Authorisation to cancel Private Placement Application successful");
-                logger.info("Authorisation to cancel Private Placement Application successful - [{}]", login.getUserId());
-                wrapper.setAttendedTo(true);
-                notification.markAttended(notificationCode);
-                // send SMS and/or Email notification
+            PrivatePlacementApplication ppApp = ppApplicationList.get(0);
+            
+            org.greenpole.hibernate.entity.PrivatePlacementApplication ppApplicationEntity = hq.getPrivatePlacementApplication(ppApp.getId());
+            if (!ppApplicationEntity.getApproved()) {
+                ppApplicationEntity.setCanceled(true);
+                ppApplicationEntity.setProcessingPayment(false);
+                
+                boolean updated = hq.applyForPrivatePlacement(ppApplicationEntity);
+                
+                if (updated) {
+                    resp.setRetn(0);
+                    resp.setDesc("Successful");
+                    logger.info("Authorisation of Private Placement Application cancellation successful - [{}]", login.getUserId());
+                    
+                    notification.markAttended(notificationCode);
+                    SMSProperties smsProp = SMSProperties.getInstance();
+                    int holderId = ppApp.getHolderId();
+                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                    ClientCompany cc = cq.getPrivatePlacementClientCompany(ppApp.getPrivatePlacementId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextPlacementCancelConfirm(), cc.getName());
+                    String notificationType = NotificationType.cancel_private_placement.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextPlacementSend());
+                    
+                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
+                    
+                    return resp;
+                }
+                resp.setRetn(200);
+                resp.setDesc("Private Placement Application cancellation unsuccessful. Please contract System Administrator.");
+                logger.info("Private Placement Application cancellation unsuccessful. Please contract System Administrator - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
             resp.setDesc("Payment for Private Placement Application is being processed or has been approved and so cannot be cancelled");
             logger.info("Payment for Private Placement Application is being processed or has been approved and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-            // send SMS and/or Email notification
             return resp;
         } catch (JAXBException ex) {
             resp.setRetn(98);
@@ -858,48 +801,117 @@ public class PrivatePlacementApplicationLogic {
      * Processes request to upload shareholders Private Placement application en-mass
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification code
-     * @param ppApplyList the list of Private Placement applications
+     * @param ppAppList the list of Private Placement applications
      * @return response to the Private Placement Application list
      */
-    public Response uploadPPAEnmass_Request(Login login, String authenticator,
-            List<PrivatePlacementApplication> ppApplyList) {
+    public Response uploadPrivatePlacementApplicationEnmass_Request(Login login, String authenticator,
+            List<PrivatePlacementApplication> ppAppList) {
         logger.info("Request to upload list of Private Placement application, invoked by [{}]", login.getUserId());
-        List<Response> respList = new ArrayList<>();
-        List<ConfirmationDetails> confirmationList = new ArrayList<>();
-        ConfirmationDetails confirm = new ConfirmationDetails();
         Response resp = new Response();
         Notification notification = new Notification();
+        
+        List<Response> positiveResponses = new ArrayList<>();
+        List<ConfirmationDetails> confirmationList = new ArrayList<>();
+        ConfirmationDetails confirm = new ConfirmationDetails();
+        
 
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
             NotifierProperties prop;
-            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-
+            
+            boolean flag = false;
+            String fail_desc = "";
+            
             wrapper = new NotificationWrapper();
             prop = NotifierProperties.getInstance();
             queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-
-            logger.info("Preparing notification for a list of Private Placement applications, invoked by [{}]", login.getUserId());
-
-            wrapper.setCode(notification.createCode(login));
-
-            for (PrivatePlacementApplication ppApplicant : ppApplyList) {
-                respList.add(validateHolderDetails(login, ppApplicant.getHolder()));
-                wrapper.setDescription("Authenticate holder, " + ppApplicant.getHolder().getFirstName() + " " + ppApplicant.getHolder().getLastName()
-                        + "'s application for Private Placement issued by - " + ppApplicant.getIssuer());
+            
+            for (PrivatePlacementApplication ppApplicant : ppAppList) {
+                Response rulesCheck = validatePrivatePlacementApplication(login, ppApplicant);
+                if (rulesCheck.getRetn() != 0) {
+                    return rulesCheck;//return and exit
+                }
             }
+
+            for (PrivatePlacementApplication ppApplicant : ppAppList) {
+                Response detailsCheck = validateHolderDetails(login, ppApplicant.getHolder());
+                Response recordCheck = validateHolderRecord(login, ppApplicant.getHolder());
+                
+                if (detailsCheck.getRetn() == 0 && recordCheck.getRetn() == 0) {
+                    positiveResponses.add(recordCheck);
+                }
+                
+                if (detailsCheck.getRetn() != 0) {
+                    flag = true;
+                    fail_desc += "\n" + detailsCheck.getDesc();
+                } else if (recordCheck.getRetn() != 0) {
+                    flag = true;
+                    fail_desc += "\n" + recordCheck.getDesc();
+                }
+            }
+            
+            if (flag) {
+                resp.setRetn(200);
+                resp.setDesc(fail_desc);
+                return resp;
+            }
+            
+            ClientCompany cc_info = cq.getIpoClientCompany(ppAppList.get(0).getPrivatePlacementId());
+            
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authorise multiple application for the private placement issued by - " + cc_info.getName());
             wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
             wrapper.setFrom(login.getUserId());
             wrapper.setTo(authenticator);
-            wrapper.setModel(ppApplyList);
-            resp = queue.sendAuthorisationRequest(wrapper);
+            wrapper.setModel(ppAppList);
+            
             logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-            confirm.setDetails(respList);
+            resp = queue.sendAuthorisationRequest(wrapper);
+            
+            confirm.setTitle("List of Private Placement Applications Status");
+            confirm.setDetails(positiveResponses);
             confirmationList.add(confirm);
-            resp.setRetn(0);
+            
             resp.setBody(confirmationList);
+            resp.setRetn(0);
             // send SMS and/or Email notification
+            if (resp.getRetn() == 0) {
+                SMSProperties smsProp = SMSProperties.getInstance();
+                org.greenpole.util.Date txtdate = new org.greenpole.util.Date();
+                Map<String, String> phoneMessageIds = new HashMap<>();
+                for (PrivatePlacementApplication ppApp : ppAppList) {
+                    String holderPhone = "";
+                    boolean foundNumber = false;
+                    if (ppApp.getHolder().getPhoneNumbers() != null && !ppApp.getHolder().getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : ppApp.getHolder().getPhoneNumbers()) {
+                            if (phone.isPrimaryPhoneNumber()) {
+                                if (phone.getPhoneNumber() != null && !"".equals(phone.getPhoneNumber())) {
+                                    holderPhone = phone.getPhoneNumber();
+                                    foundNumber = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (foundNumber) {
+                        String msgId = ppApp.getHolder().getFirstName().substring(0, 3) + "_" +
+                                ppApp.getHolder().getLastName().substring(0, 3) + "_" + txtdate.getDateTime();
+                        phoneMessageIds.put(holderPhone, msgId);
+                    }
+                }
+                
+                if (!phoneMessageIds.isEmpty()) {
+                    ClientCompany cc = cq.getIpoClientCompany(ppAppList.get(0).getPrivatePlacementId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextPlacementProcessing(), cc.getName());
+                    String notificationType = NotificationType.apply_for_ipo_enmass.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextPlacementSend());
+                    
+                    sendBulkTextMessage(text, phoneMessageIds, notificationType, function_status, false, login);
+                }
+            }
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
@@ -917,7 +929,7 @@ public class PrivatePlacementApplicationLogic {
      * @param notificationCode the notification code
      * @return response to the Upload Private Placement application en-mass
      */
-    public Response uploadPPAEnmass_Authorise(Login login, String notificationCode) {
+    public Response uploadPrivatePlacementApplicationEnmass_Authorise(Login login, String notificationCode) {
         logger.info("Authorise uploaded list of Private Placement application, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
         List<ConfirmationDetails> confirmationList = new ArrayList<>();
@@ -942,7 +954,7 @@ public class PrivatePlacementApplicationLogic {
 
             for (PrivatePlacementApplication ppApplicant : ppApplications) {// check valid holders                
                 validHolder = validateHolderDetails(login, ppApplicant.getHolder());// check response code
-                validPpApply = validatePPA(login, ppApplicant);
+                validPpApply = validatePrivatePlacementApplication(login, ppApplicant);
                 if (validHolder.getRetn() == 0) {// process ppApplication
                     successfulHolders.add(ppApplicant.getHolder());
                     respList.add(validHolder);
@@ -1094,16 +1106,18 @@ public class PrivatePlacementApplicationLogic {
             flag = true;
         }
 
-        if (flag && (!"".equals(holder.getChn()) || holder.getChn() != null)) {
-            if (hcq.checkHolderAccount(holder.getChn())) {
-                desc += "\nThe CHN already exists";
+        if (flag && (!"".equals(holder.getChn()) && holder.getChn() != null)) {
+            if (hq.checkHolderAccount(holder.getChn())) {
                 flag = true;
+            } else {
+                desc += "\nThe CHN for " + holder.getFirstName() + " " + holder.getLastName() + "does not exists";
+                flag = false;
             }
         }
 
         if (flag && holder.getTypeId() > 0) {
             boolean found = false;
-            for (HolderType ht : hcq.getAllHolderTypes()) {
+            for (HolderType ht : hq.getAllHolderTypes()) {
                 if (holder.getTypeId() == ht.getId()) {
                     found = true;
                     break;
@@ -1113,9 +1127,13 @@ public class PrivatePlacementApplicationLogic {
                 desc += "\nHolder type is not valid";
                 flag = false;
             }
+        } else if (holder.getTypeId() <= 0) {
+            desc += "\nHolder type must be entered";
+            flag = false;
         }
 
-        if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+        if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
             for (Address addr : holder.getResidentialAddresses()) {
                 if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                     desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -1133,7 +1151,8 @@ public class PrivatePlacementApplicationLogic {
             }
         }
 
-        if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+        if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
             for (Address addr : holder.getPostalAddresses()) {
                 if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                     desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -1153,7 +1172,7 @@ public class PrivatePlacementApplicationLogic {
 
         if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
             for (EmailAddress email : holder.getEmailAddresses()) {
-                if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
                     desc += "\nEmail address should not be empty. Delete email entry if you must";
                     flag = false;
                     break;
@@ -1163,7 +1182,7 @@ public class PrivatePlacementApplicationLogic {
 
         if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
             for (PhoneNumber phone : holder.getPhoneNumbers()) {
-                if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
                     desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                     flag = false;
                     break;
@@ -1178,131 +1197,146 @@ public class PrivatePlacementApplicationLogic {
             return resp;
         }
         resp.setRetn(1);
-        resp.setDesc("Error filing holder details: " + desc);
-        logger.info("Error filing holder details: [{}] - [{}]", desc, login.getUserId());
+        resp.setDesc("Error validating holder details: " + desc);
+        logger.info("Error validating holder details: [{}] - [{}]", desc, login.getUserId());
         return resp;
     }
+    
+    
+    private Response validateHolderRecord(Login login, org.greenpole.entity.model.holder.Holder holder) {
+        Response resp = new Response();
+        String desc = "";
+        String addendum = "";
+        boolean flag = false;
+        
+        try {
+            flag =  true;
+            
+            if (!"".equals(holder.getChn()) && holder.getChn() != null) {
+                if (hq.checkHolderAccount(holder.getChn())) {
+                    Holder h = hq.getHolder(holder.getChn());
+                    if (h.getFirstName().equalsIgnoreCase(holder.getFirstName())
+                            && h.getLastName().equalsIgnoreCase(holder.getLastName())) {
+                        flag = true;
+                    } else {
+                        desc += "\nThe provided CHN belongs to a holder with a different first and last name combination";
+                        flag = false;
+                    }
+                } else {
+                    desc += "\nThe provided CHN does not exist.";
+                    flag = false;
+                }
+            } else if (hq.checkHolderAccount(holder.getFirstName(), holder.getLastName())) {
+                addendum += "The applicant - " + holder.getFirstName() + " " + holder.getLastName() + 
+                        " - already has an account in the system, though it is without a CHN";
+            }
+            
+            if (flag) {
+                resp.setRetn(0);
+                resp.setDesc("Successful validation\n"+
+                        addendum);
+                logger.info("Validation of holder database record successful - [{}] [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(1);
+            resp.setDesc("Error validating holder database record: " + desc);
+            logger.info("Error validating holder database record: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+            
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable check holder's details in database. Contact system administrator.");
+            logger.info("Error checking holder's details in database. See error log - [{}]", login.getUserId());
+            logger.error("Error checking holder's details in database - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
+    
 
     /**
      * Validates Private Placement Application
      * @param login the user's login details
-     * @param ppApply Private Placement Application object
+     * @param ppApp Private Placement Application object
      * @return response object to the caller method
      */
-    private Response validatePPA(Login login, PrivatePlacementApplication ppApply) {
-        logger.info("Request to create Private Placement application of [{}] for [{}], invoked by [{}]", ppApply.getIssuer(), ppApply.getHolderId(), login.getUserId());
+    private Response validatePrivatePlacementApplication(Login login, PrivatePlacementApplication ppApp) {
+        logger.info("Validate private placement application for en-mass upload, invoked by [{}]", login.getUserId());
         Response resp = new Response();
         Date date = new Date();
 
-        double amtPaid = 0;
-        long continuingShares = 0;
+        double amtToBePaid = 0;
         long remainingSharesNotBought = 0;
         long totalSharesBought = 0;
-        long continuingSharesAvailable = 0;
         long continuingSharesSubscribed = 0;
-        long subscribedShares = 0;
-        double returnMoney = 0;
         double sharesSubscribedValue = 0;
         List<PrivatePlacementApplication> ppAppList = new ArrayList<>();
 
         try {
-            NotificationWrapper wrapper;
-            QueueSender queue;
-            NotifierProperties prop;
-
-            if (hcq.checkHolderAccount(ppApply.getHolderId())) {
-                // check if holder has company account with a particular client company
-                if (true) {
-                    // check if there is open private placement
-                    // cq.checkOpenPrivatePlacement(ppApply.getPrivatePlacementId());
-                    if (true) {
-                        // checks if private placement is still opened
-                        // PrivatePlacement pp = hcq.getPrivatePlacement(ppApply.getPrivatePlacementId());
-                        PrivatePlacement pp = new PrivatePlacement();
-                        if (date.before(pp.getClosingDate())) {
-                            if (ppApply.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
-                                continuingSharesSubscribed = ppApply.getSharesSubscribed() - pp.getStartingMinSubscrptn();
+            String holdername = ppApp.getHolder().getFirstName() + " " + ppApp.getHolder().getLastName();
+            if (hq.checkHolderAccount(ppApp.getHolderId())) {
+                if (cq.checkActivePrivatePlacement(ppApp.getPrivatePlacementId())) {//check if private placement exists
+                    PrivatePlacement pp = cq.getPrivatePlacement(ppApp.getPrivatePlacementId());
+                    if (hq.checkHolderCompanyAccount(ppApp.getHolderId(), pp.getClientCompany().getId())) {//check if holder has account with company
+                        if (!pp.getPlacementClosed()) {//checks if private placement is still opened
+                            if (ppApp.getSharesSubscribed() >= pp.getStartingMinSubscrptn()) {
+                                continuingSharesSubscribed = ppApp.getSharesSubscribed() - pp.getStartingMinSubscrptn();
                                 if (continuingSharesSubscribed % pp.getContinuingMinSubscrptn() == 0) {
-                                    amtPaid = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                    if (ppApply.getAmountPaid() == amtPaid) {
-                                        // List<PrivatePlacementApplication> ppList = hcq.getPrivatePlacementApplication(ppApply.getPrivatePlacementId());
-                                        List<PrivatePlacementApplication> ppList = new ArrayList<>();
-                                        for (PrivatePlacementApplication ppApp : ppList) {
-                                            totalSharesBought += ppApp.getSharesSubscribed();
+                                    amtToBePaid = ppApp.getSharesSubscribed() * pp.getOfferPrice();
+                                    if (ppApp.getAmountPaid() == amtToBePaid) {
+                                        List<org.greenpole.hibernate.entity.PrivatePlacementApplication> appList = cq.getAllActivePrivatePlacementApplications(ppApp.getPrivatePlacementId());
+                                        for (org.greenpole.hibernate.entity.PrivatePlacementApplication app : appList) {
+                                            totalSharesBought += app.getSharesSubscribed();
                                         }
                                         remainingSharesNotBought = pp.getTotalSharesOnOffer() - totalSharesBought;
-                                        if (ppApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                            sharesSubscribedValue = ppApply.getSharesSubscribed() * pp.getOfferPrice();
-                                            ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ppApply.setDateApplied(date.toString());
-                                            ppAppList.add(ppApply);
+                                        if (ppApp.getSharesSubscribed() <= remainingSharesNotBought) {//just a check for information
                                             resp.setRetn(0);
-                                            resp.setDesc("Private Placement Application Details for confirmation.");
-                                            resp.setBody(ppAppList);
-                                            logger.info("Private Placement Application Details for confirmation. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                            // send SMS and/or Email notification
-                                            return resp;
-                                        } else if ((ppApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= pp.getStartingMinSubscrptn())) {
-                                            continuingSharesAvailable = remainingSharesNotBought - pp.getStartingMinSubscrptn();
-                                            if (continuingSharesAvailable % pp.getContinuingMinSubscrptn() == 0) {
-                                                continuingSharesSubscribed = (int) (Math.ceil(continuingSharesAvailable / pp.getContinuingMinSubscrptn()) * pp.getContinuingMinSubscrptn());
-                                                subscribedShares = pp.getStartingMinSubscrptn() + continuingSharesSubscribed;
-                                                sharesSubscribedValue = subscribedShares * pp.getOfferPrice();
-                                                returnMoney = (ppApply.getSharesSubscribed() - subscribedShares) * pp.getOfferPrice();
-                                                ppApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                                // ppApply.setReturnMoney(returnMoney);
-                                                ppAppList.add(ppApply);
-                                                String respDesc = "Private Placement Application Details for confirmation.";
-                                                resp.setBody(ppAppList);
-                                                // send SMS and/or Email notification
-                                                resp.setRetn(200);
-                                                resp.setDesc(respDesc + "\nInsufficient quantity of shares. Number of shares available is: " + subscribedShares);
-                                                logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                                return resp;
-                                            }
-                                            resp.setRetn(200);
-                                            resp.setDesc("Insufficient quantity of shares. Number of shares available is: " + pp.getStartingMinSubscrptn());
-                                            logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                            return resp;
+                                            resp.setDesc("Private Placement Application for " + holdername + " checks out.");
+                                            logger.info("Private Placement Application for [{}] checks out - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
+                                        } else {
+                                            resp.setRetn(0);
+                                            resp.setDesc("Private Placement Application's subscription for " + holdername + " is greater than available shares.");
+                                            logger.info("Private Placement Application's subscription for [{}] is greater than available shares - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                                         }
-                                        resp.setRetn(200);
-                                        resp.setDesc("There is not enough shares to buy.");
-                                        logger.info("There is not enough shares to buy. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                        sharesSubscribedValue = ppApp.getSharesSubscribed() * pp.getOfferPrice();
+                                        ppApp.setSharesSubscribedValue(sharesSubscribedValue);
+                                        ppApp.setDateApplied(formatter.format(date));
+                                        ppAppList.add(ppApp);
+                                        resp.setBody(ppAppList);
                                         return resp;
                                     }
                                     resp.setRetn(200);
-                                    resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                    logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                    resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same - for " + holdername);
+                                    logger.info("The amount paid for shares and the price of shares to be bought should be the same - for [{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                                     return resp;
                                 }
                                 resp.setRetn(200);
-                                resp.setDesc("Continuing shares should be in multiples of " + pp.getContinuingMinSubscrptn());
-                                logger.info("Continuing shares is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                resp.setDesc("Continuing shares should be in multiples of " + pp.getContinuingMinSubscrptn() + " - for " + holdername);
+                                logger.info("Continuing shares is not in multiples of continuing minimum subscription - for [{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                                 return resp;
                             }
                             resp.setRetn(200);
-                            resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement.");
-                            logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement - for " + holdername);
+                            logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for Private Placement - for [{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                             return resp;
                         }
                         resp.setRetn(200);
-                        resp.setDesc("Application for Private placement is past closing date and so holder cannot apply");
-                        logger.info("Application for Private placement is past closing date and so holder cannot apply [{}] - [{}]", login.getUserId(), resp.getRetn());
+                        resp.setDesc("Application for Private placement is past closing date and so holder cannot apply - for " + holdername);
+                        logger.info("Application for Private placement is past closing date and so holder cannot apply - for [{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                         return resp;
                     }
                     resp.setRetn(200);
-                    resp.setDesc("Client company has not declared Private Placement and so holder cannot apply.");
-                    logger.info("Client company does not declared Private Placement and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    resp.setDesc("Holder has no account with Client company and so cannot apply for Private Placement - for " + holdername);
+                    logger.info("Holder has no account with Client company and so cannot apply for Private Placement - for [{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                     return resp;
                 }
                 resp.setRetn(200);
-                resp.setDesc("Holder does not have and account with Client company and so holder cannot apply for Private Placement.");
-                logger.info("Holder does not have and account with Client company and so holder cannot apply for Private Placement. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                resp.setDesc("Private placement does not exist or is past its closing date - for " + holdername);
+                logger.info("Private placement does not exist or is past its closing date - for[{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
-            resp.setDesc("Holder does not exists and so cannot apply for Private Placement.");
-            logger.info("Holder does not exists so cannot apply for Private Placement - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            resp.setDesc("Holder does not exists and so cannot apply for Private Placement - for " + holdername);
+            logger.info("Holder does not exists so cannot apply for Private Placement - for[{}] - [{}]: [{}]", holdername, login.getUserId(), resp.getRetn());
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
@@ -1312,182 +1346,65 @@ public class PrivatePlacementApplicationLogic {
             return resp;
         }
     }
-
+    
     /**
-     * Unwraps holder company account details from the holder model.
-     *
-     * @param holdModel object of the holder model
-     * @param newEntry boolean variable indicating whether or not entry is new
-     * @return object of HolderCompanyAccount
+     * Sends a text message object to the text notifier.
+     * @param holderPhone the holder's phone number
+     * @param notificationCode the notification code
+     * @param text the text message
+     * @param notificationType the notification type
+     * @param holderId the holder id
+     * @param function_status the status of the text message function (whether it should be sent or not)
+     * @param login the user's login details
      */
-    private List<org.greenpole.hibernate.entity.HolderCompanyAccount> retrieveHolderCompanyAccount(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderCompanyAccount> companyAccountEntityList = new ArrayList<>();
-
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderCompanyAccount companyAccountEntity = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-            org.greenpole.entity.model.holder.HolderCompanyAccount compAcct = holdModel.getCompanyAccounts().get(0);
-            HolderCompanyAccountId compAcctId = new HolderCompanyAccountId();
-
-            compAcctId.setClientCompanyId(compAcct.getClientCompanyId());
-
-            companyAccountEntity.setId(compAcctId);
-            companyAccountEntity.setEsop(compAcct.isEsop());
-            companyAccountEntity.setHolderCompAccPrimary(true);
-            companyAccountEntity.setMerged(false);
-
-            companyAccountEntityList.add(companyAccountEntity);
+    private void sendTextMessage(String holderPhone, String notificationCode, String text, String notificationType, int holderId, boolean function_status, boolean hasDbInfo, Login login) {
+        if (!"".equals(holderPhone)) {
+            NotifierProperties prop = NotifierProperties.getInstance();
+            QueueSender qSender = new QueueSender(prop.getNotifierQueueFactory(), prop.getTextNotifierQueueName());
+            
+            TextSend textSend = new TextSend();
+            textSend.setMessage_id(notificationCode);
+            textSend.setIsFlash(false);
+            textSend.setPhoneNumber(holderPhone);
+            textSend.setText(text);
+            textSend.setIsBulk(false);
+            textSend.setPurpose(notificationType);
+            textSend.setHolderId(holderId);
+            textSend.setAllowText(function_status);
+            textSend.setWithDbInfo(hasDbInfo);
+            
+            Response textResp = qSender.sendTextMessageRequest(textSend);
+            logger.info("response from text notifier - [{}] : [{}]",
+                    textResp.getRetn() + " - " + textResp.getDesc(), login.getUserId());
         }
-        return companyAccountEntityList;
     }
-
+    
     /**
-     * Unwraps Holder residential address from the holder model into
-     * HolderResidentialAddress hibernate entity object.
-     *
-     * @param holdModel object of holder model
-     * @param newEntry boolean variable indicating whether or not entry is new
-     * @return List of HolderResidentialAddress hibernate entity objects
+     * Sends a bulk message object to the text notifier.
+     * @param text the text message to be sent
+     * @param bulk_text the text message and ids
+     * @param notificationType the notification type
+     * @param function_status the status of the text message function (whether it should be sent or not)
+     * @param hasDbInfo holder has info in database or not
+     * @param login the user's login details
      */
-    private List<HolderResidentialAddress> retrieveHolderResidentialAddress(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<HolderResidentialAddress> residentialAddressSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderResidentialAddress residentialAddressEntity = new org.greenpole.hibernate.entity.HolderResidentialAddress();
-            List<org.greenpole.entity.model.Address> residentialAddressList;
-            if (holdModel.getResidentialAddresses() != null) {
-                residentialAddressList = holdModel.getResidentialAddresses();
-            } else {
-                residentialAddressList = new ArrayList<>();
-            }
-
-            List<org.greenpole.hibernate.entity.HolderResidentialAddress> returnResidentialAddress = new ArrayList<>();
-
-            for (org.greenpole.entity.model.Address rAddy : residentialAddressList) {
-//                HolderResidentialAddressId rAddyId = new HolderResidentialAddressId();
-//                rAddyId.setAddressLine1(rAddy.getAddressLine1());
-//                rAddyId.setState(rAddy.getState());
-//                rAddyId.setCountry(rAddy.getCountry());
-//                residentialAddressEntity.setId(rAddyId);
-//                HolderResidentialAddressId rAddyId = new HolderResidentialAddressId();
-//                rAddyId.setAddressLine1(rAddy.getAddressLine1());
-//                rAddyId.setState(rAddy.getState());
-//                rAddyId.setCountry(rAddy.getCountry());
-//                residentialAddressEntity.setId(rAddyId);
-                residentialAddressEntity.setAddressLine1(rAddy.getAddressLine1());
-                residentialAddressEntity.setAddressLine2(rAddy.getAddressLine2());
-                residentialAddressEntity.setAddressLine3(rAddy.getAddressLine3());
-                residentialAddressEntity.setAddressLine4(rAddy.getAddressLine4());
-                residentialAddressEntity.setCity(rAddy.getCity());
-                residentialAddressEntity.setPostCode(rAddy.getPostCode());
-
-                returnResidentialAddress.add(residentialAddressEntity);
-            }
-            residentialAddressSend.addAll(returnResidentialAddress);
+    private void sendBulkTextMessage(String text, Map<String, String> bulk_text, String notificationType, boolean function_status, boolean hasDbInfo, Login login) {
+        if (!bulk_text.isEmpty()) {
+            NotifierProperties prop = NotifierProperties.getInstance();
+            QueueSender qSender = new QueueSender(prop.getNotifierQueueFactory(), prop.getTextNotifierQueueName());
+            
+            TextSend textSend = new TextSend();
+            textSend.setIsFlash(false);
+            textSend.setText(text);
+            textSend.setNumbersAndIds(bulk_text);
+            textSend.setIsBulk(true);
+            textSend.setPurpose(notificationType);
+            textSend.setAllowText(function_status);
+            textSend.setWithDbInfo(hasDbInfo);
+            
+            Response textResp = qSender.sendTextMessageRequest(textSend);
+            logger.info("response from text notifier - [{}] : [{}]",
+                    textResp.getRetn() + " - " + textResp.getDesc(), login.getUserId());
         }
-        return residentialAddressSend;
     }
-
-    /**
-     * Unwraps Holder email address from the holder model into
-     * HolderEmailAddress hibernate entity object
-     *
-     * @param holdModel object to holder model
-     * @param newEntry boolean variable indicating whether or not entry is new
-     * @return List of HolderEmailAddress hibernate entity objects
-     */
-    private List<HolderEmailAddress> retrieveHolderEmailAddress(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderEmailAddress> emailAddressSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
-            List<org.greenpole.entity.model.EmailAddress> emailAddressList;
-            if (holdModel.getEmailAddresses() != null) {
-                emailAddressList = holdModel.getEmailAddresses();
-            } else {
-                emailAddressList = new ArrayList<>();
-            }
-            List<org.greenpole.hibernate.entity.HolderEmailAddress> returnEmailAddress = new ArrayList<>();
-
-            for (EmailAddress email : emailAddressList) {
-//                HolderEmailAddressId emailId = new HolderEmailAddressId();
-//                emailId.setEmailAddress(email.getEmailAddress());
-                emailAddressEntity.setIsPrimary(email.isPrimaryEmail());
-//                emailAddressEntity.setId(emailId);
-            }
-            emailAddressSend.addAll(returnEmailAddress);
-        }
-        return emailAddressSend;
-    }
-
-    /**
-     * Unwraps holder phone number details from the holder model passed as
-     * parameter into HolderPhoneNumber hibernate entity
-     *
-     * @param holdModel object of holder details
-     * @param newEntry boolean variable indicating whether or not the entry is
-     * new
-     * @return List of HolderPhoneNumber objects retrieveHolderEmailAddress
-     */
-    private List<HolderPhoneNumber> retrieveHolderPhoneNumber(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderPhoneNumber> phoneNumberSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
-            List<org.greenpole.entity.model.PhoneNumber> phoneNumberList;
-            if (holdModel.getPhoneNumbers() != null) {
-                phoneNumberList = holdModel.getPhoneNumbers();
-            } else {
-                phoneNumberList = new ArrayList<>();
-            }
-
-            List<org.greenpole.hibernate.entity.HolderPhoneNumber> returnPhoneNumber = new ArrayList<>();
-
-            for (PhoneNumber pnList : phoneNumberList) {
-//                HolderPhoneNumberId phoneNoId = new HolderPhoneNumberId();
-//                phoneNoId.setPhoneNumber(pnList.getPhoneNumber());
-                phoneNumberEntity.setIsPrimary(pnList.isPrimaryPhoneNumber());
-//                phoneNumberEntity.setId(phoneNoId);
-            }
-            phoneNumberSend.addAll(returnPhoneNumber);
-        }
-        return phoneNumberSend;
-    }
-
-    /**
-     * Unwraps the holder postal address details from the HolderModel into
-     * HolderPostalAddress hibernate entity
-     *
-     * @param holdModel the holderModel of holder details
-     * @param newEntry boolean value indicating new entry
-     * @return List object of HolderPostalAddress hibernate entity
-     */
-    private List<HolderPostalAddress> retrieveHolderPostalAddress(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderPostalAddress> holderPostalAddressSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
-            List<org.greenpole.entity.model.Address> hpaddyList;
-            if (holdModel.getPostalAddresses() != null) {
-                hpaddyList = holdModel.getPostalAddresses();
-            } else {
-                hpaddyList = new ArrayList<>();
-            }
-
-            List<org.greenpole.hibernate.entity.HolderPostalAddress> returnHolderPostalAddress = new ArrayList<>();
-
-            for (org.greenpole.entity.model.Address hpa : hpaddyList) {
-//                HolderPostalAddressId postalAddyId = new HolderPostalAddressId();
-//                postalAddyId.setAddressLine1(hpa.getAddressLine1());
-//                postalAddyId.setState(hpa.getState());
-//                postalAddyId.setCountry(hpa.getCountry());
-//                postalAddressEntity.setId(postalAddyId);
-                postalAddressEntity.setAddressLine1(hpa.getAddressLine1());
-                postalAddressEntity.setAddressLine2(hpa.getAddressLine2());
-                postalAddressEntity.setAddressLine3(hpa.getAddressLine3());
-                postalAddressEntity.setCity(hpa.getCity());
-                postalAddressEntity.setPostCode(hpa.getPostCode());
-                postalAddressEntity.setIsPrimary(hpa.isPrimaryAddress());
-                returnHolderPostalAddress.add(postalAddressEntity);
-            }
-            holderPostalAddressSend.addAll(returnHolderPostalAddress);
-        }
-        return holderPostalAddressSend;
-    }
-
 }

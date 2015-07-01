@@ -2046,9 +2046,10 @@ public class ClientCompanyComponentLogic {
      * @param freshCreation if the client company is being created for the first time or undergoing an edit
      * @return the hibernate client company entity object
      */
-    private org.greenpole.hibernate.entity.ClientCompany retrieveClientCompanyModel(ClientCompany ccModel, boolean freshCreation) {
+    private org.greenpole.hibernate.entity.ClientCompany retrieveClientCompanyModel(ClientCompany ccModel, boolean freshCreation) throws ParseException {
         //instantiate required hibernate entities
         org.greenpole.hibernate.entity.ClientCompany cc_main = new org.greenpole.hibernate.entity.ClientCompany();
+        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         
         if (ccModel != null) {//guard against null pointer exception
             //get values from client company model and insert into client company hibernate entity
@@ -2060,6 +2061,8 @@ public class ClientCompanyComponentLogic {
             }
             cc_main.setCeo(ccModel.getCeo());
             cc_main.setSecretary(ccModel.getSecretary());
+            if (ccModel.getDateIncorp() != null && !"".equals(ccModel.getDateIncorp()))
+                cc_main.setDateIncorp(formatter.parse(ccModel.getDateIncorp()));
             cc_main.setValid(true);
             cc_main.setMerged(false);
             cc_main.setClientCompanyPrimary(true);

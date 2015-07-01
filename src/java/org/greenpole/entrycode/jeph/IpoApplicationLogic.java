@@ -5,24 +5,30 @@
  */
 package org.greenpole.entrycode.jeph;
 
+import java.text.MessageFormat;
 import org.greenpole.entirycode.jeph.model.ConfirmationDetails;
 import org.greenpole.entirycode.jeph.model.IpoApplication;
 import org.greenpole.entirycode.jeph.model.PrivatePlacementApplication;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.xml.bind.JAXBException;
 import org.greenpole.entity.model.Address;
 import org.greenpole.entity.model.EmailAddress;
 import org.greenpole.entity.model.PhoneNumber;
 import org.greenpole.entity.model.clientcompany.InitialPublicOffer;
 import org.greenpole.entity.notification.NotificationMessageTag;
+import org.greenpole.entity.notification.NotificationType;
 import org.greenpole.entity.notification.NotificationWrapper;
 import org.greenpole.entity.response.Response;
 import org.greenpole.entity.security.Login;
+import org.greenpole.entity.sms.TextSend;
 import org.greenpole.entity.tags.AddressTag;
 import org.greenpole.hibernate.entity.ClearingHouse;
+import org.greenpole.hibernate.entity.ClientCompany;
 import org.greenpole.hibernate.entity.Holder;
 import org.greenpole.hibernate.entity.HolderCompanyAccount;
 import org.greenpole.hibernate.entity.HolderCompanyAccountId;
@@ -37,10 +43,12 @@ import org.greenpole.hibernate.query.HolderComponentQuery;
 import org.greenpole.hibernate.query.factory.ComponentQueryFactory;
 import org.greenpole.hibernate.query.impl.HolderComponentQueryImpl;
 import org.greenpole.notifier.sender.QueueSender;
+import org.greenpole.util.Manipulator;
 import org.greenpole.util.Notification;
 import org.greenpole.util.properties.GreenpoleProperties;
 import org.greenpole.util.properties.NotificationProperties;
 import org.greenpole.util.properties.NotifierProperties;
+import org.greenpole.util.properties.SMSProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,107 +69,70 @@ public class IpoApplicationLogic {
     /**
      * Processes request to validate IPO application before creation
      * @param login the user's login details
-     * @param ipoApply the IPO application object to be validated
+     * @param ipoApp the IPO application object to be validated
      * @return response object to IPO application validation request
      */
-    public Response ipoApplication_Request(Login login, IpoApplication ipoApply) {
-        logger.info("Request to create Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
+    public Response applyForIpo_Confirmation_Request(Login login, IpoApplication ipoApp) {
+        logger.info("Request to create Initial Public Offer application, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        Date date = new Date();
-
+        
         try {
-            List<IpoApplication> iAppList = new ArrayList<>();
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            Date date = new Date();
+            List<IpoApplication> appList = new ArrayList<>();
 
-            long remainingSharesNotBought = 0;
+            long remainingSharesNotBought;
             long totalSharesBought = 0;
-            long continuingSharesSubscribed = 0;
-            long continuingShares = 0;
-            double amtPaid = 0;
-            double returnMoney = 0;
-            long continuingSharesAvailable = 0;
-            long sharesBought = 0;
-            double sharesSubscribedValue = 0;
-            if (hq.checkHolderAccount(ipoApply.getHolderId())) {
-                // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
-                if (true) {
-                    // InitialPublicOffer ipo = hcq.getIpo(applyIpo.getInitialPublicOfferId());
-                    InitialPublicOffer ipo = new InitialPublicOffer();
-                    if (date.before(formatter.parse(ipo.getClosingDate()))) {
-                        if (ipoApply.getSharesSubscribed() >= ipo.getStartingMinimumSubscription()) {
-                            continuingShares = ipoApply.getSharesSubscribed() - ipo.getStartingMinimumSubscription();
-                            if (continuingShares % ipo.getContinuingMinimumSubscription() == 0) {
-                                amtPaid = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                if (ipoApply.getAmountPaid() == amtPaid) {
-                                    // List<org.greenpole.hibernate.entity.IpoApplication> ipoApplyList = hcq.getIpoApplication(ipoApply.getInitialPublicOfferId(), false);
-                                    List<org.greenpole.hibernate.entity.IpoApplication> ipoApplyList = new ArrayList<>();
-                                    for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoApplyList) {
-                                        totalSharesBought += ipoapp.getSharesSubscribed();
-                                    }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
-                                    if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                        sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                        ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                        ipoApply.setDateApplied(date.toString());
-                                        iAppList.add(ipoApply);
-                                        resp.setRetn(0);
-                                        resp.setDesc("IPO Application Details for confirmation.");
-                                        resp.setBody(iAppList);
-                                        logger.info("IPO Application Details for confirmation. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                        // send SMS and/or Email notification
-                                        return resp;
-                                    } else if ((ipoApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= ipo.getStartingMinimumSubscription())) {
-                                        continuingSharesAvailable = remainingSharesNotBought - ipo.getStartingMinimumSubscription();
-                                        if (continuingSharesAvailable % ipo.getContinuingMinimumSubscription() == 0) {
-                                            continuingSharesSubscribed = (int) (Math.floor(continuingSharesAvailable / ipo.getContinuingMinimumSubscription()) * ipo.getContinuingMinimumSubscription());
-                                            sharesSubscribedValue = (ipo.getStartingMinimumSubscription() + continuingSharesSubscribed) * ipo.getOfferPrice();
-                                            sharesBought = ipo.getStartingMinimumSubscription() + continuingSharesSubscribed;
-                                            returnMoney = (ipoApply.getSharesSubscribed() - sharesBought) * ipo.getOfferPrice();
-                                            ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ipoApply.setDateApplied(date.toString());
-                                            // ipoApply.setReturnMoney(returnMoney);
-                                            iAppList.add(ipoApply);
-                                            resp.setRetn(200);
-                                            resp.setDesc("Insufficient quantity of shares. Number of shares available is: " + sharesBought);
-                                            resp.setBody(iAppList);
-                                            logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                            return resp;
-                                        }
-                                        iAppList.add(ipoApply);
-                                        resp.setBody(iAppList);
-                                        resp.setRetn(200);
-                                        resp.setDesc("Insufficient quantity of shares. Number of shares available is: " + remainingSharesNotBought);
-                                        logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                        return resp;
-                                    }
-                                    resp.setRetn(200);
-                                    resp.setDesc("There is not enough shares to buy. Number of available shares is: " + remainingSharesNotBought);
-                                    logger.info("There is not enough shares to buy. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                    return resp;
+            long continuingShares;
+            double amtToBePaid;
+            double sharesSubscribedValue;
+            if (hq.checkHolderAccount(ipoApp.getHolderId())) {
+                if (cq.checkActiveInitialPublicOffer(ipoApp.getInitialPublicOfferId())) {//ipo must be active
+                    org.greenpole.hibernate.entity.InitialPublicOffer ipo = cq.getActiveClientCompanyIpo(ipoApp.getInitialPublicOfferId());
+                    if (ipoApp.getSharesSubscribed() >= ipo.getStartingMinSub()) {//application must have subscribed shares greater than min starting subscription
+                        continuingShares = ipoApp.getSharesSubscribed() - ipo.getStartingMinSub();
+                        if (continuingShares % ipo.getContMinSub() == 0) {//application must have continuing shares in multiples of continuing subscription
+                            amtToBePaid = ipoApp.getSharesSubscribed() * ipo.getOfferPrice();
+                            if (ipoApp.getAmountPaid() == amtToBePaid) {//application must have amount paid calculated to the amount to be paid
+                                List<org.greenpole.hibernate.entity.IpoApplication> ipoList = cq.getActiveIpoApplications(ipoApp.getInitialPublicOfferId());
+                                for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoList) {
+                                    totalSharesBought += ipoapp.getSharesSubscribed();//get all shares subscribed from both approved and processing applications
                                 }
-                                resp.setRetn(200);
-                                resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                remainingSharesNotBought = ipo.getTotalSharesOnOffer() - totalSharesBought;
+                                if (ipoApp.getSharesSubscribed() <= remainingSharesNotBought) {//just a check for information purpose
+                                    resp.setRetn(0);
+                                    resp.setDesc("IPO application checks out.");
+                                    logger.info("IPO application checks out - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                } else {
+                                    resp.setRetn(0);
+                                    resp.setDesc("IPO application's subscription is greater than available shares.");
+                                    logger.info("IPO application's subscription is greater than available shares - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                }
+                                sharesSubscribedValue = ipoApp.getSharesSubscribed() * ipo.getOfferPrice();
+                                ipoApp.setSharesSubscribedValue(sharesSubscribedValue);
+                                ipoApp.setDateApplied(formatter.format(date));
+                                appList.add(ipoApp);
+                                resp.setBody(appList);
                                 return resp;
                             }
                             resp.setRetn(200);
-                            resp.setDesc("Continuing shares subscription should be in multiples of " + ipo.getContinuingMinimumSubscription());
-                            logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
+                            logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
                             return resp;
                         }
                         resp.setRetn(200);
-                        resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO.");
-                        logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                        resp.setDesc("Continuing shares subscription should be in multiples of " + ipo.getContMinSub());
+                        logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
                         return resp;
                     }
                     resp.setRetn(200);
-                    resp.setDesc("Application for Initial Public Offer is past closing date and so holder cannot apply");
-                    logger.info("Application for Initial Public Offer is past closing date and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO.");
+                    logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO. - [{}]: [{}]", login.getUserId(), resp.getRetn());
                     return resp;
                 }
                 resp.setRetn(200);
-                resp.setDesc("Client company has not declared Initial Public Offer and so holder cannot apply.");
-                logger.info("Client company does not declared Initial Public Offer and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                resp.setDesc("Initial Public Offer is past closing date and so holder cannot apply");
+                logger.info("Initial Public Offer is past closing date and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
@@ -181,105 +152,61 @@ public class IpoApplicationLogic {
      * Processes request to create IPO application on confirmation
      * @param login the user's login details
      * @param authenticator the authenticator user meant to receive the notification
-     * @param ipoApply the IPO application object to be created
+     * @param ipoApp the IPO application object to be created
      * @return response object to for creation of IPO application
      */
-    public Response ipoApplicationConfirmation_Request(Login login, String authenticator, IpoApplication ipoApply) {
-        logger.info("Request to confirm Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
+    public Response applyForIpo_Request(Login login, String authenticator, IpoApplication ipoApp) {
+        logger.info("Request to confirm Initial Public Offer application, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        Notification notification = new Notification();
-        Date date = new Date();
-
-        List<IpoApplication> iAppList = new ArrayList<>();
-
-        long remainingSharesNotBought = 0;
-        long totalSharesBought = 0;
-        long continuingShares = 0;
-        double amtPaid = 0;
-        double returnMoney = 0;
-        long continuingSharesAvailable = 0;
-        long sharesSubscribed = 0;
-        double sharesSubscribedValue = 0;
-
+        
         try {
+            Notification notification = new Notification();
+            List<IpoApplication> iAppList = new ArrayList<>();
+            
             NotificationWrapper wrapper;
             QueueSender queue;
             NotifierProperties prop;
+            
+            if (hq.checkHolderAccount(ipoApp.getHolderId())) {
+                wrapper = new NotificationWrapper();
+                prop = NotifierProperties.getInstance();
+                queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                
+                logger.info("Preparing notification for confirmation of Initial Public Offer application");
+                
+                //set necessary variables
+                ipoApp.setCancelled(false);
+                ipoApp.setApproved(false);
+                ipoApp.setProcessingPayment(true);
+                
+                Holder h = hq.getHolder(ipoApp.getHolderId());
+                iAppList.add(ipoApp);
+                
+                wrapper.setCode(notification.createCode(login));
+                wrapper.setDescription("Authorise confirmation of Initial Public Offer Application for " + 
+                        h.getFirstName() + " " + h.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.apply_for_ipo.toString());
+                wrapper.setFrom(login.getUserId());
+                wrapper.setTo(authenticator);
+                wrapper.setModel(iAppList);
+                
+                logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+                resp = queue.sendAuthorisationRequest(wrapper);
+                
+                if (resp.getRetn() == 0) {
+                    SMSProperties smsProp = SMSProperties.getInstance();
+                    int holderId = ipoApp.getHolderId();
+                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                    ClientCompany cc = cq.getIpoClientCompany(ipoApp.getInitialPublicOfferId());
 
-            if (hq.checkHolderAccount(ipoApply.getHolderId())) {
-                // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
-                if (true) {
-                    // InitialPublicOffer ipo = hcq.getIpo(applyIpo.getInitialPublicOfferId());
-                    InitialPublicOffer ipo = new InitialPublicOffer();
-                    if (date.before(formatter.parse(ipo.getClosingDate()))) {
-                        if (ipoApply.getSharesSubscribed() >= ipo.getStartingMinimumSubscription()) {
-                            continuingSharesAvailable = ipoApply.getSharesSubscribed() - ipo.getStartingMinimumSubscription();
-                            if (continuingSharesAvailable % ipo.getContinuingMinimumSubscription() == 0) {
-                                amtPaid = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                if (ipoApply.getAmountPaid() == amtPaid) {
-                                    // List<org.greenpole.hibernate.entity.IpoApplication> ipoApplyList = hcq.getIpoApplication(ipoApply.getInitialPublicOfferId(), false);
-                                    List<org.greenpole.hibernate.entity.IpoApplication> ipoApplyList = new ArrayList<>();
-                                    for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoApplyList) {
-                                        totalSharesBought += ipoapp.getSharesSubscribed();
-                                    }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
-                                    if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                        sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                        ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                        ipoApply.setDateApplied(date.toString());
-                                        iAppList.add(ipoApply);
-                                    } else if ((ipoApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= ipo.getStartingMinimumSubscription())) {
-                                        continuingSharesAvailable = remainingSharesNotBought - ipo.getStartingMinimumSubscription();
-                                        if (continuingSharesAvailable % ipo.getContinuingMinimumSubscription() == 0) {
-                                            continuingShares = (int) (Math.floor(continuingSharesAvailable / ipo.getContinuingMinimumSubscription()) * ipo.getContinuingMinimumSubscription());
-                                            sharesSubscribed = ipo.getStartingMinimumSubscription() + continuingShares;
-                                            sharesSubscribedValue = sharesSubscribed * ipo.getOfferPrice();
-                                            returnMoney = (ipoApply.getSharesSubscribed() - sharesSubscribed) * ipo.getOfferPrice();
-                                            ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            // ipoApply.setReturnMoney(returnMoney);
-                                            ipoApply.setDateApplied(date.toString());
-                                            iAppList.add(ipoApply);
-                                        }
-                                    }
-                                    wrapper = new NotificationWrapper();
-                                    prop = NotifierProperties.getInstance();
-                                    queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                    String text = MessageFormat.format(smsProp.getTextIpoProcessing(), cc.getName());
+                    String notificationType = NotificationType.apply_for_ipo.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextIpoSend());
 
-                                    logger.info("Preparing notification for confirm on Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
-
-                                    wrapper.setCode(notification.createCode(login));
-                                    wrapper.setDescription("Authenticate confirmation of Initial Public Offer Application for " + ipoApply.getHolderId());
-                                    wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
-                                    wrapper.setFrom(login.getUserId());
-                                    wrapper.setTo(authenticator);
-                                    wrapper.setModel(iAppList);
-                                    resp = queue.sendAuthorisationRequest(wrapper);
-                                    logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                                    resp.setRetn(0);
-                                    // send SMS and/or Email notification
-                                    return resp;
-                                }
-                                resp.setRetn(200);
-                                resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                return resp;
-                            }
-                            resp.setRetn(200);
-                            resp.setDesc("Continuing shares subscription should be in multiples of " + ipo.getContinuingMinimumSubscription());
-                            logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                            return resp;
-                        }
-
-                    }
-                    resp.setRetn(200);
-                    resp.setDesc("Application for Initial Public Offer is past closing date and so holder cannot apply");
-                    logger.info("Application for Initial Public Offer is past closing date and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                    return resp;
+                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
                 }
-                resp.setRetn(200);
-                resp.setDesc("Client company has not declared Initial Public Offer and so holder cannot apply.");
-                logger.info("Client company does not declared Initial Public Offer and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                
                 return resp;
             }
             resp.setRetn(200);
@@ -303,126 +230,92 @@ public class IpoApplicationLogic {
      * @param notificationCode the notification code
      * @return response object to the IPO application creation request
      */
-    public Response ipoApplication_Authorise(Login login, String notificationCode) {
+    public Response applyForIpo_Authorise(Login login, String notificationCode) {
         logger.info("Authorise Initial Public Offer application, invoked by [{}]", login.getUserId());
-        Notification notification = new Notification();
         Response resp = new Response();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        Date date = new Date();
-        List<IpoApplication> iAppList = new ArrayList<>();
-
-        long remainingSharesNotBought = 0;
-        long totalSharesBought = 0;
-        long returnShares = 0;
+        
         long continuingShares = 0;
-        double amtPaid = 0;
-        double returnMoney = 0;
-        long continuingSharesAvailable = 0;
-        long sharesSubscribed = 0;
-        double sharesSubscribedValue = 0;
+        double amtToBePaid = 0;
 
         try {
+            Notification notification = new Notification();
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             List<IpoApplication> ipoApplicationList = (List<IpoApplication>) wrapper.getModel();
-            IpoApplication ipoApply = ipoApplicationList.get(0);
-            logger.info("Authorise Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
-
-            if (hq.checkHolderAccount(ipoApply.getHolderId())) {
-                // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
-                if (true) {
-                    // InitialPublicOffer ipo = hcq.getIpo(applyIpo.getInitialPublicOfferId());
-                    InitialPublicOffer ipo = new InitialPublicOffer();
-                    if (date.before(formatter.parse(ipo.getClosingDate()))) {
-                        if (ipoApply.getSharesSubscribed() > ipo.getStartingMinimumSubscription()) {
-                            continuingSharesAvailable = ipoApply.getSharesSubscribed() - ipo.getStartingMinimumSubscription();
-                            if (continuingSharesAvailable % ipo.getContinuingMinimumSubscription() == 0) {
-                                amtPaid = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                if (ipoApply.getAmountPaid() == amtPaid) {
-                                    // List<org.greenpole.hibernate.entity.IpoApplication> ipoApplyList = hcq.getIpoApplication(ipoApply.getInitialPublicOfferId(), false);
-                                    List<org.greenpole.hibernate.entity.IpoApplication> ipoApplyList = new ArrayList();
-                                    for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoApplyList) {
-                                        totalSharesBought += ipoapp.getSharesSubscribed();
-                                    }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
-                                    if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                        sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                        ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                        ipoApply.setReturnMoney(returnMoney);
-                                        ipoApply.setCancelled(false);
-                                    } else if ((ipoApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= ipo.getStartingMinimumSubscription())) {
-                                        continuingSharesAvailable = remainingSharesNotBought - ipo.getStartingMinimumSubscription();
-                                        if (continuingSharesAvailable % ipo.getContinuingMinimumSubscription() == 0) {
-                                            sharesSubscribed = (int) (ipo.getStartingMinimumSubscription() + (Math.floor(continuingSharesAvailable / ipo.getContinuingMinimumSubscription()) * ipo.getContinuingMinimumSubscription()));
-                                            returnMoney = (ipoApply.getSharesSubscribed() - sharesSubscribed) * ipo.getOfferPrice();
-                                            sharesSubscribedValue = sharesSubscribed * ipo.getOfferPrice();
-                                            ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ipoApply.setReturnMoney(returnMoney);
-                                            ipoApply.setCancelled(false);
-                                        }
-                                    }
-                                    org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = new org.greenpole.hibernate.entity.IpoApplication();
-
-                                    ClearingHouse clHouseEntity = new ClearingHouse();
-                                    clHouseEntity.setId(ipoApply.getClearingHouseId());
-
-                                    Holder holderEntity = new Holder();
-                                    holderEntity.setId(ipoApply.getHolderId());
-
-                                    org.greenpole.hibernate.entity.InitialPublicOffer ipoEntity = new org.greenpole.hibernate.entity.InitialPublicOffer();
-                                    ipoEntity.setId(ipoApply.getInitialPublicOfferId());
-
-                                    ipoApplicationEntity.setClearingHouse(clHouseEntity);
-                                    ipoApplicationEntity.setHolder(holderEntity);
-                                    ipoApplicationEntity.setInitialPublicOffer(ipoEntity);
-                                    ipoApplicationEntity.setIssuer(ipoApply.getIssuer());
-                                    ipoApplicationEntity.setSharesSubscribed(ipoApply.getSharesSubscribed());
-                                    ipoApplicationEntity.setAmountPaid(ipoApply.getAmountPaid());
-                                    ipoApplicationEntity.setIssuingHouse(ipoApply.getIssuingHouse());
-                                    ipoApplicationEntity.setSharesSubscribedValue(ipoApply.getSharesSubscribedValue());
-                                    // ipoApplicationEntity.setReturnMoney(ipoApply.getReturnMoney());
-                                    ipoApplicationEntity.setCanceled(ipoApply.isCancelled());
-                                    ipoApplicationEntity.setProcessingPayment(ipoApply.isProcessingPayment());
-                                    ipoApplicationEntity.setApproved(ipoApply.isApproved());
-
-                                    HolderCompanyAccount holderCompAcct = new HolderCompanyAccount();
-                                    Holder holder = new Holder();
-                                    holder.setId(ipoApply.getHolderId());
-                                    holderCompAcct.setHolder(holder);
-                                    // create holder company account and ipo application . . .
+            IpoApplication ipoApp = ipoApplicationList.get(0);
+            logger.info("Authorise Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApp.getIssuer(), ipoApp.getHolderId(), login.getUserId());
+            
+            if (hq.checkHolderAccount(ipoApp.getHolderId())) {
+                if (cq.checkActiveInitialPublicOffer(ipoApp.getInitialPublicOfferId())) {//ipo must be active
+                    org.greenpole.hibernate.entity.InitialPublicOffer ipo = cq.getActiveClientCompanyIpo(ipoApp.getInitialPublicOfferId());
+                    if (ipoApp.getSharesSubscribed() >= ipo.getStartingMinSub()) {//application must have subscribed shares greater than min starting subscription
+                        continuingShares = ipoApp.getSharesSubscribed() - ipo.getStartingMinSub();
+                        if (continuingShares % ipo.getContMinSub() == 0) {//application must have continuing shares in multiples of continuing subscription
+                            amtToBePaid = ipoApp.getSharesSubscribed() * ipo.getOfferPrice();
+                            if (ipoApp.getAmountPaid() == amtToBePaid) {//application must have amount paid calculated to the amount to be paid
+                                org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = new org.greenpole.hibernate.entity.IpoApplication();
+                                
+                                ClearingHouse clHouseEntity = cq.getClearingHouse(ipoApp.getClearingHouseId());
+                                Holder holderEntity = hq.getHolder(ipoApp.getHolderId());
+                                org.greenpole.hibernate.entity.InitialPublicOffer ipoEntity = cq.getIpo(ipoApp.getInitialPublicOfferId());
+                                
+                                ipoApplicationEntity.setClearingHouse(clHouseEntity);
+                                ipoApplicationEntity.setHolder(holderEntity);
+                                ipoApplicationEntity.setInitialPublicOffer(ipoEntity);
+                                ipoApplicationEntity.setIssuer(ipoApp.getIssuer());
+                                ipoApplicationEntity.setSharesSubscribed(ipoApp.getSharesSubscribed());
+                                ipoApplicationEntity.setAmountPaid(ipoApp.getAmountPaid());
+                                ipoApplicationEntity.setIssuingHouse(ipoApp.getIssuingHouse());
+                                ipoApplicationEntity.setSharesSubscribedValue(ipoApp.getSharesSubscribedValue());
+                                ipoApplicationEntity.setCanceled(false);
+                                ipoApplicationEntity.setDateApplied(formatter.parse(ipoApp.getDateApplied()));
+                                ipoApplicationEntity.setProcessingPayment(true);
+                                ipoApplicationEntity.setApproved(true);
+                                
+                                boolean applied = hq.applyForIpo(ipoApplicationEntity);
+                                
+                                if (applied) {
                                     resp.setRetn(0);
-                                    // hcq.createUpdateIpoApplication(ipoApply);
-                                    hq.createUpdateHolderCompanyAccount(holderCompAcct);
-                                    logger.info("Holder Company Account created for holder. [{}] - [{}]", login.getUserId(), resp.getRetn());
                                     resp.setDesc("Application for Initial Public Offer Successful");
-                                    logger.info("Application for Initial Public Offer Successful. [{}] - [{}]", login.getUserId(), resp.getRetn());
-                                    wrapper.setAttendedTo(true);
+                                    logger.info("Application for Initial Public Offer Successful - [{}]", login.getUserId());
+                                    
                                     notification.markAttended(notificationCode);
-                                    // send SMS and/or Email notification
+                                    SMSProperties smsProp = SMSProperties.getInstance();
+                                    int holderId = ipoApp.getHolderId();
+                                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                                    ClientCompany cc = cq.getIpoClientCompany(ipoApp.getInitialPublicOfferId());
+                                    
+                                    String text = MessageFormat.format(smsProp.getTextIpoPaymentSuccess(), cc.getName());
+                                    String notificationType = NotificationType.apply_for_ipo.toString();
+                                    boolean function_status = Boolean.valueOf(smsProp.getTextIpoSend());
+                                    
+                                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
                                     return resp;
                                 }
                                 resp.setRetn(200);
-                                resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                                resp.setDesc("Application for Initial Public Offer failed. Please contact Administrator");
+                                logger.info("Application for Initial Public Offer failed. Please contact Administrator - [{}]: [{}]", login.getUserId(), resp.getRetn());
                                 return resp;
                             }
                             resp.setRetn(200);
-                            resp.setDesc("Continuing shares subscription should be in multiples of " + ipo.getContinuingMinimumSubscription());
-                            logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
+                            logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
                             return resp;
                         }
                         resp.setRetn(200);
-                        resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO.");
-                        logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                        resp.setDesc("Continuing shares subscription should be in multiples of " + ipo.getContMinSub());
+                        logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
                         return resp;
                     }
                     resp.setRetn(200);
-                    resp.setDesc("Application for Initial Public Offer is past closing date and so holder cannot apply");
-                    logger.info("Application for Initial Public Offer is past closing date and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO.");
+                    logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO. - [{}]: [{}]", login.getUserId(), resp.getRetn());
                     return resp;
                 }
                 resp.setRetn(200);
-                resp.setDesc("Client company has not declared Initial Public Offer and so holder cannot apply.");
-                logger.info("Client company does not declared Initial Public Offer and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                resp.setDesc("Initial Public Offer is past closing date and so holder cannot apply");
+                logger.info("Initial Public Offer is past closing date and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
@@ -448,43 +341,61 @@ public class IpoApplicationLogic {
      * Processes request to cancel a shareholder's IPO application 
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification
-     * @param ipoApply the object of IPO application to be canceled
+     * @param ipoApp the object of IPO application to be cancelled
      * @return response object to the cancel IPO application request
      */
-    public Response cancelIpoApplication_Request(Login login, String authenticator, IpoApplication ipoApply) {
-        logger.info("Request to cancel Initial Public Offer application of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
+    public Response cancelIpoApplication_Request(Login login, String authenticator, IpoApplication ipoApp) {
+        logger.info("Request to cancel Initial Public Offer application, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        Notification notification = new Notification();
 
         try {
+            Notification notification = new Notification();
+            
             NotificationWrapper wrapper;
             QueueSender queue;
             NotifierProperties prop;
-            // org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = hcq.getIpoApplication(ipoApply.getId());
-            org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = new org.greenpole.hibernate.entity.IpoApplication();
-            if (ipoApplicationEntity.getProcessingPayment() || ipoApplicationEntity.getApproved()) {
-                // if (true) {
+            
+            org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = hq.getIpoApplication(ipoApp.getInitialPublicOfferId());
+            if (!ipoApplicationEntity.getApproved()) {
                 wrapper = new NotificationWrapper();
                 prop = NotifierProperties.getInstance();
                 queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
+                
                 List<IpoApplication> iAppList = new ArrayList<>();
-                iAppList.add(ipoApply);
+                iAppList.add(ipoApp);
+                
+                Holder h = hq.getHolder(ipoApp.getHolderId());
+                
                 wrapper.setCode(notification.createCode(login));
-                wrapper.setDescription("Authenticate cancellation of Initial Public Offer Application for " + ipoApply.getHolderId());
-                wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+                wrapper.setDescription("Authorise cancellation of Initial Public Offer Application for " + 
+                        h.getFirstName() + " " + h.getLastName());
+                wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+                wrapper.setNotificationType(NotificationType.cancel_ipo.toString());
                 wrapper.setFrom(login.getUserId());
                 wrapper.setTo(authenticator);
                 wrapper.setModel(iAppList);
-                resp = queue.sendAuthorisationRequest(wrapper);
+                
                 logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
-                // send SMS and/or Email notification
+                resp = queue.sendAuthorisationRequest(wrapper);
+                
+                if (resp.getRetn() == 0) {
+                    SMSProperties smsProp = SMSProperties.getInstance();
+                    int holderId = ipoApp.getHolderId();
+                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                    ClientCompany cc = cq.getIpoClientCompany(ipoApp.getInitialPublicOfferId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextIpoCancelProcessing(), cc.getName());
+                    String notificationType = NotificationType.cancel_ipo.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextIpoSend());
+
+                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
+                }
+                
                 return resp;
             }
             resp.setRetn(200);
             resp.setDesc("Initial Public Offer Application payment is being processed or has been approved and so cannot be cancelled");
             logger.info("Initial Public Offer Application payment is being processed or has been approved and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-            // send SMS and/or Email notification
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
@@ -505,32 +416,47 @@ public class IpoApplicationLogic {
     public Response cancelIpoApplication_Authorise(Login login, String notificationCode) {
         logger.info("Authorise Initial Public Offer Application cancellation, invoked by [{}]", login.getUserId());
         Notification notification = new Notification();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
         Response resp = new Response();
 
         try {
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
-            List<IpoApplication> ipoApplicationList = (List<IpoApplication>) wrapper.getModel();
-            IpoApplication ipoApply = ipoApplicationList.get(0);
-            // org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = hcq.getIpoApplication(ipoApply.getId());
-            org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = new org.greenpole.hibernate.entity.IpoApplication();
-            if (ipoApplicationEntity.getProcessingPayment() || ipoApplicationEntity.getApproved()) {
-                // if (true) {
-                ipoApply.setCancelled(true);
-                ipoApplicationEntity.setCanceled(ipoApply.isCancelled());
-                // hcq.createUpdateIpoApplication(ipoApplicationEntity);
-                resp.setRetn(0);
-                resp.setDesc("Authorise Initial Public Offer Application cancellation successful");
-                logger.info("Authorise Initial Public Offer Application cancellation successful - [{}]", login.getUserId());
-                wrapper.setAttendedTo(true);
-                notification.markAttended(notificationCode);
-                // send SMS and/or Email notification
+            List<IpoApplication> ipoAppList = (List<IpoApplication>) wrapper.getModel();
+            IpoApplication ipoApp = ipoAppList.get(0);
+            
+            org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = hq.getIpoApplication(ipoApp.getInitialPublicOfferId());
+            if (!ipoApplicationEntity.getApproved()) {
+                ipoApplicationEntity.setCanceled(true);
+                ipoApplicationEntity.setProcessingPayment(false);
+                
+                boolean updated = hq.applyForIpo(ipoApplicationEntity);
+                
+                if (updated) {
+                    resp.setRetn(0);
+                    resp.setDesc("Successful");
+                    logger.info("Authorise Initial Public Offer Application cancellation successful - [{}]", login.getUserId());
+                    
+                    notification.markAttended(notificationCode);
+                    SMSProperties smsProp = SMSProperties.getInstance();
+                    int holderId = ipoApp.getHolderId();
+                    String holderPhone = hq.getHolderPryPhoneNumber(holderId);
+                    ClientCompany cc = cq.getIpoClientCompany(ipoApp.getInitialPublicOfferId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextIpoCancelConfirm(), cc.getName());
+                    String notificationType = NotificationType.cancel_ipo.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextIpoSend());
+
+                    sendTextMessage(holderPhone, wrapper.getCode(), text, notificationType, holderId, function_status, true, login);
+                    
+                    return resp;
+                }
+                resp.setRetn(200);
+                resp.setDesc("Initial Public Offer Application cancellation unsuccessful. Please contract System Administrator.");
+                logger.info("Initial Public Offer Application cancellation unsuccessful. Please contract System Administrator - [{}]: [{}]", login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
             resp.setDesc("Initial Public Offer Application payment is being processed or has been approved and so cannot be cancelled");
             logger.info("Initial Public Offer Application payment is being processed or has been approved and so cannot be cancelled. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-            // send SMS and/or Email notification
             return resp;
         } catch (JAXBException ex) {
             resp.setRetn(98);
@@ -861,51 +787,119 @@ public class IpoApplicationLogic {
      * Processes request to upload IPO application en-mass
      * @param login the user's login details
      * @param authenticator the authenticator meant to receive the notification code
-     * @param ipoApplyList a list of IPO applications
+     * @param ipoAppList a list of IPO applications
      * @return response object to the upload IPO application
      */
-    public Response uploadIpoApplicationEnmass_Request(Login login, String authenticator, List<IpoApplication> ipoApplyList) {
+    public Response uploadIpoApplicationEnmass_Request(Login login, String authenticator, List<IpoApplication> ipoAppList) {
         logger.info("Request to upload list of Initial Public Offer application, invoked by [{}]", login.getUserId());
-        List<Response> respList = new ArrayList<>();
-        List<ConfirmationDetails> confirmationList = new ArrayList<>();
-        ConfirmationDetails confirm = new ConfirmationDetails();
         Response resp = new Response();
         Notification notification = new Notification();
+        
+        List<Response> positiveResponses = new ArrayList<>();
+        List<ConfirmationDetails> confirmationList = new ArrayList<>();
+        ConfirmationDetails confirm = new ConfirmationDetails();
 
         try {
             NotificationWrapper wrapper;
             QueueSender queue;
             NotifierProperties prop;
-            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-
+            
+            boolean flag = false;
+            String fail_desc = "";
+            
             wrapper = new NotificationWrapper();
             prop = NotifierProperties.getInstance();
             queue = new QueueSender(prop.getNotifierQueueFactory(), prop.getAuthoriserNotifierQueueName());
-
-            logger.info("Preparing notification for a list of Initial Public Offer applications, invoked by [{}]", login.getUserId());
-            wrapper.setCode(notification.createCode(login));
-
-            for (IpoApplication ipoApplicant : ipoApplyList) {
-                respList.add(validateHolderDetails(login, ipoApplicant.getHolder()));
-                wrapper.setDescription("Authenticate holder, " + ipoApplicant.getHolder().getFirstName() + " " + ipoApplicant.getHolder().getLastName()
-                        + "'s application for the IPO issued by - " + ipoApplicant.getIssuer());
+            
+            for (IpoApplication ipoApplicant : ipoAppList) {
+                Response rulesCheck = validateIpoApplication(login, ipoApplicant);
+                if (rulesCheck.getRetn() != 0) {
+                    return rulesCheck;//return and exit
+                }
             }
-            wrapper.setMessageTag(NotificationMessageTag.Authorisation_accept.toString());
+
+            for (IpoApplication ipoApplicant : ipoAppList) {
+                Response detailsCheck = validateHolderDetails(login, ipoApplicant.getHolder());
+                Response recordCheck = validateHolderRecord(login, ipoApplicant.getHolder());
+                
+                if (detailsCheck.getRetn() == 0 && recordCheck.getRetn() == 0) {
+                    positiveResponses.add(recordCheck);
+                }
+                
+                if (detailsCheck.getRetn() != 0) {
+                    flag = true;
+                    fail_desc += "\n" + detailsCheck.getDesc();
+                } else if (recordCheck.getRetn() != 0) {
+                    flag = true;
+                    fail_desc += "\n" + recordCheck.getDesc();
+                }
+            }
+            
+            if (flag) {
+                resp.setRetn(200);
+                resp.setDesc(fail_desc);
+                return resp;
+            }
+            
+            ClientCompany cc_info = cq.getIpoClientCompany(ipoAppList.get(0).getInitialPublicOfferId());
+            
+            wrapper.setCode(notification.createCode(login));
+            wrapper.setDescription("Authorise multiple application for the IPO issued by - " + cc_info.getName());
+            wrapper.setMessageTag(NotificationMessageTag.Authorisation_request.toString());
+            wrapper.setMessageTag(NotificationType.apply_for_ipo_enmass.toString());
             wrapper.setFrom(login.getUserId());
             wrapper.setTo(authenticator);
-            wrapper.setModel(ipoApplyList);
-            resp = queue.sendAuthorisationRequest(wrapper);
+            wrapper.setModel(ipoAppList);
+            
             logger.info("Notification forwarded to queue - notification code: [{}] - [{}]", wrapper.getCode(), login.getUserId());
+            resp = queue.sendAuthorisationRequest(wrapper);
+            
             confirm.setTitle("List of Initial Public Offer Applications Status");
-            confirm.setDetails(respList);
+            confirm.setDetails(positiveResponses);
             confirmationList.add(confirm);
-            resp.setRetn(0);
+            
             resp.setBody(confirmationList);
             // send SMS and/or Email notification
+            if (resp.getRetn() == 0) {
+                SMSProperties smsProp = SMSProperties.getInstance();
+                org.greenpole.util.Date txtdate = new org.greenpole.util.Date();
+                Map<String, String> phoneMessageIds = new HashMap<>();
+                for (IpoApplication ipoApp : ipoAppList) {
+                    String holderPhone = "";
+                    boolean foundNumber = false;
+                    if (ipoApp.getHolder().getPhoneNumbers() != null && !ipoApp.getHolder().getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : ipoApp.getHolder().getPhoneNumbers()) {
+                            if (phone.isPrimaryPhoneNumber()) {
+                                if (phone.getPhoneNumber() != null && !"".equals(phone.getPhoneNumber())) {
+                                    holderPhone = phone.getPhoneNumber();
+                                    foundNumber = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (foundNumber) {
+                        String msgId = ipoApp.getHolder().getFirstName().substring(0, 3) + "_" +
+                                ipoApp.getHolder().getLastName().substring(0, 3) + "_" + txtdate.getDateTime();
+                        phoneMessageIds.put(holderPhone, msgId);
+                    }
+                }
+                
+                if (!phoneMessageIds.isEmpty()) {
+                    ClientCompany cc = cq.getIpoClientCompany(ipoAppList.get(0).getInitialPublicOfferId());
+                    
+                    String text = MessageFormat.format(smsProp.getTextIpoProcessing(), cc.getName());
+                    String notificationType = NotificationType.apply_for_ipo_enmass.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextIpoSend());
+                    
+                    sendBulkTextMessage(text, phoneMessageIds, notificationType, function_status, false, login);
+                }
+            }
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
-            resp.setBody(respList);
+            resp.setBody(positiveResponses);
             resp.setDesc("General error. Unable to process Initial Public Offer Application request. Contact system administrator.");
             logger.info("error processing Initial Public Offer Application request. See error log - [{}]", login.getUserId());
             logger.error("error processing Initial Public Offer Application request. - [" + login.getUserId() + "]", ex);
@@ -927,126 +921,125 @@ public class IpoApplicationLogic {
         ConfirmationDetails confirm = new ConfirmationDetails();
 
         Response resp = new Response();
-        Response validIpoApply;
-        Response validHolder;
-        List<Response> respList = new ArrayList<>();
-        Date date = new Date();
+        List<Response> positiveResponses = new ArrayList<>();
 
         try {
             NotificationWrapper wrapper = notification.loadNotificationFile(notificationProp.getNotificationLocation(), notificationCode);
             SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
             List<IpoApplication> ipoAppList = (List<IpoApplication>) wrapper.getModel();
-            List<IpoApplication> ipoApplications = (List<IpoApplication>) ipoAppList.get(0);
-
-            List<org.greenpole.entity.model.holder.Holder> successfulHolders = new ArrayList<>();
-            List<IpoApplication> successfulIpoApplications = new ArrayList<>();
-            List<IpoApplication> unsuccessfulIpoApplications = new ArrayList<>();
-            List<org.greenpole.entity.model.holder.Holder> unsuccessfulHolders = new ArrayList<>();
-
-            for (IpoApplication ipoApplicant : ipoApplications) {// check valid holders                
-                validHolder = validateHolderDetails(login, ipoApplicant.getHolder());// check response code                
-                if (validHolder.getRetn() == 0) {// process ipoApplication
-                    validIpoApply = validateHolderIpoApplication(login, ipoApplicant);
-                    if (validIpoApply.getRetn() == 0) {
-                        successfulHolders.add(ipoApplicant.getHolder());
-                        successfulIpoApplications.add(ipoApplicant);
-                    }
-                    unsuccessfulIpoApplications.add(ipoApplicant);
-                } else {// ignore and list as unsuccessful
-                    unsuccessfulHolders.add(ipoApplicant.getHolder());
-                    unsuccessfulIpoApplications.add(ipoApplicant);
+            
+            List<IpoApplication> approvedIpoApplications = new ArrayList<>();
+            
+            boolean flag = false;
+            String fail_desc = "";
+            
+            for (IpoApplication ipoApplicant : ipoAppList) {
+                Response rulesCheck = validateIpoApplication(login, ipoApplicant);
+                if (rulesCheck.getRetn() != 0) {
+                    return rulesCheck;//return and exit
                 }
             }
-            // respList.add(validIpoApply);
-            List<org.greenpole.hibernate.entity.Holder> holdEntityChnList = new ArrayList<>();
-            List<org.greenpole.hibernate.entity.Holder> holdEntityNoChnList = new ArrayList<>();
+
+            for (IpoApplication ipoApplicant : ipoAppList) {
+                Response detailsCheck = validateHolderDetails(login, ipoApplicant.getHolder());
+                Response recordCheck = validateHolderRecord(login, ipoApplicant.getHolder());
+                
+                if (detailsCheck.getRetn() == 0 && recordCheck.getRetn() == 0) {
+                    approvedIpoApplications.add(ipoApplicant);
+                    positiveResponses.add(recordCheck);
+                }
+                
+                if (detailsCheck.getRetn() != 0) {
+                    flag = true;
+                    fail_desc += "\n" + detailsCheck.getDesc();
+                } else if (recordCheck.getRetn() != 0) {
+                    flag = true;
+                    fail_desc += "\n" + recordCheck.getDesc();
+                }
+            }
+            
+            if (flag) {
+                resp.setRetn(200);
+                resp.setDesc(fail_desc);
+                return resp;
+            }
+            
             List<org.greenpole.hibernate.entity.IpoApplication> ipoApplicationEntityList = new ArrayList<>();
-
-            for (org.greenpole.entity.model.holder.Holder holder : successfulHolders) {
-                org.greenpole.hibernate.entity.Holder holdEntityChn = new org.greenpole.hibernate.entity.Holder();
-                org.greenpole.hibernate.entity.Holder holdEntityNoChn = new org.greenpole.hibernate.entity.Holder();
-                HolderType typeEntity = new HolderType();
-
-                if (holder.getChn() != null || !"".equals(holder.getChn())) {
-                    holdEntityChn.setFirstName(holder.getFirstName());
-                    holdEntityChn.setLastName(holder.getLastName());
-                    holdEntityChn.setMiddleName(holder.getMiddleName());
-                    holdEntityChn.setHolderType(typeEntity);
-                    holdEntityChn.setGender(holder.getGender());
-                    holdEntityChn.setDob(formatter.parse(holder.getDob()));
-                    holdEntityChn.setPryHolder(true);
-                    holdEntityChn.setMerged(false);
-                    holdEntityChn.setChn(holder.getChn());
-                    typeEntity.setId(holder.getTypeId());
-
-                    holdEntityChnList.add(holdEntityChn);
-                } else {
-                    holdEntityNoChn.setFirstName(holder.getFirstName());
-                    holdEntityNoChn.setLastName(holder.getLastName());
-                    holdEntityNoChn.setMiddleName(holder.getMiddleName());
-                    holdEntityNoChn.setHolderType(typeEntity);
-                    holdEntityNoChn.setGender(holder.getGender());
-                    holdEntityNoChn.setDob(formatter.parse(holder.getDob()));
-                    holdEntityNoChn.setPryHolder(true);
-                    holdEntityNoChn.setMerged(false);
-                    typeEntity.setId(holder.getTypeId());
-
-                    holdEntityNoChnList.add(holdEntityNoChn);
-                }
-            }
-
-            for (IpoApplication ipoApp : successfulIpoApplications) {
+            for (IpoApplication ipoApp : approvedIpoApplications) {
                 org.greenpole.hibernate.entity.IpoApplication ipoApplicationEntity = new org.greenpole.hibernate.entity.IpoApplication();
 
-                ClearingHouse clHouse = new ClearingHouse();
-                clHouse.setId(ipoApp.getClearingHouseId());
+                ClearingHouse clHouse = cq.getClearingHouse(ipoApp.getClearingHouseId());
+                Holder holder = hq.getHolder(ipoApp.getHolderId());
+                org.greenpole.hibernate.entity.InitialPublicOffer ipo = cq.getIpo(ipoApp.getInitialPublicOfferId());
+                
                 ipoApplicationEntity.setClearingHouse(clHouse);
-
-                Holder holder = new Holder();
-                holder.setId(ipoApp.getHolderId());
                 ipoApplicationEntity.setHolder(holder);
-
-                org.greenpole.hibernate.entity.InitialPublicOffer ipo = new org.greenpole.hibernate.entity.InitialPublicOffer();
-                ipo.setId(ipoApp.getInitialPublicOfferId());
                 ipoApplicationEntity.setInitialPublicOffer(ipo);
-
+                
                 ipoApplicationEntity.setIssuer(ipoApp.getIssuer());
                 ipoApplicationEntity.setSharesSubscribed(ipoApp.getSharesSubscribed());
                 ipoApplicationEntity.setAmountPaid(ipoApp.getAmountPaid());
                 ipoApplicationEntity.setIssuingHouse(ipoApp.getIssuingHouse());
                 ipoApplicationEntity.setSharesSubscribedValue(ipoApp.getSharesSubscribedValue());
-                ipoApplicationEntity.setSharesAdjusted(ipoApp.getSharesAdjusted());
-                ipoApplicationEntity.setReturnMoney(ipoApp.getReturnMoney());
-                ipoApplicationEntity.setProcessingPayment(ipoApp.isProcessingPayment());
-                ipoApplicationEntity.setApproved(ipoApp.isApproved());
-                ipoApplicationEntity.setCanceled(ipoApp.isCancelled());
+                ipoApplicationEntity.setCanceled(false);
                 ipoApplicationEntity.setDateApplied(formatter.parse(ipoApp.getDateApplied()));
-
+                ipoApplicationEntity.setProcessingPayment(true);
+                ipoApplicationEntity.setApproved(true);
+                
                 ipoApplicationEntityList.add(ipoApplicationEntity);
             }
-            boolean created = false;
-            // TODO: persist list of holders and ipo applications together
-            // code here:
-
-            // created = hcq.createHolderAccount(holdEntity, emptyAcct,
-            //         retrieveHolderResidentialAddress(holder), retrieveHolderPostalAddress(successfulHolders),
-            //         retrieveHolderEmailAddress(successfulHolders), retrieveHolderPhoneNumber(successfulHolders), ipoApplicationEntityList);
-            //set chn
-            // created = hq.createHolderAccount(holdEntityChnList, retrieveHolderCompanyAccount(successfulHolders),
-            //         retrieveHolderResidentialAddress(successfulHolders), retrieveHolderPostalAddress(successfulHolders),
-            //         retrieveHolderEmailAddress(successfulHolders), retrieveHolderPhoneNumber(successfulHolders), ipoApplicationEntityList);
+            
+            boolean created = hq.applyForIpoMultiple(ipoApplicationEntityList);
+            
             if (created) {
                 notification.markAttended(notificationCode);
-                confirm.setDetails(respList);
+                confirm.setDetails(positiveResponses);
                 confirmationList.add(confirm);
                 resp.setRetn(0);
                 resp.setBody(confirmationList);
-                resp.setDesc("Holder details saved: Successful");
+                resp.setDesc("Successful");
                 logger.info("Shareholder account creation successful - [{}]", login.getUserId());
+                
+                
+                SMSProperties smsProp = SMSProperties.getInstance();
+                org.greenpole.util.Date txtdate = new org.greenpole.util.Date();
+                Map<String, String> phoneMessageIds = new HashMap<>();
+                for (IpoApplication ipoApp : ipoAppList) {
+                    String holderPhone = "";
+                    boolean foundNumber = false;
+                    if (ipoApp.getHolder().getPhoneNumbers() != null && !ipoApp.getHolder().getPhoneNumbers().isEmpty()) {
+                        for (PhoneNumber phone : ipoApp.getHolder().getPhoneNumbers()) {
+                            if (phone.isPrimaryPhoneNumber()) {
+                                if (phone.getPhoneNumber() != null && !"".equals(phone.getPhoneNumber())) {
+                                    holderPhone = phone.getPhoneNumber();
+                                    foundNumber = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (foundNumber) {
+                        String msgId = ipoApp.getHolder().getFirstName().substring(0, 3) + "_"
+                                + ipoApp.getHolder().getLastName().substring(0, 3) + "_" + txtdate.getDateTime();
+                        phoneMessageIds.put(holderPhone, msgId);
+                    }
+                }
+
+                if (!phoneMessageIds.isEmpty()) {
+                    ClientCompany cc = cq.getIpoClientCompany(ipoAppList.get(0).getInitialPublicOfferId());
+
+                    String text = MessageFormat.format(smsProp.getTextIpoPaymentSuccess(), cc.getName());
+                    String notificationType = NotificationType.apply_for_ipo_enmass.toString();
+                    boolean function_status = Boolean.valueOf(smsProp.getTextIpoSend());
+
+                    sendBulkTextMessage(text, phoneMessageIds, notificationType, function_status, false, login);
+                }
+                
                 return resp;
             }
             resp.setRetn(320);
-            resp.setBody(respList);
+            resp.setBody(positiveResponses);
             resp.setDesc("General Error. Unable to persist holder account. Contact system administrator.");
             logger.info("Error persist holder account - [{}]", login.getUserId());
             return resp;
@@ -1064,13 +1057,56 @@ public class IpoApplicationLogic {
             return resp;
         }
     }
+    
+    private Response validateHolderRecord(Login login, org.greenpole.entity.model.holder.Holder holder) {
+        Response resp = new Response();
+        String desc = "";
+        String addendum = "";
+        boolean flag = false;
+        
+        try {
+            flag =  true;
+            
+            if (!"".equals(holder.getChn()) && holder.getChn() != null) {
+                if (hq.checkHolderAccount(holder.getChn())) {
+                    Holder h = hq.getHolder(holder.getChn());
+                    if (h.getFirstName().equalsIgnoreCase(holder.getFirstName())
+                            && h.getLastName().equalsIgnoreCase(holder.getLastName())) {
+                        flag = true;
+                    } else {
+                        desc += "\nThe provided CHN belongs to a holder with a different first and last name combination";
+                        flag = false;
+                    }
+                } else {
+                    desc += "\nThe provided CHN does not exist.";
+                    flag = false;
+                }
+            } else if (hq.checkHolderAccount(holder.getFirstName(), holder.getLastName())) {
+                addendum += "The applicant - " + holder.getFirstName() + " " + holder.getLastName() + 
+                        " - already has an account in the system, though it is without a CHN";
+            }
+            
+            if (flag) {
+                resp.setRetn(0);
+                resp.setDesc("Successful validation\n"+
+                        addendum);
+                logger.info("Validation of holder database record successful - [{}] [{}]", login.getUserId(), resp.getRetn());
+                return resp;
+            }
+            resp.setRetn(1);
+            resp.setDesc("Error validating holder database record: " + desc);
+            logger.info("Error validating holder database record: [{}] - [{}]", desc, login.getUserId());
+            return resp;
+            
+        } catch (Exception ex) {
+            resp.setRetn(99);
+            resp.setDesc("General error. Unable check holder's details in database. Contact system administrator.");
+            logger.info("Error checking holder's details in database. See error log - [{}]", login.getUserId());
+            logger.error("Error checking holder's details in database - [" + login.getUserId() + "]", ex);
+            return resp;
+        }
+    }
 
-    /**
-     *
-     * @param login
-     * @param holder
-     * @return
-     */
     private Response validateHolderDetails(Login login, org.greenpole.entity.model.holder.Holder holder) {
         Response resp = new Response();
 
@@ -1098,10 +1134,12 @@ public class IpoApplicationLogic {
             flag = true;
         }
 
-        if (flag && (!"".equals(holder.getChn()) || holder.getChn() != null)) {
+        if (flag && (!"".equals(holder.getChn()) && holder.getChn() != null)) {
             if (hq.checkHolderAccount(holder.getChn())) {
-                desc += "\nThe CHN already exists";
                 flag = true;
+            } else {
+                desc += "\nThe CHN for " + holder.getFirstName() + " " + holder.getLastName() + "does not exists";
+                flag = false;
             }
         }
 
@@ -1117,9 +1155,13 @@ public class IpoApplicationLogic {
                 desc += "\nHolder type is not valid";
                 flag = false;
             }
+        } else if (holder.getTypeId() <= 0) {
+            desc += "\nHolder type must be entered";
+            flag = false;
         }
 
-        if (flag && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
+        if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.residential.toString())
+                && holder.getResidentialAddresses() != null && !holder.getResidentialAddresses().isEmpty()) {
             for (Address addr : holder.getResidentialAddresses()) {
                 if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                     desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -1137,7 +1179,8 @@ public class IpoApplicationLogic {
             }
         }
 
-        if (flag && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
+        if (flag && holder.getPryAddress().equalsIgnoreCase(AddressTag.postal.toString())
+                && holder.getPostalAddresses() != null && !holder.getPostalAddresses().isEmpty()) {
             for (Address addr : holder.getPostalAddresses()) {
                 if (addr.getAddressLine1() == null || "".equals(addr.getAddressLine1())) {
                     desc += "\nAddress line 1 should not be empty. Delete entire address if you must";
@@ -1157,7 +1200,7 @@ public class IpoApplicationLogic {
 
         if (flag && holder.getEmailAddresses() != null && !holder.getEmailAddresses().isEmpty()) {
             for (EmailAddress email : holder.getEmailAddresses()) {
-                if (email.getEmailAddress() == null || "".equals(email.getEmailAddress())) {
+                if (email.isPrimaryEmail() && (email.getEmailAddress() == null || "".equals(email.getEmailAddress()))) {
                     desc += "\nEmail address should not be empty. Delete email entry if you must";
                     flag = false;
                     break;
@@ -1167,7 +1210,7 @@ public class IpoApplicationLogic {
 
         if (flag && holder.getPhoneNumbers() != null && !holder.getPhoneNumbers().isEmpty()) {
             for (PhoneNumber phone : holder.getPhoneNumbers()) {
-                if (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber())) {
+                if (phone.isPrimaryPhoneNumber() && (phone.getPhoneNumber() == null || "".equals(phone.getPhoneNumber()))) {
                     desc += "\nPhone number should not be empty. Delete phone number entry if you must";
                     flag = false;
                     break;
@@ -1182,305 +1225,149 @@ public class IpoApplicationLogic {
             return resp;
         }
         resp.setRetn(1);
-        resp.setDesc("Error filing holder details: " + desc);
-        logger.info("Error filing holder details: [{}] - [{}]", desc, login.getUserId());
+        resp.setDesc("Error validating holder details: " + desc);
+        logger.info("Error validating holder details: [{}] - [{}]", desc, login.getUserId());
         return resp;
     }
-
-    /**
-     *
-     * @param login
-     * @param ipoApply
-     * @return
-     */
-    private Response validateHolderIpoApplication(Login login, IpoApplication ipoApply) {
-        logger.info("Validate Initial Public Offer application details of [{}] for [{}], invoked by [{}]", ipoApply.getIssuer(), ipoApply.getHolderId(), login.getUserId());
+    
+    private Response validateIpoApplication(Login login, IpoApplication ipoApp) {
+        logger.info("Validate ipo application for en-mass upload, invoked by [{}]", login.getUserId());
         Response resp = new Response();
-        SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
-        Date date = new Date();
-
+        
         try {
-            NotificationWrapper wrapper;
-            QueueSender queue;
-            NotifierProperties prop;
+            SimpleDateFormat formatter = new SimpleDateFormat(greenProp.getDateFormat());
+            Date date = new Date();
+            List<IpoApplication> appList = new ArrayList<>();
 
-            List<IpoApplication> iAppList = new ArrayList<>();
-
-            long remainingSharesNotBought = 0;
+            long remainingSharesNotBought;
             long totalSharesBought = 0;
-            long continuingSharesSubscribed = 0;
-            long continuingShares = 0;
-            double amtPaid = 0;
-            double returnMoney = 0;
-            long continuingSharesAvailable = 0;
-            long sharesBought = 0;
-            double sharesSubscribedValue = 0;
-            if (hq.checkHolderAccount(ipoApply.getHolderId())) {
-                // if (hcq.checkIpo(applyIpo.getInitialPublicOfferId())) {
-                if (true) {
-                    // InitialPublicOffer ipo = hcq.getIpo(applyIpo.getInitialPublicOfferId());
-                    InitialPublicOffer ipo = new InitialPublicOffer();
-                    if (date.before(formatter.parse(ipo.getClosingDate()))) {
-                        if (ipoApply.getSharesSubscribed() >= ipo.getStartingMinimumSubscription()) {
-                            continuingShares = ipoApply.getSharesSubscribed() - ipo.getStartingMinimumSubscription();
-                            if (continuingShares % ipo.getContinuingMinimumSubscription() == 0) {
-                                amtPaid = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                if (ipoApply.getAmountPaid() == amtPaid) {
-                                    // List<IpoApplication> ipoApplyList = hcq.getIpoApplication(ipoApply.getInitialPublicOfferId(), false);
-                                    List<IpoApplication> ipoApplyList = new ArrayList<>();
-                                    for (IpoApplication ipoapp : ipoApplyList) {
-                                        totalSharesBought += ipoapp.getSharesSubscribed();
-                                    }
-                                    remainingSharesNotBought = ipo.getTotalSharesOnOffer().longValue() - totalSharesBought;
-                                    if (ipoApply.getSharesSubscribed() <= remainingSharesNotBought) {
-                                        sharesSubscribedValue = ipoApply.getSharesSubscribed() * ipo.getOfferPrice();
-                                        ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                        ipoApply.setDateApplied(date.toString());
-                                        iAppList.add(ipoApply);
-                                        resp.setRetn(0);
-                                        resp.setDesc("IPO Application Details for confirmation.");
-                                        resp.setBody(iAppList);
-                                        logger.info("IPO Application Details for confirmation. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                        // send SMS and/or Email notification
-                                        return resp;
-                                    } else if ((ipoApply.getSharesSubscribed() > remainingSharesNotBought) && (remainingSharesNotBought >= ipo.getStartingMinimumSubscription())) {
-                                        continuingSharesAvailable = remainingSharesNotBought - ipo.getStartingMinimumSubscription();
-                                        if (continuingSharesAvailable % ipo.getContinuingMinimumSubscription() == 0) {
-                                            continuingSharesSubscribed = (int) (Math.floor(continuingSharesAvailable / ipo.getContinuingMinimumSubscription()) * ipo.getContinuingMinimumSubscription());
-                                            sharesSubscribedValue = (ipo.getStartingMinimumSubscription() + continuingSharesSubscribed) * ipo.getOfferPrice();
-                                            sharesBought = ipo.getStartingMinimumSubscription() + continuingSharesSubscribed;
-                                            returnMoney = (ipoApply.getSharesSubscribed() - sharesBought) * ipo.getOfferPrice();
-                                            ipoApply.setSharesSubscribedValue(sharesSubscribedValue);
-                                            ipoApply.setDateApplied(date.toString());
-                                            // ipoApply.setReturnMoney(returnMoney);
-                                            iAppList.add(ipoApply);
-                                            resp.setRetn(0);
-                                            resp.setDesc("Insufficient quantity of shares. Number of shares available is: " + sharesBought);
-                                            resp.setBody(iAppList);
-                                            logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                            return resp;
-                                        }
-                                        iAppList.add(ipoApply);
-                                        resp.setBody(iAppList);
-                                        resp.setRetn(200);
-                                        resp.setDesc("Insufficient quantity of shares. Number of shares available is: " + remainingSharesNotBought);
-                                        logger.info("Available shares is less than quantity to be bought. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                        return resp;
-                                    }
-                                    resp.setRetn(200);
-                                    resp.setDesc("There is not enough shares to buy. Number of available shares is: " + remainingSharesNotBought);
-                                    logger.info("There is not enough shares to buy. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                    return resp;
-                                }
-                                resp.setRetn(200);
-                                resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same.");
-                                logger.info("The amount paid for shares and the price of shares to be bought should be the same. - [{}]: [{}]", login.getUserId(), resp.getRetn());
-                                return resp;
+            long continuingShares;
+            double amtToBePaid;
+            double sharesSubscribedValue;
+            if (cq.checkActiveInitialPublicOffer(ipoApp.getInitialPublicOfferId())) {//ipo must be active
+                org.greenpole.hibernate.entity.InitialPublicOffer ipo = cq.getActiveClientCompanyIpo(ipoApp.getInitialPublicOfferId());
+                if (ipoApp.getSharesSubscribed() >= ipo.getStartingMinSub()) {//application must have subscribed shares greater than min starting subscription
+                    continuingShares = ipoApp.getSharesSubscribed() - ipo.getStartingMinSub();
+                    if (continuingShares % ipo.getContMinSub() == 0) {//application must have continuing shares in multiples of continuing subscription
+                        amtToBePaid = ipoApp.getSharesSubscribed() * ipo.getOfferPrice();
+                        if (ipoApp.getAmountPaid() == amtToBePaid) {//application must have amount paid calculated to the amount to be paid
+                            List<org.greenpole.hibernate.entity.IpoApplication> ipoList = cq.getActiveIpoApplications(ipoApp.getInitialPublicOfferId());
+                            for (org.greenpole.hibernate.entity.IpoApplication ipoapp : ipoList) {
+                                totalSharesBought += ipoapp.getSharesSubscribed();//get all shares subscribed from both approved and processing applications
                             }
-                            resp.setRetn(200);
-                            resp.setDesc("Continuing shares subscription should be in multiples of " + ipo.getContinuingMinimumSubscription());
-                            logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            remainingSharesNotBought = ipo.getTotalSharesOnOffer() - totalSharesBought;
+                            if (ipoApp.getSharesSubscribed() <= remainingSharesNotBought) {//just a check for information purpose
+                                resp.setRetn(0);
+                                resp.setDesc("IPO application for " + ipoApp.getHolder().getFirstName() + ipoApp.getHolder().getLastName() + 
+                                        " checks out.");
+                                logger.info("IPO application for " + ipoApp.getHolder().getFirstName() + ipoApp.getHolder().getLastName() + 
+                                        " checks out - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            } else {
+                                resp.setRetn(0);
+                                resp.setDesc("IPO application's subscription for " + ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName() + 
+                                        " is greater than available shares.");
+                                logger.info("IPO application's subscription for " + ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName() + 
+                                        " is greater than available shares - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                            }
+                            sharesSubscribedValue = ipoApp.getSharesSubscribed() * ipo.getOfferPrice();
+                            ipoApp.setSharesSubscribedValue(sharesSubscribedValue);
+                            ipoApp.setDateApplied(formatter.format(date));
+                            appList.add(ipoApp);
+                            resp.setBody(appList);
                             return resp;
                         }
                         resp.setRetn(200);
-                        resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO.");
-                        logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                        resp.setDesc("The amount paid for shares and the price of shares to be bought should be the same - for " + ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName());
+                        logger.info("The amount paid for shares and the price of shares to be bought should be the same - for [{}] - [{}]: [{}]", ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName(),
+                                login.getUserId(), resp.getRetn());
                         return resp;
                     }
                     resp.setRetn(200);
-                    resp.setDesc("Application for Initial Public Offer is past closing date and so holder cannot apply");
-                    logger.info("Application for Initial Public Offer is past closing date and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                    resp.setDesc("Continuing shares subscription should be in multiples of "
+                            + ipo.getContMinSub() + " - for " + ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName());
+                    logger.info("Continuing shares subscription is not in multiples of continuing minimum subscription  - for [{}] - [{}]: [{}]", ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName(),
+                            login.getUserId(), resp.getRetn());
                     return resp;
                 }
                 resp.setRetn(200);
-                resp.setDesc("Client company has not declared Initial Public Offer and so holder cannot apply.");
-                logger.info("Client company does not declared Initial Public Offer and so holder cannot apply. - [{}]: [{}]", login.getUserId(), resp.getRetn());
+                resp.setDesc("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO - for " + ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName());
+                logger.info("Shares subscribed is less than minimum subscription required and so holder cannot apply for IPO - for [{}] - [{}]: [{}]", ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName(),
+                        login.getUserId(), resp.getRetn());
                 return resp;
             }
             resp.setRetn(200);
-            resp.setDesc("Holder does not exists and so cannot apply for Initial Public Offer.");
-            logger.info("Holder does not exists so cannot apply for Initial Public Offer - [{}]: [{}]", login.getUserId(), resp.getRetn());
+            resp.setDesc("Initial Public Offer is past closing date and so holder cannot apply - for " + ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName());
+            logger.info("Initial Public Offer is past closing date and so holder cannot apply - for [{}] - [{}]: [{}]", ipoApp.getHolder().getFirstName() + " " + ipoApp.getHolder().getLastName(),
+                    login.getUserId(), resp.getRetn());
             return resp;
         } catch (Exception ex) {
             resp.setRetn(99);
-            resp.setDesc("General error. Unable to process Initial Public Offer Application request. Contact system administrator."
-                    + "\nMessage: " + ex.getMessage());
+            resp.setDesc("General error. Unable to process Initial Public Offer Application request. Contact system administrator.");
             logger.info("error processing Initial Public Offer Application request. See error log - [{}]", login.getUserId());
             logger.error("error processing Initial Public Offer Application request. - [" + login.getUserId() + "]", ex);
             return resp;
         }
     }
-
+    
     /**
-     * Unwraps holder company account details from the holder model.
-     *
-     * @param holdModel object of the holder model
-     * @param newEntry boolean variable indicating whether or not entry is new
-     * @return object of HolderCompanyAccount
+     * Sends a text message object to the text notifier.
+     * @param holderPhone the holder's phone number
+     * @param notificationCode the notification code
+     * @param text the text message
+     * @param notificationType the notification type
+     * @param holderId the holder id
+     * @param function_status the status of the text message function (whether it should be sent or not)
+     * @param hasDbInfo holder has info in database or not
+     * @param login the user's login details
      */
-    private List<org.greenpole.hibernate.entity.HolderCompanyAccount> retrieveHolderCompanyAccount(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderCompanyAccount> companyAccountEntityList = new ArrayList<>();
-
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderCompanyAccount companyAccountEntity = new org.greenpole.hibernate.entity.HolderCompanyAccount();
-            org.greenpole.entity.model.holder.HolderCompanyAccount compAcct = holdModel.getCompanyAccounts().get(0);
-            HolderCompanyAccountId compAcctId = new HolderCompanyAccountId();
-
-            compAcctId.setClientCompanyId(compAcct.getClientCompanyId());
-
-            companyAccountEntity.setId(compAcctId);
-            companyAccountEntity.setEsop(compAcct.isEsop());
-            companyAccountEntity.setHolderCompAccPrimary(true);
-            companyAccountEntity.setMerged(false);
-
-            companyAccountEntityList.add(companyAccountEntity);
+    private void sendTextMessage(String holderPhone, String notificationCode, String text, String notificationType, int holderId, boolean function_status, boolean hasDbInfo, Login login) {
+        if (!"".equals(holderPhone)) {
+            NotifierProperties prop = NotifierProperties.getInstance();
+            QueueSender qSender = new QueueSender(prop.getNotifierQueueFactory(), prop.getTextNotifierQueueName());
+            
+            TextSend textSend = new TextSend();
+            textSend.setMessage_id(notificationCode);
+            textSend.setIsFlash(false);
+            textSend.setPhoneNumber(holderPhone);
+            textSend.setText(text);
+            textSend.setIsBulk(false);
+            textSend.setPurpose(notificationType);
+            textSend.setHolderId(holderId);
+            textSend.setAllowText(function_status);
+            textSend.setWithDbInfo(hasDbInfo);
+            
+            Response textResp = qSender.sendTextMessageRequest(textSend);
+            logger.info("response from text notifier - [{}] : [{}]",
+                    textResp.getRetn() + " - " + textResp.getDesc(), login.getUserId());
         }
-        return companyAccountEntityList;
     }
-
+    
     /**
-     * Unwraps Holder residential address from the holder model into
-     * HolderResidentialAddress hibernate entity object.
-     *
-     * @param holdModel object of holder model
-     * @param newEntry boolean variable indicating whether or not entry is new
-     * @return List of HolderResidentialAddress hibernate entity objects
+     * Sends a bulk message object to the text notifier.
+     * @param text the text message to be sent
+     * @param bulk_text the text message and ids
+     * @param notificationType the notification type
+     * @param function_status the status of the text message function (whether it should be sent or not)
+     * @param hasDbInfo holder has info in database or not
+     * @param login the user's login details
      */
-    private List<HolderResidentialAddress> retrieveHolderResidentialAddress(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<HolderResidentialAddress> residentialAddressSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderResidentialAddress residentialAddressEntity = new org.greenpole.hibernate.entity.HolderResidentialAddress();
-            List<org.greenpole.entity.model.Address> residentialAddressList;
-            if (holdModel.getResidentialAddresses() != null) {
-                residentialAddressList = holdModel.getResidentialAddresses();
-            } else {
-                residentialAddressList = new ArrayList<>();
-            }
-
-            List<org.greenpole.hibernate.entity.HolderResidentialAddress> returnResidentialAddress = new ArrayList<>();
-
-            for (org.greenpole.entity.model.Address rAddy : residentialAddressList) {
-                // HolderResidentialAddressId rAddyId = new HolderResidentialAddressId();
-//                rAddyId.setAddressLine1(rAddy.getAddressLine1());
-//                rAddyId.setState(rAddy.getState());
-//                rAddyId.setCountry(rAddy.getCountry());
-//
-//                residentialAddressEntity.setId(rAddyId);
-                residentialAddressEntity.setAddressLine2(rAddy.getAddressLine2());
-                residentialAddressEntity.setAddressLine3(rAddy.getAddressLine3());
-                residentialAddressEntity.setAddressLine4(rAddy.getAddressLine4());
-                residentialAddressEntity.setCity(rAddy.getCity());
-                residentialAddressEntity.setPostCode(rAddy.getPostCode());
-
-                returnResidentialAddress.add(residentialAddressEntity);
-            }
-            residentialAddressSend.addAll(returnResidentialAddress);
+    private void sendBulkTextMessage(String text, Map<String, String> bulk_text, String notificationType, boolean function_status, boolean hasDbInfo, Login login) {
+        if (!bulk_text.isEmpty()) {
+            NotifierProperties prop = NotifierProperties.getInstance();
+            QueueSender qSender = new QueueSender(prop.getNotifierQueueFactory(), prop.getTextNotifierQueueName());
+            
+            TextSend textSend = new TextSend();
+            textSend.setIsFlash(false);
+            textSend.setText(text);
+            textSend.setNumbersAndIds(bulk_text);
+            textSend.setIsBulk(true);
+            textSend.setPurpose(notificationType);
+            textSend.setAllowText(function_status);
+            textSend.setWithDbInfo(hasDbInfo);
+            
+            Response textResp = qSender.sendTextMessageRequest(textSend);
+            logger.info("response from text notifier - [{}] : [{}]",
+                    textResp.getRetn() + " - " + textResp.getDesc(), login.getUserId());
         }
-        return residentialAddressSend;
     }
-
-    /**
-     * Unwraps Holder email address from the holder model into
-     * HolderEmailAddress hibernate entity object
-     *
-     * @param holdModel object to holder model
-     * @param newEntry boolean variable indicating whether or not entry is new
-     * @return List of HolderEmailAddress hibernate entity objects
-     */
-    private List<HolderEmailAddress> retrieveHolderEmailAddress(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderEmailAddress> emailAddressSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderEmailAddress emailAddressEntity = new org.greenpole.hibernate.entity.HolderEmailAddress();
-            List<org.greenpole.entity.model.EmailAddress> emailAddressList;
-            if (holdModel.getEmailAddresses() != null) {
-                emailAddressList = holdModel.getEmailAddresses();
-            } else {
-                emailAddressList = new ArrayList<>();
-            }
-            List<org.greenpole.hibernate.entity.HolderEmailAddress> returnEmailAddress = new ArrayList<>();
-
-            for (EmailAddress email : emailAddressList) {
-//                HolderEmailAddressId emailId = new HolderEmailAddressId();
-//                emailId.setEmailAddress(email.getEmailAddress());
-                emailAddressEntity.setIsPrimary(email.isPrimaryEmail());
-//                emailAddressEntity.setId(emailId);
-            }
-            emailAddressSend.addAll(returnEmailAddress);
-        }
-        return emailAddressSend;
-    }
-
-    /**
-     * Unwraps holder phone number details from the holder model passed as
-     * parameter into HolderPhoneNumber hibernate entity
-     *
-     * @param holdModel object of holder details
-     * @param newEntry boolean variable indicating whether or not the entry is
-     * new
-     * @return List of HolderPhoneNumber objects retrieveHolderEmailAddress
-     */
-    private List<HolderPhoneNumber> retrieveHolderPhoneNumber(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderPhoneNumber> phoneNumberSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderPhoneNumber phoneNumberEntity = new org.greenpole.hibernate.entity.HolderPhoneNumber();
-            List<org.greenpole.entity.model.PhoneNumber> phoneNumberList;
-            if (holdModel.getPhoneNumbers() != null) {
-                phoneNumberList = holdModel.getPhoneNumbers();
-            } else {
-                phoneNumberList = new ArrayList<>();
-            }
-
-            List<org.greenpole.hibernate.entity.HolderPhoneNumber> returnPhoneNumber = new ArrayList<>();
-
-            for (PhoneNumber pnList : phoneNumberList) {
-//                HolderPhoneNumberId phoneNoId = new HolderPhoneNumberId();
-//                phoneNoId.setPhoneNumber(pnList.getPhoneNumber());
-                phoneNumberEntity.setIsPrimary(pnList.isPrimaryPhoneNumber());
-//                phoneNumberEntity.setId(phoneNoId);
-            }
-            phoneNumberSend.addAll(returnPhoneNumber);
-        }
-        return phoneNumberSend;
-    }
-
-    /**
-     * Unwraps the holder postal address details from the HolderModel into
-     * HolderPostalAddress hibernate entity
-     *
-     * @param holdModel the holderModel of holder details
-     * @param newEntry boolean value indicating new entry
-     * @return List object of HolderPostalAddress hibernate entity
-     */
-    private List<HolderPostalAddress> retrieveHolderPostalAddress(List<org.greenpole.entity.model.holder.Holder> holdModelList) {
-        List<org.greenpole.hibernate.entity.HolderPostalAddress> holderPostalAddressSend = new ArrayList<>();
-        for (org.greenpole.entity.model.holder.Holder holdModel : holdModelList) {
-            org.greenpole.hibernate.entity.HolderPostalAddress postalAddressEntity = new org.greenpole.hibernate.entity.HolderPostalAddress();
-            List<org.greenpole.entity.model.Address> hpaddyList;
-            if (holdModel.getPostalAddresses() != null) {
-                hpaddyList = holdModel.getPostalAddresses();
-            } else {
-                hpaddyList = new ArrayList<>();
-            }
-
-            List<org.greenpole.hibernate.entity.HolderPostalAddress> returnHolderPostalAddress = new ArrayList<>();
-
-            for (org.greenpole.entity.model.Address hpa : hpaddyList) {
-//                HolderPostalAddressId postalAddyId = new HolderPostalAddressId();
-//                postalAddyId.setAddressLine1(hpa.getAddressLine1());
-//                postalAddyId.setState(hpa.getState());
-//                postalAddyId.setCountry(hpa.getCountry());
-//                postalAddressEntity.setId(postalAddyId);
-                postalAddressEntity.setAddressLine1(hpa.getAddressLine1());
-                postalAddressEntity.setAddressLine2(hpa.getAddressLine2());
-                postalAddressEntity.setAddressLine3(hpa.getAddressLine3());
-                postalAddressEntity.setCity(hpa.getCity());
-                postalAddressEntity.setPostCode(hpa.getPostCode());
-                postalAddressEntity.setIsPrimary(hpa.isPrimaryAddress());
-                returnHolderPostalAddress.add(postalAddressEntity);
-            }
-            holderPostalAddressSend.addAll(returnHolderPostalAddress);
-        }
-        return holderPostalAddressSend;
-    }
-
 }
